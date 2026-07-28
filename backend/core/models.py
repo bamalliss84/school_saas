@@ -1083,6 +1083,7 @@ class ExamResult(models.Model):
     def __str__(self):
         return f"{self.exam.title} - {self.student_enrollment.student.full_name}"
 
+
 class ExamResultLog(models.Model):
     exam_result = models.ForeignKey(
         ExamResult,
