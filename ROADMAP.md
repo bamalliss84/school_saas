@@ -1,11 +1,11 @@
 # School SaaS Roadmap
 
 - **المشروع:** School SaaS
-- **تاريخ آخر تحديث:** 2026-07-29
+- **تاريخ آخر تحديث:** 2026-07-30
 - **المرحلة الحالية:** المرحلة 6 — الاختبارات والنتائج
-- **Sprint الحالي:** Sprint 3 — الاختبارات والنتائج
-- **نسبة التقدم التقريبية:** 30%
-- **آخر Commit مرجعي معروف:** `480b416 Document current School SaaS architecture`
+- **Sprint الحالي:** Sprint 3 — الاختبارات والنتائج (جاهز للبدء)
+- **نسبة التقدم التقريبية:** 50%
+- **آخر Commit مرجعي معروف:** `905b5ab Sprint 2: implement attendance APIs and bulk attendance`
 
 ## حالات التنفيذ
 
@@ -230,6 +230,17 @@
 
 **الحالة: ✅ مكتملة**
 
+## Sprint 2.5 — Infrastructure, Quality, Filters & Admin UX
+
+**الحالة: ✅ مكتملة**
+
+- [x] API versioning وOpenAPI.
+- [x] Filters موحدة وHealth checks.
+- [x] Logging وSecurity وThrottling.
+- [x] Admin UX وعزل المدارس.
+- [x] CI وRuff وCoverage foundation.
+- [x] التحقق النهائي والتسليم: 130 اختبارًا ناجحًا وتغطية 90%.
+
 ## Sprint 3 — الاختبارات والنتائج
 
 **الحالة: ⬜ لم يبدأ**
@@ -259,3 +270,5 @@
 | 2026-07-29 | تقوية دورة المصادقة: refresh آمن، ملكية logout، access قديم، وخصوصية guardians. | ✅ مكتملة |
 | 2026-07-29 | إكمال Sprint 2: CRUD الحضور وbulk والتقارير واختبارات العزل. | ✅ مكتملة |
 | 2026-07-29 | مراجعة Sprint 2: تثبيت ملخص اليوم والتكليفات الحالية والقيود وsection وتزامن bulk. | ✅ مكتملة |
+| 2026-07-29 | بدء Sprint 2.5 للبنية والجودة والفلاتر وتحسين Admin. | 🟡 قيد التنفيذ |
+| 2026-07-30 | إكمال Sprint 2.5 والتحقق من 130 اختبارًا وOpenAPI بلا تحذيرات وRuff وتشغيل الخادم. | ✅ مكتملة |

@@ -1,10 +1,12 @@
 from django.db.models import Count, Min, Prefetch, Q, Subquery
+from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from django.utils import timezone
 
 from .models import (
     AcademicTerm,
@@ -29,6 +31,14 @@ from .selectors import (
     get_teacher_assignments_for_user,
     students_for_user,
 )
+from .query_serializers import (
+    AttendanceListQuerySerializer,
+    ClassAttendanceSummaryQuerySerializer,
+    DailyAttendanceReportQuerySerializer,
+    StudentAttendanceSummaryQuerySerializer,
+    StudentListQuerySerializer,
+    TeacherAssignmentQuerySerializer,
+)
 from .serializers import (
     AttendanceSerializer,
     BulkAttendanceSerializer,
@@ -49,15 +59,19 @@ from .serializers import (
 
 class LoginTokenObtainPairView(TokenObtainPairView):
     serializer_class = LoginTokenObtainPairSerializer
+    throttle_scope = 'login'
 
 
 class SecureTokenRefreshView(TokenRefreshView):
     serializer_class = SecureTokenRefreshSerializer
+    throttle_scope = 'refresh'
 
 
 class LogoutAPIView(APIView):
     permission_classes = [IsActiveSchoolUser]
+    throttle_scope = 'logout'
 
+    @extend_schema(request=LogoutSerializer, responses={205: None})
     def post(self, request):
         serializer = LogoutSerializer(
             data=request.data,
@@ -88,33 +102,43 @@ class StudentListAPIView(generics.ListAPIView):
     serializer_class = StudentListSerializer
     permission_classes = [IsActiveSchoolUser]
 
+    @extend_schema(parameters=[StudentListQuerySerializer])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
+        query = StudentListQuerySerializer(data=self.request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
         queryset = students_for_user(self.request.user)
 
-        search = self.request.query_params.get('search', '').strip()
+        search = params.get('search', '').strip()
         if search:
             queryset = queryset.filter(
                 Q(full_name__icontains=search)
                 | Q(student_code__icontains=search)
             )
+        if 'is_active' in self.request.query_params:
+            queryset = queryset.filter(is_active=params['is_active'])
+        if 'school_id' in self.request.query_params:
+            if (
+                self.request.user.role != 'super_admin'
+                and params['school_id'] != self.request.user.school_id
+            ):
+                raise ValidationError({'school_id': 'School is outside your scope.'})
+            queryset = queryset.filter(school_id=params['school_id'])
 
-        is_active = self.request.query_params.get('is_active')
-        if is_active is not None:
-            normalized = is_active.lower()
-            if normalized in ('true', '1'):
-                queryset = queryset.filter(is_active=True)
-            elif normalized in ('false', '0'):
-                queryset = queryset.filter(is_active=False)
-
-        ordering = self.request.query_params.get('ordering', 'full_name')
-        allowed_ordering = {
-            'full_name', '-full_name', 'student_code', '-student_code',
-            'created_at', '-created_at',
+        enrollment_filters = {
+            'academic_year_id': 'enrollments__academic_year_id',
+            'classroom_id': 'enrollments__classroom_id',
+            'section_id': 'enrollments__section_id',
+            'enrollment_status': 'enrollments__status',
+            'is_current': 'enrollments__is_current',
         }
-        if ordering not in allowed_ordering:
-            ordering = 'full_name'
-        return queryset.order_by(ordering)
-
+        for parameter, field in enrollment_filters.items():
+            if parameter in self.request.query_params:
+                queryset = queryset.filter(**{field: params[parameter]})
+        return queryset.distinct().order_by(params['ordering'])
 
 class StudentDetailAPIView(generics.RetrieveAPIView):
     serializer_class = StudentDetailSerializer
@@ -140,6 +164,8 @@ class StudentAcademicHistoryAPIView(generics.ListAPIView):
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return StudentEnrollment.objects.none()
         student = generics.get_object_or_404(
             students_for_user(self.request.user),
             pk=self.kwargs['pk'],
@@ -154,6 +180,8 @@ class ParentChildrenAPIView(generics.ListAPIView):
     permission_classes = [IsActiveSchoolUser, IsParent]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return StudentGuardian.objects.none()
         try:
             parent = Parent.objects.get(
                 user=self.request.user,
@@ -197,24 +225,49 @@ class TeacherAssignmentsAPIView(generics.ListAPIView):
     serializer_class = TeacherAssignmentSerializer
     permission_classes = [IsActiveSchoolUser, IsTeacher]
 
+    @extend_schema(parameters=[TeacherAssignmentQuerySerializer])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return TeacherAssignment.objects.none()
+        query = TeacherAssignmentQuerySerializer(data=self.request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
         teacher = _teacher_for_user(self.request.user)
         queryset = TeacherAssignment.objects.filter(
             teacher=teacher,
             school_id=self.request.user.school_id,
         )
-        if self.request.query_params.get('current', '').lower() in ('true', '1'):
+        if params.get('current'):
             queryset = _current_assignments_for_user(self.request.user)
+        field_filters = {
+            'academic_year_id': 'academic_year_id',
+            'classroom_id': 'classroom_id',
+            'section_id': 'section_id',
+            'subject_id': 'subject_id',
+        }
+        for parameter, field in field_filters.items():
+            if parameter in params:
+                queryset = queryset.filter(**{field: params[parameter]})
+        if params.get('date'):
+            selected_date = params['date']
+            queryset = queryset.filter(
+                Q(start_date__isnull=True) | Q(start_date__lte=selected_date),
+                Q(end_date__isnull=True) | Q(end_date__gte=selected_date),
+            )
         return queryset.select_related(
             'school', 'academic_year', 'classroom', 'section', 'subject',
-        ).order_by('-is_current', 'classroom__name', 'section__name', 'subject__name')
-
+        ).order_by(params['ordering'], 'id')
 
 class TeacherClassesAPIView(generics.ListAPIView):
     serializer_class = TeacherClassSerializer
     permission_classes = [IsActiveSchoolUser, IsTeacher]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return TeacherAssignment.objects.none()
         assignments = _current_assignments_for_user(self.request.user)
         unique_ids = assignments.values('classroom_id', 'section_id').annotate(
             first_id=Min('id'),
@@ -231,6 +284,8 @@ class TeacherStudentsAPIView(generics.ListAPIView):
     permission_classes = [IsActiveSchoolUser, IsTeacher]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Student.objects.none()
         _teacher_for_user(self.request.user)
         return students_for_user(self.request.user).order_by('full_name')
 
@@ -240,6 +295,8 @@ class TeacherSubjectsAPIView(generics.ListAPIView):
     permission_classes = [IsActiveSchoolUser, IsTeacher]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Subject.objects.none()
         assignments = _current_assignments_for_user(self.request.user)
         return Subject.objects.filter(
             teacher_assignments__in=assignments,
@@ -254,36 +311,40 @@ class AttendanceListCreateAPIView(generics.ListCreateAPIView):
             classes.append(IsAttendanceManager)
         return [permission() for permission in classes]
 
+    @extend_schema(parameters=[AttendanceListQuerySerializer])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
+        query = AttendanceListQuerySerializer(data=self.request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
         queryset = get_attendance_queryset_for_user(self.request.user)
-        params = self.request.query_params
         field_filters = {
             'attendance_date': 'attendance_date',
+            'student_id': 'student_enrollment__student_id',
+            'student_enrollment_id': 'student_enrollment_id',
+            'teacher_assignment_id': 'teacher_assignment_id',
+            'academic_year_id': 'student_enrollment__academic_year_id',
+            'academic_term_id': 'academic_term_id',
+            'classroom_id': 'student_enrollment__classroom_id',
+            'section_id': 'student_enrollment__section_id',
             'status': 'status',
-            'student_enrollment': 'student_enrollment_id',
-            'teacher_assignment': 'teacher_assignment_id',
-            'classroom': 'student_enrollment__classroom_id',
-            'section': 'student_enrollment__section_id',
-            'academic_year': 'student_enrollment__academic_year_id',
-            'academic_term': 'academic_term_id',
         }
         for parameter, field in field_filters.items():
-            value = params.get(parameter)
-            if value:
-                queryset = queryset.filter(**{field: value})
+            if parameter in params:
+                queryset = queryset.filter(**{field: params[parameter]})
+        if params.get('date_from'):
+            queryset = queryset.filter(attendance_date__gte=params['date_from'])
+        if params.get('date_to'):
+            queryset = queryset.filter(attendance_date__lte=params['date_to'])
         search = params.get('search', '').strip()
         if search:
             queryset = queryset.filter(
                 Q(student_enrollment__student__full_name__icontains=search)
                 | Q(student_enrollment__student__student_code__icontains=search)
             )
-        ordering = params.get('ordering', '-attendance_date')
-        if ordering not in {
-            'attendance_date', '-attendance_date', 'created_at', '-created_at',
-        }:
-            ordering = '-attendance_date'
-        return queryset.order_by(ordering, 'id')
-
+        return queryset.order_by(params['ordering'], 'id')
 
 class AttendanceDetailAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = AttendanceSerializer
@@ -300,7 +361,12 @@ class AttendanceDetailAPIView(generics.RetrieveUpdateAPIView):
 
 class BulkAttendanceAPIView(APIView):
     permission_classes = [IsActiveSchoolUser, IsAttendanceManager]
+    throttle_scope = 'bulk_attendance'
 
+    @extend_schema(
+        request=BulkAttendanceSerializer,
+        responses={200: OpenApiTypes.OBJECT},
+    )
     def post(self, request):
         serializer = BulkAttendanceSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -346,19 +412,24 @@ def _percentage(counts, total):
 
 class DailyAttendanceReportAPIView(APIView):
     permission_classes = [IsActiveSchoolUser, IsAttendanceManager]
+    throttle_scope = 'reports'
 
+    @extend_schema(
+        parameters=[DailyAttendanceReportQuerySerializer],
+        responses={200: OpenApiTypes.OBJECT},
+    )
     def get(self, request):
-        report_date = (
-            request.query_params.get('date')
-            or timezone.localdate().isoformat()
-        )
+        query = DailyAttendanceReportQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+        report_date = params.get('date') or timezone.localdate()
         summary_records = get_attendance_queryset_for_user(request.user).filter(
             attendance_date=report_date,
         )
-        assignment_id = request.query_params.get('teacher_assignment_id')
-        classroom_id = request.query_params.get('classroom_id')
-        section_id = request.query_params.get('section_id')
-        status_filter = request.query_params.get('status')
+        assignment_id = params.get('teacher_assignment_id')
+        classroom_id = params.get('classroom_id')
+        section_id = params.get('section_id')
+        status_filter = params.get('status')
 
         assignments = get_teacher_assignments_for_user(request.user)
         if request.user.role == 'teacher':
@@ -446,26 +517,36 @@ class DailyAttendanceReportAPIView(APIView):
 
 class StudentAttendanceSummaryAPIView(APIView):
     permission_classes = [IsActiveSchoolUser]
+    throttle_scope = 'reports'
 
+    @extend_schema(
+        parameters=[StudentAttendanceSummaryQuerySerializer],
+        responses={200: OpenApiTypes.OBJECT},
+    )
     def get(self, request, student_id):
-        student = generics.get_object_or_404(students_for_user(request.user), pk=student_id)
+        query = StudentAttendanceSummaryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+        student = generics.get_object_or_404(
+            students_for_user(request.user), pk=student_id,
+        )
         records = get_attendance_queryset_for_user(request.user).filter(
             student_enrollment__student=student,
         )
-        records = _date_range(records, request.query_params)
-        if request.query_params.get('academic_year_id'):
+        records = _date_range(records, params)
+        if params.get('academic_year_id'):
             records = records.filter(
-                student_enrollment__academic_year_id=request.query_params['academic_year_id'],
+                student_enrollment__academic_year_id=params['academic_year_id'],
             )
-        if request.query_params.get('academic_term_id'):
-            records = records.filter(academic_term_id=request.query_params['academic_term_id'])
+        if params.get('academic_term_id'):
+            records = records.filter(academic_term_id=params['academic_term_id'])
         counts = _status_counts(records)
         total = records.count()
         return Response({
             'student': {'id': student.id, 'student_code': student.student_code, 'full_name': student.full_name},
             'period': {
-                'date_from': request.query_params.get('date_from'),
-                'date_to': request.query_params.get('date_to'),
+                'date_from': params.get('date_from'),
+                'date_to': params.get('date_to'),
             },
             'total_records': total,
             **{f'{key}_count': counts[key] for key, _ in Attendance.STATUS_CHOICES},
@@ -476,16 +557,26 @@ class StudentAttendanceSummaryAPIView(APIView):
 
 class ClassAttendanceSummaryAPIView(APIView):
     permission_classes = [IsActiveSchoolUser, IsAttendanceManager]
+    throttle_scope = 'reports'
 
+    @extend_schema(
+        parameters=[ClassAttendanceSummaryQuerySerializer],
+        responses={200: OpenApiTypes.OBJECT},
+    )
     def get(self, request, classroom_id):
-        classrooms = Classroom.objects.select_related('school', 'academic_year').filter(pk=classroom_id)
+        query = ClassAttendanceSummaryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+        classrooms = Classroom.objects.select_related(
+            'school', 'academic_year',
+        ).filter(pk=classroom_id)
         if request.user.role != 'super_admin':
             classrooms = classrooms.filter(school_id=request.user.school_id)
         classroom = classrooms.first()
         if classroom is None:
             raise NotFound('Classroom not found.')
 
-        section_id = request.query_params.get('section_id')
+        section_id = params.get('section_id')
         if section_id:
             section = Section.objects.filter(
                 pk=section_id,
@@ -504,7 +595,7 @@ class ClassAttendanceSummaryAPIView(APIView):
                 assignments = assignments.filter(
                     academic_year_id=request.user.academic_year_id,
                 )
-        assignment_id = request.query_params.get('teacher_assignment_id')
+        assignment_id = params.get('teacher_assignment_id')
         if section_id:
             assignments = assignments.filter(section_id=section_id)
         if assignment_id:
@@ -525,11 +616,11 @@ class ClassAttendanceSummaryAPIView(APIView):
         records = get_attendance_queryset_for_user(request.user).filter(
             student_enrollment__in=enrollments,
         )
-        records = _date_range(records, request.query_params)
-        if request.query_params.get('academic_year_id'):
-            records = records.filter(student_enrollment__academic_year_id=request.query_params['academic_year_id'])
-        if request.query_params.get('academic_term_id'):
-            records = records.filter(academic_term_id=request.query_params['academic_term_id'])
+        records = _date_range(records, params)
+        if params.get('academic_year_id'):
+            records = records.filter(student_enrollment__academic_year_id=params['academic_year_id'])
+        if params.get('academic_term_id'):
+            records = records.filter(academic_term_id=params['academic_term_id'])
         if assignment_id:
             records = records.filter(teacher_assignment_id=assignment_id)
 
@@ -558,7 +649,7 @@ class ClassAttendanceSummaryAPIView(APIView):
         return Response({
             'classroom': {'id': classroom.id, 'name': classroom.name, 'code': classroom.code},
             'section': int(section_id) if section_id else None,
-            'period': {'date_from': request.query_params.get('date_from'), 'date_to': request.query_params.get('date_to')},
+            'period': {'date_from': params.get('date_from'), 'date_to': params.get('date_to')},
             'total_students': len({item.student_id for item in enrollment_list}),
             'total_attendance_records': records.count(),
             'status_totals': totals,

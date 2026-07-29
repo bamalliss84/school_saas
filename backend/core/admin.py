@@ -1,12 +1,101 @@
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
+from django.db.models import Prefetch
 from .models import School, AcademicYear, SchoolSetting, User
 from django.contrib.auth.admin import UserAdmin
 from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, Student, StudentEnrollment
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
 
+
+admin.site.site_header = 'نظام إدارة المدارس'
+admin.site.site_title = 'إدارة School SaaS'
+admin.site.index_title = 'لوحة إدارة المدرسة'
+
+
+def _admin_has_permission(request):
+    user = request.user
+    return bool(
+        user.is_active
+        and user.is_staff
+        and (
+            user.is_superuser
+            or user.role in ('super_admin', 'school_admin')
+        )
+    )
+
+
+admin.site.has_permission = _admin_has_permission
+
+
+class TenantAdminMixin:
+    list_per_page = 50
+    empty_value_display = '-'
+
+    tenant_lookups = {
+        'core.school': 'pk',
+        'core.studentguardian': 'student__school_id',
+        'core.attendance': 'student_enrollment__school_id',
+        'core.examresult': 'exam__school_id',
+        'core.examresultlog': 'exam_result__exam__school_id',
+    }
+
+    def _is_global_admin(self, request):
+        return request.user.is_superuser or request.user.role == 'super_admin'
+
+    def _school_id(self, request):
+        return request.user.school_id
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if self._is_global_admin(request):
+            return queryset
+        if request.user.role != 'school_admin' or not self._school_id(request):
+            return queryset.none()
+        label = self.model._meta.label_lower
+        lookup = self.tenant_lookups.get(label)
+        if lookup is None and any(
+            field.name == 'school' for field in self.model._meta.fields
+        ):
+            lookup = 'school_id'
+        return queryset.filter(**{lookup: self._school_id(request)}) if lookup else queryset.none()
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if not self._is_global_admin(request) and self._school_id(request):
+            related = db_field.remote_field.model
+            label = related._meta.label_lower
+            if label == 'core.school':
+                kwargs['queryset'] = related.objects.filter(pk=self._school_id(request))
+            elif any(field.name == 'school' for field in related._meta.fields):
+                kwargs['queryset'] = related.objects.filter(school_id=self._school_id(request))
+            elif label == 'core.examresult':
+                kwargs['queryset'] = related.objects.filter(exam__school_id=self._school_id(request))
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not self._is_global_admin(request):
+            if request.user.role != 'school_admin' or not self._school_id(request):
+                raise PermissionDenied
+            if obj._meta.label_lower == 'core.school':
+                if not change or obj.pk != self._school_id(request):
+                    raise PermissionDenied
+            elif hasattr(obj, 'school_id'):
+                if obj.school_id and obj.school_id != self._school_id(request):
+                    raise PermissionDenied
+                obj.school_id = self._school_id(request)
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
+
+    def has_add_permission(self, request):
+        if (
+            self.model._meta.label_lower == 'core.school'
+            and not self._is_global_admin(request)
+        ):
+            return False
+        return super().has_add_permission(request)
+
 @admin.register(School)
-class SchoolAdmin(admin.ModelAdmin):
+class SchoolAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'id',
         'name',
@@ -27,7 +116,7 @@ class SchoolAdmin(admin.ModelAdmin):
     )
 
 @admin.register(AcademicYear)
-class AcademicYearAdmin(admin.ModelAdmin):
+class AcademicYearAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'id',
         'school',
@@ -48,7 +137,7 @@ class AcademicYearAdmin(admin.ModelAdmin):
     )
 
 @admin.register(SchoolSetting)
-class SchoolSettingAdmin(admin.ModelAdmin):
+class SchoolSettingAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'id',
         'school',
@@ -72,7 +161,7 @@ class SchoolSettingAdmin(admin.ModelAdmin):
     )
 
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(TenantAdminMixin, UserAdmin):
 
     list_display = (
         'id',
@@ -98,8 +187,13 @@ class CustomUserAdmin(UserAdmin):
         'phone',
     )
 
-    fieldsets = UserAdmin.fieldsets + (
-        (
+    def save_model(self, request, obj, form, change):
+        if not self._is_global_admin(request):
+            if obj.is_superuser or obj.role == 'super_admin':
+                raise PermissionDenied
+        super().save_model(request, obj, form, change)
+
+    fieldsets = UserAdmin.fieldsets + (        (
             'School Information',
             {
                 'fields': (
@@ -114,7 +208,7 @@ class CustomUserAdmin(UserAdmin):
     )
 
 @admin.register(Classroom)
-class ClassroomAdmin(admin.ModelAdmin):
+class ClassroomAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'name',
         'code',
@@ -136,7 +230,7 @@ class ClassroomAdmin(admin.ModelAdmin):
 
 
 @admin.register(Section)
-class SectionAdmin(admin.ModelAdmin):
+class SectionAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'name',
         'classroom',
@@ -158,7 +252,7 @@ class SectionAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Subject)
-class SubjectAdmin(admin.ModelAdmin):
+class SubjectAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'name',
         'code',
@@ -178,7 +272,7 @@ class SubjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(ClassSubject)
-class ClassSubjectAdmin(admin.ModelAdmin):
+class ClassSubjectAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'classroom',
         'subject',
@@ -201,7 +295,7 @@ class ClassSubjectAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Teacher)
-class TeacherAdmin(admin.ModelAdmin):
+class TeacherAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'employee_code',
         'full_name',
@@ -232,7 +326,7 @@ class TeacherAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Parent)
-class ParentAdmin(admin.ModelAdmin):
+class ParentAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'parent_code',
         'full_name',
@@ -261,7 +355,7 @@ class ParentAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
+class StudentAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'student_code',
         'full_name',
@@ -281,6 +375,7 @@ class StudentAdmin(admin.ModelAdmin):
     search_fields = (
         'student_code',
         'full_name',
+        'phone',
     )
 
     readonly_fields = (
@@ -288,17 +383,28 @@ class StudentAdmin(admin.ModelAdmin):
         'created_at',
     )
 
+    def get_queryset(self, request):
+        current = StudentEnrollment.objects.filter(
+            status='active', is_current=True,
+        ).select_related('classroom', 'section')
+        return super().get_queryset(request).prefetch_related(
+            Prefetch('enrollments', queryset=current, to_attr='_admin_current'),
+        )
+
+    def _current_enrollment(self, obj):
+        return obj._admin_current[0] if obj._admin_current else None
+
     def current_classroom(self, obj):
-        enrollment = obj.current_enrollment
+        enrollment = self._current_enrollment(obj)
         return enrollment.classroom if enrollment else '-'
 
     def current_section(self, obj):
-        enrollment = obj.current_enrollment
+        enrollment = self._current_enrollment(obj)
         return enrollment.section if enrollment else '-'
 
 
 @admin.register(StudentEnrollment)
-class StudentEnrollmentAdmin(admin.ModelAdmin):
+class StudentEnrollmentAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'student',
         'school',
@@ -326,7 +432,7 @@ class StudentEnrollmentAdmin(admin.ModelAdmin):
     )
 
 @admin.register(StudentGuardian)
-class StudentGuardianAdmin(admin.ModelAdmin):
+class StudentGuardianAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'student',
         'parent',
@@ -351,7 +457,7 @@ class StudentGuardianAdmin(admin.ModelAdmin):
     )
 
 @admin.register(TeacherAssignment)
-class TeacherAssignmentAdmin(admin.ModelAdmin):
+class TeacherAssignmentAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'teacher',
         'subject',
@@ -380,7 +486,7 @@ class TeacherAssignmentAdmin(admin.ModelAdmin):
     )
 
 @admin.register(AcademicTerm)
-class AcademicTermAdmin(admin.ModelAdmin):
+class AcademicTermAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'name',
         'term_type',
@@ -403,33 +509,53 @@ class AcademicTermAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Attendance)
-class AttendanceAdmin(admin.ModelAdmin):
+class AttendanceAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
-        'student_enrollment',
-        'attendance_date',
-        'status',
-        'academic_term',
-        'teacher_assignment',
-        'created_at',
+        'student_name', 'attendance_date', 'status', 'school_name',
+        'academic_year_name', 'classroom_name', 'section_name',
+        'academic_term', 'teacher_assignment', 'created_at',
     )
-
     list_filter = (
-        'attendance_date',
-        'status',
-        'academic_term',
-        'teacher_assignment',
+        'attendance_date', 'status', 'student_enrollment__school',
+        'student_enrollment__academic_year',
+        'student_enrollment__classroom', 'student_enrollment__section',
+        'academic_term', 'teacher_assignment',
     )
-
     search_fields = (
         'student_enrollment__student__full_name',
         'student_enrollment__student__student_code',
     )
-
-    readonly_fields = (
-        'created_at',
+    readonly_fields = ('created_at',)
+    date_hierarchy = 'attendance_date'
+    list_select_related = (
+        'student_enrollment__student', 'student_enrollment__school',
+        'student_enrollment__academic_year',
+        'student_enrollment__classroom', 'student_enrollment__section',
+        'academic_term', 'teacher_assignment',
     )
+
+    @admin.display(description='الطالب', ordering='student_enrollment__student__full_name')
+    def student_name(self, obj):
+        return obj.student_enrollment.student.full_name
+
+    @admin.display(description='المدرسة')
+    def school_name(self, obj):
+        return obj.student_enrollment.school
+
+    @admin.display(description='السنة')
+    def academic_year_name(self, obj):
+        return obj.student_enrollment.academic_year
+
+    @admin.display(description='الصف')
+    def classroom_name(self, obj):
+        return obj.student_enrollment.classroom
+
+    @admin.display(description='الشعبة')
+    def section_name(self, obj):
+        return obj.student_enrollment.section
+
 @admin.register(ExamType)
-class ExamTypeAdmin(admin.ModelAdmin):
+class ExamTypeAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'name',
         'code',
@@ -451,38 +577,27 @@ class ExamTypeAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Exam)
-class ExamAdmin(admin.ModelAdmin):
+class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
-        'title',
-        'exam_type',
-        'teacher_assignment',
-        'academic_term',
-        'exam_date',
-        'total_marks',
-        'status',
-        'created_by',
+        'title', 'exam_type', 'teacher_assignment', 'academic_term',
+        'exam_date', 'total_marks', 'status', 'created_by',
     )
-
     list_filter = (
-        'school',
-        'academic_year',
-        'academic_term',
-        'exam_type',
-        'status',
+        'school', 'academic_year', 'academic_term', 'exam_type', 'status',
     )
-
     search_fields = (
-        'title',
-        'teacher_assignment__teacher__full_name',
+        'title', 'teacher_assignment__teacher__full_name',
         'teacher_assignment__subject__name',
     )
-
-    readonly_fields = (
-        'created_at',
+    readonly_fields = ('created_at',)
+    date_hierarchy = 'exam_date'
+    list_select_related = (
+        'school', 'academic_year', 'academic_term', 'exam_type',
+        'teacher_assignment', 'created_by',
     )
 
 @admin.register(ExamResult)
-class ExamResultAdmin(admin.ModelAdmin):
+class ExamResultAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'exam',
         'student_enrollment',
@@ -540,7 +655,7 @@ class ExamResultAdmin(admin.ModelAdmin):
             )
 
 @admin.register(ExamResultLog)
-class ExamResultLogAdmin(admin.ModelAdmin):
+class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'exam_result',
         'old_score',
@@ -575,6 +690,13 @@ class ExamResultLogAdmin(admin.ModelAdmin):
         'changed_at',
     )
 
-    ordering = (
-        '-changed_at',
-    )
+    ordering = ('-changed_at',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

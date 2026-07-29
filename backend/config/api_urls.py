@@ -1,0 +1,48 @@
+from django.urls import path
+
+from core.views import (
+    AttendanceDetailAPIView,
+    AttendanceListCreateAPIView,
+    BulkAttendanceAPIView,
+    ClassAttendanceSummaryAPIView,
+    CurrentUserAPIView,
+    DailyAttendanceReportAPIView,
+    LoginTokenObtainPairView,
+    LogoutAPIView,
+    ParentChildrenAPIView,
+    SchoolListAPIView,
+    SecureTokenRefreshView,
+    StudentAcademicHistoryAPIView,
+    StudentAttendanceSummaryAPIView,
+    StudentDetailAPIView,
+    StudentListAPIView,
+    StudentMeProfileAPIView,
+    TeacherAssignmentsAPIView,
+    TeacherClassesAPIView,
+    TeacherStudentsAPIView,
+    TeacherSubjectsAPIView,
+)
+
+
+urlpatterns = [
+    path('auth/login/', LoginTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/refresh/', SecureTokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/logout/', LogoutAPIView.as_view(), name='token_logout'),
+    path('auth/me/', CurrentUserAPIView.as_view(), name='current-user'),
+    path('schools/', SchoolListAPIView.as_view(), name='school-list'),
+    path('students/', StudentListAPIView.as_view(), name='student-list'),
+    path('students/me/profile/', StudentMeProfileAPIView.as_view(), name='student-me-profile'),
+    path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
+    path('students/<int:pk>/academic-history/', StudentAcademicHistoryAPIView.as_view(), name='student-academic-history'),
+    path('parents/me/children/', ParentChildrenAPIView.as_view(), name='parent-children'),
+    path('teachers/me/assignments/', TeacherAssignmentsAPIView.as_view(), name='teacher-assignments'),
+    path('teachers/me/classes/', TeacherClassesAPIView.as_view(), name='teacher-classes'),
+    path('teachers/me/students/', TeacherStudentsAPIView.as_view(), name='teacher-students'),
+    path('teachers/me/subjects/', TeacherSubjectsAPIView.as_view(), name='teacher-subjects'),
+    path('attendance/', AttendanceListCreateAPIView.as_view(), name='attendance-list'),
+    path('attendance/bulk/', BulkAttendanceAPIView.as_view(), name='attendance-bulk'),
+    path('attendance/daily/', DailyAttendanceReportAPIView.as_view(), name='attendance-daily'),
+    path('attendance/student/<int:student_id>/summary/', StudentAttendanceSummaryAPIView.as_view(), name='attendance-student-summary'),
+    path('attendance/class/<int:classroom_id>/summary/', ClassAttendanceSummaryAPIView.as_view(), name='attendance-class-summary'),
+    path('attendance/<int:pk>/', AttendanceDetailAPIView.as_view(), name='attendance-detail'),
+]

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema_field, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.exceptions import TokenError
@@ -107,9 +108,19 @@ class UserContextSerializer(serializers.ModelSerializer):
             'academic_year', 'linked_profile',
         )
 
-    def get_full_name(self, obj):
+    def get_full_name(self, obj) -> str:
         return obj.get_full_name() or obj.username
 
+    @extend_schema_field(
+        inline_serializer(
+            name='LinkedProfile',
+            fields={
+                'teacher_id': serializers.IntegerField(required=False),
+                'parent_id': serializers.IntegerField(required=False),
+                'student_id': serializers.IntegerField(required=False),
+            },
+        ),
+    )
     def get_linked_profile(self, obj):
         relation_by_role = {
             'teacher': ('teacher_profile', 'teacher_id'),
@@ -226,6 +237,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             'is_active', 'created_at', 'school', 'current_enrollment',
         )
 
+    @extend_schema_field(StudentEnrollmentSerializer(allow_null=True))
     def get_current_enrollment(self, obj):
         enrollment = next(
             (
@@ -243,6 +255,7 @@ class StudentDetailSerializer(StudentListSerializer):
     class Meta(StudentListSerializer.Meta):
         fields = StudentListSerializer.Meta.fields + ('guardians',)
 
+    @extend_schema_field(GuardianSerializer(many=True))
     def get_guardians(self, obj):
         request = self.context.get('request')
         if request is None or request.user.role == 'student':
@@ -322,6 +335,16 @@ class AttendanceSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'student', 'academic_term_detail', 'created_at')
 
+    @extend_schema_field(
+        inline_serializer(
+            name='AttendanceStudent',
+            fields={
+                'id': serializers.IntegerField(),
+                'student_code': serializers.CharField(),
+                'full_name': serializers.CharField(),
+            },
+        ),
+    )
     def get_student(self, obj):
         student = obj.student_enrollment.student
         return {
