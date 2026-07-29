@@ -11,7 +11,9 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (
+    AcademicTerm,
     AcademicYear,
+    Attendance,
     Classroom,
     School,
     Section,
@@ -21,6 +23,10 @@ from .models import (
     Subject,
     TeacherAssignment,
     User,
+)
+from .selectors import (
+    get_teacher_assignments_for_user,
+    user_can_manage_teacher_assignment,
 )
 
 
@@ -278,3 +284,178 @@ class TeacherClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherAssignment
         fields = ('classroom', 'section')
+
+class AcademicTermBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademicTerm
+        fields = ('id', 'name', 'term_type', 'start_date', 'end_date')
+
+
+def _validate_teacher_assignment_for_write(user, assignment, attendance_date):
+    if user.role != 'teacher':
+        return
+    if (
+        not user_can_manage_teacher_assignment(user, assignment)
+        or not assignment.is_current
+        or (
+            user.academic_year_id
+            and assignment.academic_year_id != user.academic_year_id
+        )
+        or (assignment.start_date and attendance_date < assignment.start_date)
+        or (assignment.end_date and attendance_date > assignment.end_date)
+    ):
+        raise serializers.ValidationError('Invalid attendance relationships.')
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    student = serializers.SerializerMethodField(read_only=True)
+    academic_term_detail = AcademicTermBriefSerializer(
+        source='academic_term', read_only=True,
+    )
+
+    class Meta:
+        model = Attendance
+        fields = (
+            'id', 'student_enrollment', 'student', 'teacher_assignment',
+            'academic_term', 'academic_term_detail', 'attendance_date',
+            'status', 'note', 'created_at',
+        )
+        read_only_fields = ('id', 'student', 'academic_term_detail', 'created_at')
+
+    def get_student(self, obj):
+        student = obj.student_enrollment.student
+        return {
+            'id': student.id,
+            'student_code': student.student_code,
+            'full_name': student.full_name,
+        }
+
+    def validate(self, attrs):
+        request = self.context['request']
+        user = request.user
+        instance = self.instance
+        enrollment = attrs.get(
+            'student_enrollment',
+            instance.student_enrollment if instance else None,
+        )
+        assignment = attrs.get(
+            'teacher_assignment',
+            instance.teacher_assignment if instance else None,
+        )
+        term = attrs.get('academic_term', instance.academic_term if instance else None)
+        attendance_date = attrs.get(
+            'attendance_date', instance.attendance_date if instance else None,
+        )
+
+        if user.role not in ('super_admin', 'school_admin', 'teacher'):
+            raise serializers.ValidationError('Attendance cannot be managed by this role.')
+        if enrollment is None or term is None:
+            return attrs
+        enrollment_changed = (
+            instance is None
+            or (
+                'student_enrollment' in attrs
+                and attrs['student_enrollment'].pk != instance.student_enrollment_id
+            )
+        )
+        if enrollment_changed and (
+            enrollment.status != 'active' or not enrollment.is_current
+        ):
+            raise serializers.ValidationError('Student enrollment must be active and current.')
+        if user.role != 'super_admin' and enrollment.school_id != user.school_id:
+            raise serializers.ValidationError('Invalid attendance relationships.')
+        if term.school_id != enrollment.school_id or term.academic_year_id != enrollment.academic_year_id:
+            raise serializers.ValidationError('Invalid attendance relationships.')
+        if attendance_date and not (term.start_date <= attendance_date <= term.end_date):
+            raise serializers.ValidationError('Attendance date must be inside the academic term.')
+        if assignment:
+            if (
+                assignment.school_id != enrollment.school_id
+                or assignment.academic_year_id != enrollment.academic_year_id
+                or assignment.classroom_id != enrollment.classroom_id
+                or assignment.section_id != enrollment.section_id
+            ):
+                raise serializers.ValidationError('Invalid attendance relationships.')
+            if not user_can_manage_teacher_assignment(user, assignment):
+                raise serializers.ValidationError('Invalid attendance relationships.')
+            _validate_teacher_assignment_for_write(
+                user, assignment, attendance_date,
+            )
+        elif user.role == 'teacher':
+            raise serializers.ValidationError('Teacher assignment is required.')
+
+        if enrollment and attendance_date:
+            duplicate = Attendance.objects.filter(
+                student_enrollment=enrollment,
+                attendance_date=attendance_date,
+            )
+            if instance:
+                duplicate = duplicate.exclude(pk=instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError('Attendance already exists for this student and date.')
+        return attrs
+
+
+class BulkAttendanceStudentSerializer(serializers.Serializer):
+    student_enrollment_id = serializers.IntegerField(min_value=1)
+    status = serializers.ChoiceField(choices=Attendance.STATUS_CHOICES)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class BulkAttendanceSerializer(serializers.Serializer):
+    teacher_assignment_id = serializers.IntegerField(min_value=1)
+    attendance_date = serializers.DateField()
+    academic_term_id = serializers.IntegerField(min_value=1)
+    students = BulkAttendanceStudentSerializer(many=True, allow_empty=False)
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        assignment = get_teacher_assignments_for_user(user).filter(
+            pk=attrs['teacher_assignment_id'],
+        ).first()
+        if assignment is None or user.role not in ('super_admin', 'school_admin', 'teacher'):
+            raise serializers.ValidationError('Invalid attendance scope.')
+
+        term = AcademicTerm.objects.filter(
+            pk=attrs['academic_term_id'],
+            school_id=assignment.school_id,
+            academic_year_id=assignment.academic_year_id,
+        ).first()
+        if term is None:
+            raise serializers.ValidationError('Invalid attendance scope.')
+        _validate_teacher_assignment_for_write(
+            user, assignment, attrs['attendance_date'],
+        )
+        if not (term.start_date <= attrs['attendance_date'] <= term.end_date):
+            raise serializers.ValidationError('Attendance date must be inside the academic term.')
+
+        enrollment_ids = [item['student_enrollment_id'] for item in attrs['students']]
+        if len(enrollment_ids) != len(set(enrollment_ids)):
+            raise serializers.ValidationError({'students': 'Duplicate student enrollment IDs are not allowed.'})
+
+        enrollments = {
+            item.id: item
+            for item in StudentEnrollment.objects.select_related('student').filter(
+                id__in=enrollment_ids,
+            )
+        }
+        if len(enrollments) != len(enrollment_ids):
+            raise serializers.ValidationError('Invalid attendance scope.')
+        resolved_students = []
+        for item in attrs['students']:
+            enrollment = enrollments[item['student_enrollment_id']]
+            if (
+                enrollment.school_id != assignment.school_id
+                or enrollment.academic_year_id != assignment.academic_year_id
+                or enrollment.classroom_id != assignment.classroom_id
+                or enrollment.section_id != assignment.section_id
+                or enrollment.status != 'active'
+                or not enrollment.is_current
+            ):
+                raise serializers.ValidationError('Invalid attendance scope.')
+            resolved_students.append({**item, 'student_enrollment': enrollment})
+
+        attrs['teacher_assignment'] = assignment
+        attrs['academic_term'] = term
+        attrs['students'] = resolved_students
+        return attrs

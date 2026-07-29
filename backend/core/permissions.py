@@ -44,3 +44,6 @@ class IsParent(RolePermission):
 
 class IsStudent(RolePermission):
     allowed_roles = ('student',)
+
+class IsAttendanceManager(RolePermission):
+    allowed_roles = ('super_admin', 'school_admin', 'teacher')

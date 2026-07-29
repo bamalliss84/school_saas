@@ -3,7 +3,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 from core.views import (
+    AttendanceDetailAPIView,
+    AttendanceListCreateAPIView,
+    BulkAttendanceAPIView,
+    ClassAttendanceSummaryAPIView,
     CurrentUserAPIView,
+    DailyAttendanceReportAPIView,
     LoginTokenObtainPairView,
     LogoutAPIView,
     ParentChildrenAPIView,
@@ -13,6 +18,7 @@ from core.views import (
     StudentDetailAPIView,
     StudentListAPIView,
     StudentMeProfileAPIView,
+    StudentAttendanceSummaryAPIView,
     TeacherAssignmentsAPIView,
     TeacherClassesAPIView,
     TeacherStudentsAPIView,
@@ -36,6 +42,12 @@ urlpatterns = [
     path('api/teachers/me/classes/', TeacherClassesAPIView.as_view(), name='teacher-classes'),
     path('api/teachers/me/students/', TeacherStudentsAPIView.as_view(), name='teacher-students'),
     path('api/teachers/me/subjects/', TeacherSubjectsAPIView.as_view(), name='teacher-subjects'),
+    path('api/attendance/', AttendanceListCreateAPIView.as_view(), name='attendance-list'),
+    path('api/attendance/bulk/', BulkAttendanceAPIView.as_view(), name='attendance-bulk'),
+    path('api/attendance/daily/', DailyAttendanceReportAPIView.as_view(), name='attendance-daily'),
+    path('api/attendance/student/<int:student_id>/summary/', StudentAttendanceSummaryAPIView.as_view(), name='attendance-student-summary'),
+    path('api/attendance/class/<int:classroom_id>/summary/', ClassAttendanceSummaryAPIView.as_view(), name='attendance-class-summary'),
+    path('api/attendance/<int:pk>/', AttendanceDetailAPIView.as_view(), name='attendance-detail'),
 ]
 
 if settings.DEBUG:
