@@ -1070,6 +1070,12 @@ class ExamResult(models.Model):
         ('excused', 'Excused'),
         ('exempted', 'Exempted'),
     )
+    WORKFLOW_CHOICES = (
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
 
     exam = models.ForeignKey(
         Exam,
@@ -1095,6 +1101,14 @@ class ExamResult(models.Model):
         choices=STATUS_CHOICES,
         default='not_graded'
     )
+
+    workflow_status = models.CharField(
+        max_length=20,
+        choices=WORKFLOW_CHOICES,
+        default='draft'
+    )
+
+    approval_reason = models.TextField(blank=True, null=True)
 
     remarks = models.TextField(blank=True, null=True)
 
@@ -1160,6 +1174,15 @@ class ExamResult(models.Model):
         if self.approved_by and self.status == 'not_graded':
             raise ValidationError('Cannot approve a result that is not graded.')
 
+        if self.approved_by and self.approved_by.role not in ('super_admin', 'school_admin'):
+            raise ValidationError('Only school administrators can approve results.')
+
+        if self.workflow_status == 'approved' and not self.approved_by:
+            raise ValidationError('Approved results require an approver.')
+
+        if self.workflow_status != 'approved' and self.approved_by:
+            raise ValidationError('Only approved results can have an approver.')
+
     def save(self, *args, **kwargs):
         self.full_clean()
 
@@ -1182,6 +1205,15 @@ class ExamResult(models.Model):
 
 
 class ExamResultLog(models.Model):
+    ACTION_CHOICES = (
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('submit', 'Submit'),
+        ('approve', 'Approve'),
+        ('reject', 'Reject'),
+        ('reopen', 'Reopen'),
+    )
+
     exam_result = models.ForeignKey(
         ExamResult,
         on_delete=models.CASCADE,
@@ -1216,6 +1248,29 @@ class ExamResultLog(models.Model):
         null=True
     )
 
+    old_workflow_status = models.CharField(
+        max_length=20,
+        choices=ExamResult.WORKFLOW_CHOICES,
+        blank=True,
+        null=True
+    )
+
+    new_workflow_status = models.CharField(
+        max_length=20,
+        choices=ExamResult.WORKFLOW_CHOICES,
+        blank=True,
+        null=True
+    )
+
+    old_approval_reason = models.TextField(blank=True, null=True)
+    new_approval_reason = models.TextField(blank=True, null=True)
+
+    action = models.CharField(
+        max_length=20,
+        choices=ACTION_CHOICES,
+        default='update'
+    )
+
     changed_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -1228,6 +1283,10 @@ class ExamResultLog(models.Model):
         blank=True,
         null=True
     )
+
+    request_id = models.CharField(max_length=100, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=512, blank=True, null=True)
 
     changed_at = models.DateTimeField(
         auto_now_add=True

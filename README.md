@@ -70,3 +70,13 @@ Django serves media only in local development when `DEBUG=True`. Production must
 - Teacher scope comes from `TeacherAssignment`.
 - Exam result changes must use `core.services.update_exam_result` so `ExamResultLog` records the actor and reason.
 - `ExamResultLog` is read-only in Django Admin.
+## Exams and results
+
+Sprint 3 provides versioned CRUD for exam types, exams, and results, plus
+atomic bulk grading and explicit submit/approve/reject/reopen actions. Teachers
+can edit Draft results for their assignments; only school or super admins can
+approve or reopen. Students and parents see Approved results only. Result audit
+logs are immutable and include request metadata when available.
+
+Reports under `/api/v1/exam-results/reports/` provide student transcripts and
+class, subject, and exam statistics. See `SPRINT_3.md` for routes and policy.

@@ -134,6 +134,7 @@ REST_FRAMEWORK = {
         'logout': os.environ.get('THROTTLE_LOGOUT', '200/hour'),
         'reports': os.environ.get('THROTTLE_REPORTS', '1000/hour'),
         'bulk_attendance': os.environ.get('THROTTLE_BULK_ATTENDANCE', '500/hour'),
+        'bulk_results': os.environ.get('THROTTLE_BULK_RESULTS', '500/hour'),
         'docs': os.environ.get('THROTTLE_DOCS', '300/hour'),
     },
 }
@@ -147,6 +148,10 @@ SPECTACULAR_SETTINGS = {
     'SECURITY': [{'jwtAuth': []}],
     'ENUM_NAME_OVERRIDES': {
         'AttendanceStatusEnum': 'core.models.Attendance.STATUS_CHOICES',
+        'ExamStatusEnum': 'core.models.Exam.STATUS_CHOICES',
+        'ExamResultStatusEnum': 'core.models.ExamResult.STATUS_CHOICES',
+        'ResultWorkflowStatusEnum': 'core.models.ExamResult.WORKFLOW_CHOICES',
+        'ResultLogActionEnum': 'core.models.ExamResultLog.ACTION_CHOICES',
         'EnrollmentStatusEnum': (
             'active', 'transferred', 'graduated', 'withdrawn', 'suspended',
         ),

@@ -6,6 +6,7 @@ from django.contrib.auth.admin import UserAdmin
 from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, Student, StudentEnrollment
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
+from .services.exam_results import create_exam_result, update_exam_result
 
 
 admin.site.site_header = 'نظام إدارة المدارس'
@@ -599,97 +600,82 @@ class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
 @admin.register(ExamResult)
 class ExamResultAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
-        'exam',
-        'student_enrollment',
-        'score',
-        'status',
-        'graded_by',
-        'graded_at',
-        'approved_by',
-        'approved_at',
+        'exam', 'student_enrollment', 'score', 'status', 'workflow_status',
+        'graded_by', 'graded_at', 'approved_by', 'approved_at',
     )
-
     list_filter = (
-        'exam',
-        'status',
-        'graded_by',
-        'approved_by',
+        'workflow_status', 'status', 'exam__school', 'exam__academic_year',
+        'exam__academic_term', 'exam__teacher_assignment__subject',
     )
-
     search_fields = (
-        'exam__title',
-        'student_enrollment__student__full_name',
+        'exam__title', 'student_enrollment__student__full_name',
         'student_enrollment__student__student_code',
     )
-
     readonly_fields = (
-        'graded_at',
-        'approved_at',
-        'created_at',
+        'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
+        'approved_by', 'approved_at', 'created_at',
+    )
+    list_select_related = (
+        'exam', 'exam__school', 'exam__academic_year', 'exam__academic_term',
+        'exam__teacher_assignment__subject', 'student_enrollment__student',
+        'graded_by', 'approved_by',
     )
 
     def save_model(self, request, obj, form, change):
-        old_score = None
-        old_status = None
-
-        if change and obj.pk:
-            previous = ExamResult.objects.filter(pk=obj.pk).first()
-            if previous:
-                old_score = previous.score
-                old_status = previous.status
-
-        if not obj.graded_by_id and obj.status == 'present':
-            obj.graded_by = request.user
-
-        super().save_model(request, obj, form, change)
-
-        if change and (old_score != obj.score or old_status != obj.status):
-            ExamResultLog.objects.create(
-                exam_result=obj,
-                old_score=old_score,
-                new_score=obj.score,
-                old_status=old_status,
-                new_status=obj.status,
+        if change:
+            previous = ExamResult.objects.get(pk=obj.pk)
+            saved = update_exam_result(
+                exam_result=previous,
                 changed_by=request.user,
-                reason='Changed through Django admin',
+                request=request,
+                reason='Changed through Django Admin.',
+                score=obj.score,
+                status=obj.status,
+                remarks=obj.remarks,
             )
+        else:
+            saved = create_exam_result(
+                exam=obj.exam,
+                student_enrollment=obj.student_enrollment,
+                changed_by=request.user,
+                request=request,
+                score=obj.score,
+                status=obj.status,
+                remarks=obj.remarks,
+            )
+        obj.pk = saved.pk
+        obj._state.adding = False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(ExamResultLog)
 class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
-        'exam_result',
-        'old_score',
-        'new_score',
-        'old_status',
-        'new_status',
-        'changed_by',
-        'changed_at',
+        'exam_result', 'action', 'old_score', 'new_score', 'old_status',
+        'new_status', 'old_workflow_status', 'new_workflow_status',
+        'changed_by', 'changed_at',
     )
-
     list_filter = (
-        'old_status',
-        'new_status',
-        'changed_by',
-        'changed_at',
+        'action', 'old_status', 'new_status', 'old_workflow_status',
+        'new_workflow_status', 'changed_by', 'changed_at',
     )
-
     search_fields = (
         'exam_result__exam__title',
         'exam_result__student_enrollment__student__full_name',
-        'reason',
+        'reason', 'request_id',
     )
-
     readonly_fields = (
-        'exam_result',
-        'old_score',
-        'new_score',
-        'old_status',
-        'new_status',
-        'changed_by',
-        'reason',
-        'changed_at',
+        'exam_result', 'old_score', 'new_score', 'old_status', 'new_status',
+        'old_workflow_status', 'new_workflow_status', 'old_approval_reason',
+        'new_approval_reason', 'action', 'changed_by', 'reason', 'request_id',
+        'ip_address', 'user_agent', 'changed_at',
     )
-
+    list_select_related = (
+        'exam_result__exam', 'exam_result__student_enrollment__student',
+        'changed_by',
+    )
     ordering = ('-changed_at',)
 
     def has_add_permission(self, request):
