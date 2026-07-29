@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
    
     'core',
     
@@ -134,4 +135,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.StandardResultsSetPagination',
+    'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'core.api_exceptions.api_exception_handler',
 }
