@@ -135,6 +135,7 @@ REST_FRAMEWORK = {
         'reports': os.environ.get('THROTTLE_REPORTS', '1000/hour'),
         'bulk_attendance': os.environ.get('THROTTLE_BULK_ATTENDANCE', '500/hour'),
         'bulk_results': os.environ.get('THROTTLE_BULK_RESULTS', '500/hour'),
+        'bulk_publish': os.environ.get('THROTTLE_BULK_PUBLISH', '200/hour'),
         'docs': os.environ.get('THROTTLE_DOCS', '300/hour'),
     },
 }

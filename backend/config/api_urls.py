@@ -3,6 +3,7 @@ from django.urls import path
 from core.exam_views import (
     ApproveResultAPIView,
     BulkGradeAPIView,
+    BulkPublishExamsAPIView,
     ClassResultSummaryAPIView,
     ExamDetailAPIView,
     ExamListCreateAPIView,
@@ -13,6 +14,7 @@ from core.exam_views import (
     ExamTypeDetailAPIView,
     ExamTypeListCreateAPIView,
     ParentOwnResultsAPIView,
+    PublishExamAPIView,
     RejectResultAPIView,
     ReopenResultAPIView,
     StudentOwnResultsAPIView,
@@ -20,6 +22,7 @@ from core.exam_views import (
     SubjectResultSummaryAPIView,
     SubmitResultAPIView,
     TeacherOwnResultsAPIView,
+    UnpublishExamAPIView,
 )
 from core.views import (
     AttendanceDetailAPIView,
@@ -69,6 +72,9 @@ urlpatterns = [
     path('exam-types/', ExamTypeListCreateAPIView.as_view(), name='exam-type-list'),
     path('exam-types/<int:pk>/', ExamTypeDetailAPIView.as_view(), name='exam-type-detail'),
     path('exams/', ExamListCreateAPIView.as_view(), name='exam-list'),
+    path('exams/bulk-publish/', BulkPublishExamsAPIView.as_view(), name='exam-bulk-publish'),
+    path('exams/<int:pk>/publish/', PublishExamAPIView.as_view(), name='exam-publish'),
+    path('exams/<int:pk>/unpublish/', UnpublishExamAPIView.as_view(), name='exam-unpublish'),
     path('exams/<int:pk>/', ExamDetailAPIView.as_view(), name='exam-detail'),
     path('exam-results/', ExamResultListCreateAPIView.as_view(), name='exam-result-list'),
     path('exam-results/bulk/', BulkGradeAPIView.as_view(), name='exam-result-bulk'),

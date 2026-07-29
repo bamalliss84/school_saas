@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib import admin
 from django.db import connection
 from django.test import RequestFactory
+from django.utils import timezone
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
@@ -417,6 +418,10 @@ class SprintThreeExamPlatformTests(APITestCase):
         self.assertEqual(self.client.get('/api/v1/parents/me/results/').data['count'], 0)
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         response = self.client.get('/api/v1/parents/me/results/')
         self.assertEqual(response.data['count'], 1)
@@ -426,6 +431,10 @@ class SprintThreeExamPlatformTests(APITestCase):
         self.assertEqual(self.client.get('/api/v1/students/me/results/').data['count'], 0)
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         self.assertEqual(self.client.get('/api/v1/students/me/results/').data['count'], 1)
 
@@ -459,6 +468,10 @@ class SprintThreeExamPlatformTests(APITestCase):
     def test_35_student_transcript_contains_statistics(self):
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         self.auth(self.student_user)
         response = self.client.get(
@@ -470,6 +483,10 @@ class SprintThreeExamPlatformTests(APITestCase):
     def test_36_class_summary_statistics(self):
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         self.auth()
         response = self.client.get(
@@ -481,6 +498,10 @@ class SprintThreeExamPlatformTests(APITestCase):
     def test_37_subject_summary_statistics(self):
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         self.auth()
         response = self.client.get(
@@ -492,6 +513,10 @@ class SprintThreeExamPlatformTests(APITestCase):
     def test_38_exam_summary_statistics(self):
         self.result.workflow_status = 'approved'
         self.result.approved_by = self.admin_user
+        self.result.approved_at = timezone.now()
+        self.result.is_published = True
+        self.result.published_by = self.admin_user
+        self.result.published_at = timezone.now()
         self.result.save()
         self.auth()
         response = self.client.get(
@@ -547,13 +572,13 @@ class SprintThreeExamPlatformTests(APITestCase):
         self.assertEqual(response.status_code, 204)
         self.assertFalse(ExamResult.objects.filter(pk=result.pk).exists())
 
-    def test_45_reports_exclude_non_approved_results(self):
+    def test_45_manager_reports_include_non_approved_results(self):
         self.auth()
         response = self.client.get(
             f'/api/v1/exam-results/reports/exam/{self.exam.pk}/summary/',
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['statistics']['total_results'], 0)
+        self.assertEqual(response.data['statistics']['total_results'], 1)
 
     def test_46_inactive_school_user_is_forbidden(self):
         self.teacher_user.is_active_school_user = False

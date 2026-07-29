@@ -1,7 +1,13 @@
+import logging
+
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from core.models import ExamResult, ExamResultLog
+
+
+logger = logging.getLogger(__name__)
 from core.selectors import user_can_manage_teacher_assignment
 
 
@@ -42,6 +48,9 @@ def _audit(*, result, old, changed_by, action, reason, request):
         new_workflow_status=result.workflow_status,
         old_approval_reason=old.get('approval_reason'),
         new_approval_reason=result.approval_reason,
+        old_is_published=old.get('is_published'),
+        new_is_published=result.is_published,
+        published_by=result.published_by or old.get('published_by'),
         changed_by=changed_by,
         action=action,
         reason=reason or None,
@@ -99,6 +108,8 @@ def update_exam_result(
         'status': result.status,
         'workflow_status': result.workflow_status,
         'approval_reason': result.approval_reason,
+        'is_published': result.is_published,
+        'published_by': result.published_by,
     }
     for field, value in changes.items():
         setattr(result, field, value)
@@ -209,6 +220,27 @@ def reopen_exam_result(*, exam_result, changed_by, reason=None, request=None):
         raise PermissionDenied('You cannot reopen this result.')
     if result.workflow_status != 'approved':
         raise ValidationError('Only approved results can be reopened.')
+    if result.is_published:
+        old = {
+            'score': result.score,
+            'status': result.status,
+            'workflow_status': result.workflow_status,
+            'approval_reason': result.approval_reason,
+            'is_published': True,
+            'published_by': result.published_by,
+        }
+        result.is_published = False
+        result.published_at = None
+        result.published_by = None
+        result.save()
+        _audit(
+            result=result,
+            old=old,
+            changed_by=changed_by,
+            action='unpublish',
+            reason=reason or 'Result unpublished before reopening.',
+            request=request,
+        )
     return update_exam_result(
         exam_result=result,
         changed_by=changed_by,
@@ -219,3 +251,136 @@ def reopen_exam_result(*, exam_result, changed_by, reason=None, request=None):
         approval_reason=reason,
         approved_by=None,
     )
+
+def notify_results_published(*, exam, results):
+    """Extension point for a future notification implementation."""
+    return None
+
+
+def _can_publish_exam(user, exam):
+    if user.role == 'super_admin':
+        return True
+    return bool(user.role == 'school_admin' and user.school_id == exam.school_id)
+
+
+@transaction.atomic
+def publish_results(*, exam, changed_by, reason=None, request=None):
+    if not _can_publish_exam(changed_by, exam):
+        raise PermissionDenied('You cannot publish this exam.')
+    results = list(
+        ExamResult.objects.select_for_update().select_related(
+            'exam__teacher_assignment__teacher', 'exam__school',
+        ).filter(exam=exam).order_by('pk')
+    )
+    if not results:
+        raise ValidationError('The exam has no results to publish.')
+    approved_results = [
+        result for result in results if result.workflow_status == 'approved'
+    ]
+    if not approved_results:
+        raise ValidationError('The exam has no approved results to publish.')
+
+    changed = []
+    published_at = timezone.now()
+    for result in approved_results:
+        if result.is_published:
+            continue
+        old = {
+            'score': result.score,
+            'status': result.status,
+            'workflow_status': result.workflow_status,
+            'approval_reason': result.approval_reason,
+            'is_published': result.is_published,
+            'published_by': result.published_by,
+        }
+        result.is_published = True
+        result.published_by = changed_by
+        result.published_at = published_at
+        result.save()
+        _audit(
+            result=result,
+            old=old,
+            changed_by=changed_by,
+            action='publish',
+            reason=reason or 'Exam results published.',
+            request=request,
+        )
+        changed.append(result)
+    try:
+        notify_results_published(exam=exam, results=changed)
+    except Exception:
+        logger.exception(
+            'Result publication notification failed for exam_id=%s', exam.pk,
+        )
+    return {
+        'exam': exam,
+        'published_count': len(changed),
+        'skipped_count': len(results) - len(approved_results),
+        'already_published_count': len(approved_results) - len(changed),
+        'total_count': len(results),
+        'results': approved_results,
+    }
+
+
+@transaction.atomic
+def unpublish_results(*, exam, changed_by, reason=None, request=None):
+    if not _can_publish_exam(changed_by, exam):
+        raise PermissionDenied('You cannot unpublish this exam.')
+    results = list(
+        ExamResult.objects.select_for_update().select_related(
+            'exam__teacher_assignment__teacher', 'exam__school',
+        ).filter(exam=exam, is_published=True).order_by('pk')
+    )
+    for result in results:
+        old = {
+            'score': result.score,
+            'status': result.status,
+            'workflow_status': result.workflow_status,
+            'approval_reason': result.approval_reason,
+            'is_published': result.is_published,
+            'published_by': result.published_by,
+        }
+        result.is_published = False
+        result.published_by = None
+        result.published_at = None
+        result.save()
+        _audit(
+            result=result,
+            old=old,
+            changed_by=changed_by,
+            action='unpublish',
+            reason=reason or 'Exam results unpublished.',
+            request=request,
+        )
+    return {
+        'exam': exam,
+        'published_count': 0,
+        'skipped_count': 0,
+        'already_published_count': 0,
+        'unpublished_count': len(results),
+        'total_count': ExamResult.objects.filter(exam=exam).count(),
+        'results': results,
+    }
+
+
+@transaction.atomic
+def publish_results_bulk(*, exams, changed_by, reason=None, request=None):
+    return [
+        publish_results(
+            exam=exam,
+            changed_by=changed_by,
+            reason=reason,
+            request=request,
+        )
+        for exam in exams
+    ]
+
+
+@transaction.atomic
+def unpublish_results_bulk(*, exams, changed_by, reason=None, request=None):
+    return [
+        unpublish_results(
+            exam=exam, changed_by=changed_by, reason=reason, request=request,
+        )
+        for exam in exams
+    ]

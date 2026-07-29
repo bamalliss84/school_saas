@@ -37,11 +37,13 @@ def exams_for_user(user):
     if user.role == 'parent':
         return queryset.filter(
             results__workflow_status='approved',
+            results__is_published=True,
             results__student_enrollment__student__guardians__parent__user=user,
         ).distinct()
     if user.role == 'student':
         return queryset.filter(
             results__workflow_status='approved',
+            results__is_published=True,
             results__student_enrollment__student__user=user,
         ).distinct()
     return queryset.none()
@@ -71,11 +73,13 @@ def exam_results_for_user(user):
     if user.role == 'parent':
         return queryset.filter(
             workflow_status='approved',
+            is_published=True,
             student_enrollment__student__guardians__parent__user=user,
         ).distinct()
     if user.role == 'student':
         return queryset.filter(
             workflow_status='approved',
+            is_published=True,
             student_enrollment__student__user=user,
         )
     return queryset.none()

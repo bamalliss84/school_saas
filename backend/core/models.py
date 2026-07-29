@@ -1110,8 +1110,17 @@ class ExamResult(models.Model):
 
     approval_reason = models.TextField(blank=True, null=True)
 
-    remarks = models.TextField(blank=True, null=True)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='published_exam_results'
+    )
 
+    remarks = models.TextField(blank=True, null=True)
     graded_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -1183,6 +1192,20 @@ class ExamResult(models.Model):
         if self.workflow_status != 'approved' and self.approved_by:
             raise ValidationError('Only approved results can have an approver.')
 
+        if self.is_published:
+            if self.workflow_status != 'approved':
+                raise ValidationError('Only approved results can be published.')
+            if not self.published_by or not self.published_at:
+                raise ValidationError('Published results require publisher and timestamp.')
+            if self.published_by.role not in ('super_admin', 'school_admin'):
+                raise ValidationError('Only school administrators can publish results.')
+            if (
+                self.published_by.role == 'school_admin'
+                and self.published_by.school_id != self.exam.school_id
+            ):
+                raise ValidationError('Publisher school must match the exam school.')
+        elif self.published_by or self.published_at:
+            raise ValidationError('Unpublished results cannot retain publication metadata.')
     def save(self, *args, **kwargs):
         self.full_clean()
 
@@ -1212,6 +1235,8 @@ class ExamResultLog(models.Model):
         ('approve', 'Approve'),
         ('reject', 'Reject'),
         ('reopen', 'Reopen'),
+        ('publish', 'Publish'),
+        ('unpublish', 'Unpublish'),
     )
 
     exam_result = models.ForeignKey(
@@ -1264,6 +1289,16 @@ class ExamResultLog(models.Model):
 
     old_approval_reason = models.TextField(blank=True, null=True)
     new_approval_reason = models.TextField(blank=True, null=True)
+
+    old_is_published = models.BooleanField(blank=True, null=True)
+    new_is_published = models.BooleanField(blank=True, null=True)
+    published_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='published_exam_result_logs'
+    )
 
     action = models.CharField(
         max_length=20,

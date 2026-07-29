@@ -13,10 +13,10 @@ from .exam_selectors import (
     exams_for_user,
 )
 from .exam_serializers import (
-    BulkGradeSerializer, ExamResultLogSerializer, ExamResultSerializer,
+    BulkGradeSerializer, BulkPublishSerializer, ExamResultLogSerializer, ExamResultSerializer,
     ExamQuerySerializer, ExamResultQuerySerializer, ExamSerializer,
-    ExamTypeQuerySerializer, ExamTypeSerializer, RejectActionSerializer,
-    WorkflowActionSerializer,
+    ExamTypeQuerySerializer, ExamTypeSerializer, PublicationSummarySerializer,
+    RejectActionSerializer, WorkflowActionSerializer,
 )
 from .models import Classroom, ExamResult, ExamResultLog, Subject
 from .permissions import (
@@ -24,8 +24,9 @@ from .permissions import (
 )
 from .selectors import students_for_user
 from .services.exam_results import (
-    approve_exam_result, delete_exam_result, reject_exam_result,
-    reopen_exam_result, submit_exam_result,
+    approve_exam_result, delete_exam_result, publish_results,
+    publish_results_bulk, reject_exam_result, reopen_exam_result,
+    submit_exam_result, unpublish_results,
 )
 
 
@@ -202,6 +203,82 @@ class BulkGradeAPIView(APIView):
         return Response(ExamResultSerializer(results, many=True).data)
 
 
+class ExamPublicationAPIView(APIView):
+    permission_classes = [IsActiveSchoolUser]
+    action = 'publish'
+
+    @extend_schema(
+        request=WorkflowActionSerializer,
+        responses={
+            200: PublicationSummarySerializer,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description=(
+            'School and super administrators publish or unpublish results in '
+            'their tenant scope atomically. Publication skips non-approved '
+            'results; unauthenticated, forbidden, and out-of-scope requests '
+            'return 401, 403, and 404 respectively.'
+        ),
+    )
+    def post(self, request, pk):
+        _require_role(request.user, APPROVER_ROLES)
+        exam = generics.get_object_or_404(exams_for_user(request.user), pk=pk)
+        serializer = WorkflowActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        service = publish_results if self.action == 'publish' else unpublish_results
+        summary = service(
+            exam=exam, changed_by=request.user,
+            reason=serializer.validated_data.get('reason'), request=request,
+        )
+        return Response(PublicationSummarySerializer(summary).data)
+
+
+class PublishExamAPIView(ExamPublicationAPIView):
+    pass
+
+
+class UnpublishExamAPIView(ExamPublicationAPIView):
+    action = 'unpublish'
+
+
+class BulkPublishExamsAPIView(APIView):
+    permission_classes = [IsActiveSchoolUser]
+    throttle_scope = 'bulk_publish'
+
+    @extend_schema(
+        request=BulkPublishSerializer,
+        responses={
+            200: PublicationSummarySerializer(many=True),
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        },
+        description=(
+            'Atomically publishes approved results across multiple scoped '
+            'exams. Duplicate IDs are rejected and any exam-level error rolls '
+            'back the complete request.'
+        ),
+    )
+    def post(self, request):
+        _require_role(request.user, APPROVER_ROLES)
+        serializer = BulkPublishSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        exam_ids = serializer.validated_data['exam_ids']
+        exam_map = {exam.pk: exam for exam in exams_for_user(request.user).filter(pk__in=exam_ids)}
+        if len(exam_map) != len(exam_ids):
+            raise NotFound('One or more exams were not found.')
+        summaries = publish_results_bulk(
+            exams=[exam_map[exam_id] for exam_id in exam_ids],
+            changed_by=request.user,
+            reason=serializer.validated_data.get('reason'), request=request,
+        )
+        return Response(PublicationSummarySerializer(summaries, many=True).data)
+
+
 class ResultWorkflowAPIView(APIView):
     permission_classes = [IsActiveSchoolUser]
     action = None
@@ -330,8 +407,10 @@ class StudentTranscriptAPIView(APIView):
         student = generics.get_object_or_404(students_for_user(request.user), pk=student_id)
         results = exam_results_for_user(request.user).filter(
             student_enrollment__student=student,
-            workflow_status='approved',
-        ).order_by('exam__exam_date')
+        )
+        if request.user.role in ('parent', 'student'):
+            results = results.filter(workflow_status='approved', is_published=True)
+        results = results.order_by('exam__exam_date')
         return Response({
             'student': {'id': student.id, 'name': student.full_name},
             'statistics': _statistics(results),
@@ -348,7 +427,6 @@ class ScopedSummaryAPIView(APIView):
     def get(self, request, object_id):
         _require_role(request.user, MANAGER_ROLES)
         results = exam_results_for_user(request.user).filter(
-            workflow_status='approved',
             **{self.scope_field: object_id},
         )
         if not results.exists():
@@ -372,9 +450,7 @@ class ExamResultSummaryAPIView(APIView):
     def get(self, request, exam_id):
         _require_role(request.user, MANAGER_ROLES)
         exam = generics.get_object_or_404(exams_for_user(request.user), pk=exam_id)
-        results = exam_results_for_user(request.user).filter(
-            exam=exam, workflow_status='approved',
-        )
+        results = exam_results_for_user(request.user).filter(exam=exam)
         return Response({
             'exam': {'id': exam.id, 'title': exam.title},
             'statistics': _statistics(results),

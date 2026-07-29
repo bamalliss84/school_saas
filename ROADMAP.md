@@ -282,3 +282,17 @@
 | 2026-07-30 | إكمال Sprint 2.5 والتحقق من 130 اختبارًا وOpenAPI بلا تحذيرات وRuff وتشغيل الخادم. | ✅ مكتملة |
 | 2026-07-30 | بدء Sprint 3 لمنصة الاختبارات والنتائج ودورة الاعتماد. | 🟡 قيد التنفيذ |
 | 2026-07-30 | إكمال Sprint 3: workflow وتدقيق وbulk وتقارير و176 اختبارًا. | ✅ مكتملة |
+
+
+## Sprint 3.5 - Result publication
+
+**Status: completed**
+
+- [x] Separate approval from publication without changing workflow states.
+- [x] Atomic publish of Approved results with skipped-state summary, plus unpublish.
+- [x] Reopen safely unpublishes and audits before returning to Draft.
+- [x] Atomic bulk publication across multiple exams.
+- [x] Hide unpublished results from students and parents.
+- [x] Audit publish/unpublish and expose Django Admin actions.
+- [x] Add a notification extension point.
+- [ ] Scheduled publication (deferred until a scheduler is introduced).

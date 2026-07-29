@@ -128,11 +128,13 @@ class ExamResultSerializer(serializers.ModelSerializer):
             'id', 'exam', 'exam_title', 'student_enrollment', 'student_name',
             'student_code', 'subject_name', 'score', 'status', 'remarks',
             'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
-            'approved_by', 'approved_at', 'created_at',
+            'approved_by', 'approved_at', 'is_published', 'published_at',
+            'published_by', 'created_at',
         )
         read_only_fields = (
             'id', 'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
-            'approved_by', 'approved_at', 'created_at',
+            'approved_by', 'approved_at', 'is_published', 'published_at',
+            'published_by', 'created_at',
         )
 
     def validate(self, attrs):
@@ -177,6 +179,16 @@ class ExamResultSerializer(serializers.ModelSerializer):
             request=request,
             **validated_data,
         )
+
+
+class PublicationSummarySerializer(serializers.Serializer):
+    exam = serializers.IntegerField(source='exam.pk', read_only=True)
+    published_count = serializers.IntegerField(read_only=True)
+    skipped_count = serializers.IntegerField(read_only=True)
+    already_published_count = serializers.IntegerField(read_only=True)
+    unpublished_count = serializers.IntegerField(read_only=True, required=False)
+    total_count = serializers.IntegerField(read_only=True)
+    results = ExamResultSerializer(many=True, read_only=True)
 
 
 class BulkGradeItemSerializer(serializers.Serializer):
@@ -254,6 +266,18 @@ class WorkflowActionSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
+class BulkPublishSerializer(serializers.Serializer):
+    exam_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1), allow_empty=False,
+    )
+    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_exam_ids(self, value):
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError('Duplicate exams are not allowed.')
+        return value
+
+
 class RejectActionSerializer(serializers.Serializer):
     reason = serializers.CharField(allow_blank=False)
 
@@ -264,7 +288,8 @@ class ExamResultLogSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'exam_result', 'old_score', 'new_score', 'old_status',
             'new_status', 'old_workflow_status', 'new_workflow_status',
-            'old_approval_reason', 'new_approval_reason', 'action', 'changed_by',
+            'old_approval_reason', 'new_approval_reason', 'old_is_published',
+            'new_is_published', 'published_by', 'action', 'changed_by',
             'reason', 'request_id', 'ip_address', 'user_agent', 'changed_at',
         )
         read_only_fields = fields

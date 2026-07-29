@@ -1,12 +1,15 @@
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch, Q
 from .models import School, AcademicYear, SchoolSetting, User
 from django.contrib.auth.admin import UserAdmin
 from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, Student, StudentEnrollment
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
-from .services.exam_results import create_exam_result, update_exam_result
+from .services.exam_results import (
+    create_exam_result, publish_results_bulk, unpublish_results_bulk,
+    update_exam_result,
+)
 
 
 admin.site.site_header = 'نظام إدارة المدارس'
@@ -581,7 +584,8 @@ class ExamTypeAdmin(TenantAdminMixin, admin.ModelAdmin):
 class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'title', 'exam_type', 'teacher_assignment', 'academic_term',
-        'exam_date', 'total_marks', 'status', 'created_by',
+        'exam_date', 'total_marks', 'status', 'published_results_count',
+        'created_by',
     )
     list_filter = (
         'school', 'academic_year', 'academic_term', 'exam_type', 'status',
@@ -591,17 +595,54 @@ class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
         'teacher_assignment__subject__name',
     )
     readonly_fields = ('created_at',)
+    actions = ('publish_selected_results', 'unpublish_selected_results')
     date_hierarchy = 'exam_date'
     list_select_related = (
         'school', 'academic_year', 'academic_term', 'exam_type',
         'teacher_assignment', 'created_by',
     )
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            published_results_total=Count(
+                'results', filter=Q(results__is_published=True), distinct=True,
+            ),
+        )
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if not (
+            request.user.is_superuser
+            or request.user.role in ('super_admin', 'school_admin')
+        ):
+            actions.pop('publish_selected_results', None)
+            actions.pop('unpublish_selected_results', None)
+        return actions
+
+    @admin.display(description='Published results', ordering='published_results_total')
+    def published_results_count(self, obj):
+        return obj.published_results_total
+
+    @admin.action(description='Publish all approved results for selected exams')
+    def publish_selected_results(self, request, queryset):
+        publish_results_bulk(
+            exams=list(queryset), changed_by=request.user,
+            reason='Published through Django Admin.', request=request,
+        )
+
+    @admin.action(description='Unpublish results for selected exams')
+    def unpublish_selected_results(self, request, queryset):
+        unpublish_results_bulk(
+            exams=list(queryset), changed_by=request.user,
+            reason='Unpublished through Django Admin.', request=request,
+        )
+
 @admin.register(ExamResult)
 class ExamResultAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'exam', 'student_enrollment', 'score', 'status', 'workflow_status',
         'graded_by', 'graded_at', 'approved_by', 'approved_at',
+        'is_published', 'published_by', 'published_at',
     )
     list_filter = (
         'workflow_status', 'status', 'exam__school', 'exam__academic_year',
@@ -613,7 +654,8 @@ class ExamResultAdmin(TenantAdminMixin, admin.ModelAdmin):
     )
     readonly_fields = (
         'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
-        'approved_by', 'approved_at', 'created_at',
+        'approved_by', 'approved_at', 'is_published', 'published_by',
+        'published_at', 'created_at',
     )
     list_select_related = (
         'exam', 'exam__school', 'exam__academic_year', 'exam__academic_term',
@@ -655,6 +697,7 @@ class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_display = (
         'exam_result', 'action', 'old_score', 'new_score', 'old_status',
         'new_status', 'old_workflow_status', 'new_workflow_status',
+        'old_is_published', 'new_is_published', 'published_by',
         'changed_by', 'changed_at',
     )
     list_filter = (
@@ -669,7 +712,8 @@ class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
     readonly_fields = (
         'exam_result', 'old_score', 'new_score', 'old_status', 'new_status',
         'old_workflow_status', 'new_workflow_status', 'old_approval_reason',
-        'new_approval_reason', 'action', 'changed_by', 'reason', 'request_id',
+        'new_approval_reason', 'old_is_published', 'new_is_published',
+        'published_by', 'action', 'changed_by', 'reason', 'request_id',
         'ip_address', 'user_agent', 'changed_at',
     )
     list_select_related = (

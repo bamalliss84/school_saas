@@ -75,8 +75,17 @@ Django serves media only in local development when `DEBUG=True`. Production must
 Sprint 3 provides versioned CRUD for exam types, exams, and results, plus
 atomic bulk grading and explicit submit/approve/reject/reopen actions. Teachers
 can edit Draft results for their assignments; only school or super admins can
-approve or reopen. Students and parents see Approved results only. Result audit
+approve or reopen. Students and parents see results only after both approval and explicit publication. Result audit
 logs are immutable and include request metadata when available.
 
 Reports under `/api/v1/exam-results/reports/` provide student transcripts and
 class, subject, and exam statistics. See `SPRINT_3.md` for routes and policy.
+
+
+## Result publication
+
+Sprint 3.5 separates approval from publication. School administrators and super
+administrators can atomically publish or unpublish an exam, and can bulk-publish
+multiple exams. Publishing reports non-Approved results as skipped, and bulk
+failures roll back the request. Reopen automatically unpublishes before returning
+a result to Draft. Published state is audited. See `SPRINT_3_5.md`.

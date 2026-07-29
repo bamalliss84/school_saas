@@ -627,3 +627,18 @@ workflow وحقول التدقيق، مع data migration يحافظ على appro
 
 اكتمل Sprint 3 بعد نجاح 176 اختبارًا وتغطية 92% وRuff وOpenAPI دون
 تحذيرات أو أخطاء، وتطبيق migration 0016 وتشغيل الخادم وإيقافه.
+
+
+## 18. Sprint 3.5 - Result publication
+
+Approval and publication are now separate decisions. `ExamResult` stores the
+publication state, timestamp, and actor, while `ExamResultLog` records each
+publish/unpublish transition with its reason and request metadata. Students and
+parents can see only results that are both Approved and published. Teachers and
+administrators retain role- and tenant-scoped workflow visibility. Single and
+bulk publication are atomic. Approved results are published while other states
+are reported as skipped; exams with no Approved results fail. Bulk failures roll
+back the complete request. Reopen automatically audits unpublication before
+returning a published Approved result to Draft. Django Admin exposes publication actions and a published-result count.
+A notification extension point exists without a provider implementation.
+Scheduled publication is deferred until a reliable scheduler is selected.
