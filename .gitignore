@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.log
+
+# Virtual environments
+venv/
+venvvenv/
+.venv/
+backend/venv/
+backend/django/
+backend/djangorestframework/
+backend/psycopg2-binary/
+backend/install/
+
+# Django
+db.sqlite3
+media/
+school_logos/
+backend/media/
+backend/school_logos/
+staticfiles/
+
+# Environment and IDE
+.env
+.vscode/
+.idea/
+.DS_Store

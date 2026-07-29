@@ -5,6 +5,7 @@ from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, 
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
 
+@admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
     list_display = (
         'id',
@@ -478,8 +479,6 @@ class ExamAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         'created_at',
-        'created_at',
-
     )
 
 @admin.register(ExamResult)
@@ -513,6 +512,32 @@ class ExamResultAdmin(admin.ModelAdmin):
         'approved_at',
         'created_at',
     )
+
+    def save_model(self, request, obj, form, change):
+        old_score = None
+        old_status = None
+
+        if change and obj.pk:
+            previous = ExamResult.objects.filter(pk=obj.pk).first()
+            if previous:
+                old_score = previous.score
+                old_status = previous.status
+
+        if not obj.graded_by_id and obj.status == 'present':
+            obj.graded_by = request.user
+
+        super().save_model(request, obj, form, change)
+
+        if change and (old_score != obj.score or old_status != obj.status):
+            ExamResultLog.objects.create(
+                exam_result=obj,
+                old_score=old_score,
+                new_score=obj.score,
+                old_status=old_status,
+                new_status=obj.status,
+                changed_by=request.user,
+                reason='Changed through Django admin',
+            )
 
 @admin.register(ExamResultLog)
 class ExamResultLogAdmin(admin.ModelAdmin):

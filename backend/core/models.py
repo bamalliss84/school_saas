@@ -36,6 +36,14 @@ class AcademicYear(models.Model):
     class Meta:
         unique_together = ('school', 'name')
 
+    def clean(self):
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError('Academic year start date must be before end date.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.school.name} - {self.name}"
 
@@ -115,6 +123,20 @@ class User(AbstractUser):
     )
 
     is_active_school_user = models.BooleanField(default=True)
+
+    def clean(self):
+        super().clean()
+
+        if not self.is_superuser and self.role != 'super_admin' and not self.school_id:
+            raise ValidationError('A school is required for non-super-admin users.')
+
+        if self.academic_year_id and self.school_id:
+            if self.academic_year.school_id != self.school_id:
+                raise ValidationError('Academic year must belong to the selected school.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username
@@ -223,6 +245,20 @@ class ClassSubject(models.Model):
             'classroom',
             'subject'
         )
+
+    def clean(self):
+        if self.academic_year.school_id != self.school_id:
+            raise ValidationError('Academic year must belong to the selected school.')
+        if self.classroom.school_id != self.school_id:
+            raise ValidationError('Classroom must belong to the selected school.')
+        if self.classroom.academic_year_id != self.academic_year_id:
+            raise ValidationError('Classroom academic year must match the selected academic year.')
+        if self.subject.school_id != self.school_id:
+            raise ValidationError('Subject must belong to the selected school.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.classroom} - {self.subject}"
@@ -636,7 +672,13 @@ class StudentGuardian(models.Model):
             )
         ]
 
+    def clean(self):
+        if self.student.school_id != self.parent.school_id:
+            raise ValidationError('Student and guardian must belong to the same school.')
+
     def save(self, *args, **kwargs):
+        self.full_clean()
+
         if self.is_primary:
             StudentGuardian.objects.filter(
                 student=self.student,
@@ -777,6 +819,20 @@ class AcademicTerm(models.Model):
             )
         ]
 
+    def clean(self):
+        if self.academic_year.school_id != self.school_id:
+            raise ValidationError('Academic year must belong to the selected school.')
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError('Academic term start date must be before end date.')
+        if self.start_date and self.start_date < self.academic_year.start_date:
+            raise ValidationError('Academic term cannot start before the academic year.')
+        if self.end_date and self.end_date > self.academic_year.end_date:
+            raise ValidationError('Academic term cannot end after the academic year.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.academic_year.name} - {self.name}"
     
@@ -841,6 +897,12 @@ class Attendance(models.Model):
 
             if self.teacher_assignment.academic_year_id != self.student_enrollment.academic_year_id:
                 raise ValidationError('Teacher assignment academic year must match student academic year.')
+
+            if self.teacher_assignment.classroom_id != self.student_enrollment.classroom_id:
+                raise ValidationError('Teacher assignment classroom must match student classroom.')
+
+            if self.teacher_assignment.section_id != self.student_enrollment.section_id:
+                raise ValidationError('Teacher assignment section must match student section.')
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -962,6 +1024,12 @@ class Exam(models.Model):
         ]
 
     def clean(self):
+        if self.academic_year.school_id != self.school_id:
+            raise ValidationError('Academic year must belong to the exam school.')
+
+        if self.academic_term.school_id != self.school_id:
+            raise ValidationError('Academic term must belong to the exam school.')
+
         if self.academic_term.academic_year_id != self.academic_year_id:
             raise ValidationError('Academic term must match academic year.')
 
@@ -974,8 +1042,18 @@ class Exam(models.Model):
         if self.exam_type.school_id != self.school_id:
             raise ValidationError('Exam type school must match exam school.')
 
+        if self.total_marks <= 0:
+            raise ValidationError('Total marks must be greater than zero.')
+
         if self.total_marks > self.exam_type.max_score:
             raise ValidationError('Total marks cannot exceed exam type max score.')
+
+        if not (self.academic_term.start_date <= self.exam_date <= self.academic_term.end_date):
+            raise ValidationError('Exam date must fall within the academic term dates.')
+
+        if self.created_by_id and self.created_by.role != 'super_admin':
+            if self.created_by.school_id != self.school_id:
+                raise ValidationError('Exam creator must belong to the exam school.')
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -1060,11 +1138,24 @@ class ExamResult(models.Model):
         if self.status == 'present' and self.score is None:
             raise ValidationError('Score is required when student is present.')
 
-        if self.status in ['absent', 'excused', 'exempted'] and self.score:
+        if self.status in ['absent', 'excused', 'exempted'] and self.score is not None:
             raise ValidationError('Score must be empty when student is absent, excused, or exempted.')
+
+        if self.score is not None and self.score < 0:
+            raise ValidationError('Score cannot be negative.')
 
         if self.score is not None and self.score > self.exam.total_marks:
             raise ValidationError('Score cannot exceed exam total marks.')
+
+        assignment = self.exam.teacher_assignment
+        if assignment.classroom_id != self.student_enrollment.classroom_id:
+            raise ValidationError('Student classroom must match the exam classroom.')
+        if assignment.section_id != self.student_enrollment.section_id:
+            raise ValidationError('Student section must match the exam section.')
+
+        for user, label in ((self.graded_by, 'Grader'), (self.approved_by, 'Approver')):
+            if user and user.role != 'super_admin' and user.school_id != self.exam.school_id:
+                raise ValidationError(f'{label} must belong to the exam school.')
 
         if self.approved_by and self.status == 'not_graded':
             raise ValidationError('Cannot approve a result that is not graded.')
@@ -1072,11 +1163,17 @@ class ExamResult(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
 
-        if self.status == 'present' and self.score is not None and not self.graded_at:
-            self.graded_at = timezone.now()
+        if self.status == 'present' and self.score is not None:
+            if not self.graded_at:
+                self.graded_at = timezone.now()
+        else:
+            self.graded_at = None
 
-        if self.approved_by and not self.approved_at:
-            self.approved_at = timezone.now()
+        if self.approved_by:
+            if not self.approved_at:
+                self.approved_at = timezone.now()
+        else:
+            self.approved_at = None
 
         super().save(*args, **kwargs)
 
