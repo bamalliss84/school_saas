@@ -1148,7 +1148,28 @@ class ExamResult(models.Model):
             models.UniqueConstraint(
                 fields=['exam', 'student_enrollment'],
                 name='unique_exam_result_per_student'
-            )
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_published=False)
+                    | models.Q(
+                        workflow_status='approved',
+                        published_by__isnull=False,
+                        published_at__isnull=False,
+                    )
+                ),
+                name='published_result_requires_approval_metadata',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_published=True)
+                    | models.Q(
+                        published_by__isnull=True,
+                        published_at__isnull=True,
+                    )
+                ),
+                name='unpublished_result_clears_metadata',
+            ),
         ]
 
     def clean(self):

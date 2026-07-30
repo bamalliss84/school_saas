@@ -296,3 +296,16 @@
 - [x] Audit publish/unpublish and expose Django Admin actions.
 - [x] Add a notification extension point.
 - [ ] Scheduled publication (deferred until a scheduler is introduced).
+
+
+## Sprint 3.5.1 - Publication hardening
+
+**Status: completed**
+
+- [x] Defer publication notifications with `transaction.on_commit`.
+- [x] Harden Admin actions and tenant-safe messages.
+- [x] Add defensive data repair and publication CheckConstraints in migration 0018.
+- [x] Make forwarded audit IP trust explicit and disabled by default.
+- [x] Join publisher relations in result and audit selectors.
+
+Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.

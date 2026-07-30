@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Prefetch, Q
 from .models import School, AcademicYear, SchoolSetting, User
@@ -6,6 +6,10 @@ from django.contrib.auth.admin import UserAdmin
 from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, Student, StudentEnrollment
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
+from rest_framework.exceptions import (
+    PermissionDenied as DRFPermissionDenied, ValidationError as DRFValidationError,
+)
+
 from .services.exam_results import (
     create_exam_result, publish_results_bulk, unpublish_results_bulk,
     update_exam_result,
@@ -623,18 +627,47 @@ class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
     def published_results_count(self, obj):
         return obj.published_results_total
 
+    def _scoped_action_exams(self, request, queryset):
+        if not (
+            request.user.is_superuser
+            or request.user.role in ('super_admin', 'school_admin')
+        ):
+            raise DRFPermissionDenied('You cannot manage result publication.')
+        exams = list(self.get_queryset(request).filter(pk__in=queryset.values('pk')))
+        if not exams:
+            raise DRFPermissionDenied('No permitted exams were selected.')
+        return exams
+
     @admin.action(description='Publish all approved results for selected exams')
     def publish_selected_results(self, request, queryset):
-        publish_results_bulk(
-            exams=list(queryset), changed_by=request.user,
-            reason='Published through Django Admin.', request=request,
+        try:
+            summaries = publish_results_bulk(
+                exams=self._scoped_action_exams(request, queryset),
+                changed_by=request.user,
+                reason='Published through Django Admin.', request=request,
+            )
+        except (DRFValidationError, DRFPermissionDenied) as exc:
+            messages.error(request, str(exc.detail))
+            return
+        published_count = sum(item['published_count'] for item in summaries)
+        messages.success(
+            request, f'Published {published_count} result(s).',
         )
 
     @admin.action(description='Unpublish results for selected exams')
     def unpublish_selected_results(self, request, queryset):
-        unpublish_results_bulk(
-            exams=list(queryset), changed_by=request.user,
-            reason='Unpublished through Django Admin.', request=request,
+        try:
+            summaries = unpublish_results_bulk(
+                exams=self._scoped_action_exams(request, queryset),
+                changed_by=request.user,
+                reason='Unpublished through Django Admin.', request=request,
+            )
+        except (DRFValidationError, DRFPermissionDenied) as exc:
+            messages.error(request, str(exc.detail))
+            return
+        unpublished_count = sum(item['unpublished_count'] for item in summaries)
+        messages.success(
+            request, f'Unpublished {unpublished_count} result(s).',
         )
 
 @admin.register(ExamResult)
@@ -660,7 +693,7 @@ class ExamResultAdmin(TenantAdminMixin, admin.ModelAdmin):
     list_select_related = (
         'exam', 'exam__school', 'exam__academic_year', 'exam__academic_term',
         'exam__teacher_assignment__subject', 'student_enrollment__student',
-        'graded_by', 'approved_by',
+        'graded_by', 'approved_by', 'published_by',
     )
 
     def save_model(self, request, obj, form, change):
@@ -718,7 +751,7 @@ class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
     )
     list_select_related = (
         'exam_result__exam', 'exam_result__student_enrollment__student',
-        'changed_by',
+        'changed_by', 'published_by',
     )
     ordering = ('-changed_at',)
 

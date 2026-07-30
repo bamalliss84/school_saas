@@ -89,3 +89,12 @@ administrators can atomically publish or unpublish an exam, and can bulk-publish
 multiple exams. Publishing reports non-Approved results as skipped, and bulk
 failures roll back the request. Reopen automatically unpublishes before returning
 a result to Draft. Published state is audited. See `SPRINT_3_5.md`.
+
+
+## Publication hardening
+
+Publication notifications run only after a successful database commit and use
+non-sensitive immutable IDs. Configure `TRUST_X_FORWARDED_FOR=True` only when a
+trusted reverse proxy sanitizes that header; otherwise audit logs use the direct
+`REMOTE_ADDR`. Migration 0018 enforces publication metadata consistency at the
+database layer.

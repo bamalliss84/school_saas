@@ -642,3 +642,14 @@ back the complete request. Reopen automatically audits unpublication before
 returning a published Approved result to Draft. Django Admin exposes publication actions and a published-result count.
 A notification extension point exists without a provider implementation.
 Scheduled publication is deferred until a reliable scheduler is selected.
+
+
+## 19. Sprint 3.5.1 - Publication hardening
+
+Publication notifications are commit-aware and receive immutable identifiers;
+failed bulk transactions emit no notifications. Database constraints protect the
+approval/publication invariant after a defensive cleanup migration. Admin actions
+convert service failures into tenant-safe UI messages and report affected counts.
+Audit IP handling uses `REMOTE_ADDR` unless forwarded addresses are explicitly
+trusted through environment configuration. Publication selectors include the
+publisher relation to avoid N+1 queries.

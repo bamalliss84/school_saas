@@ -1,5 +1,8 @@
+import ipaddress
 import logging
+from functools import partial
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -15,8 +18,20 @@ def request_audit_metadata(request):
     if request is None:
         return {'request_id': None, 'ip_address': None, 'user_agent': None}
     request_id = request.headers.get('X-Request-ID') or getattr(request, 'request_id', None)
-    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    ip_address = forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR')
+    ip_address = None
+    if settings.TRUST_X_FORWARDED_FOR:
+        forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        for candidate in forwarded.split(','):
+            try:
+                ip_address = str(ipaddress.ip_address(candidate.strip()))
+                break
+            except ValueError:
+                continue
+    if ip_address is None:
+        try:
+            ip_address = str(ipaddress.ip_address(request.META.get('REMOTE_ADDR', '')))
+        except ValueError:
+            ip_address = None
     return {
         'request_id': request_id,
         'ip_address': ip_address or None,
@@ -252,9 +267,19 @@ def reopen_exam_result(*, exam_result, changed_by, reason=None, request=None):
         approved_by=None,
     )
 
-def notify_results_published(*, exam, results):
-    """Extension point for a future notification implementation."""
+def notify_results_published(*, exam_id, result_ids):
+    """No-op extension point receiving immutable, non-sensitive identifiers."""
     return None
+
+
+def _notify_results_published_safely(*, exam_id, result_ids):
+    try:
+        notify_results_published(exam_id=exam_id, result_ids=result_ids)
+    except Exception:
+        logger.exception(
+            'Result publication notification failed after commit for exam_id=%s',
+            exam_id,
+        )
 
 
 def _can_publish_exam(user, exam):
@@ -306,12 +331,12 @@ def publish_results(*, exam, changed_by, reason=None, request=None):
             request=request,
         )
         changed.append(result)
-    try:
-        notify_results_published(exam=exam, results=changed)
-    except Exception:
-        logger.exception(
-            'Result publication notification failed for exam_id=%s', exam.pk,
-        )
+    if changed:
+        transaction.on_commit(partial(
+            _notify_results_published_safely,
+            exam_id=exam.pk,
+            result_ids=tuple(result.pk for result in changed),
+        ))
     return {
         'exam': exam,
         'published_count': len(changed),

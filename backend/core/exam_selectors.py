@@ -16,7 +16,7 @@ def exam_types_for_user(user):
 
 def exams_for_user(user):
     results = ExamResult.objects.select_related(
-        'student_enrollment__student', 'graded_by', 'approved_by',
+        'student_enrollment__student', 'graded_by', 'approved_by', 'published_by',
     )
     queryset = Exam.objects.select_related(
         'school', 'academic_year', 'academic_term', 'exam_type',
@@ -57,7 +57,7 @@ def exam_results_for_user(user):
         'exam__teacher_assignment__section',
         'exam__teacher_assignment__subject',
         'student_enrollment__student', 'student_enrollment__classroom',
-        'student_enrollment__section', 'graded_by', 'approved_by',
+        'student_enrollment__section', 'graded_by', 'approved_by', 'published_by',
     )
     if not user or not user.is_authenticated:
         return queryset.none()
@@ -90,5 +90,5 @@ def exam_result_logs_for_user(user):
     if user.role in ('parent', 'student'):
         return ExamResultLog.objects.none()
     return ExamResultLog.objects.filter(exam_result_id__in=result_ids).select_related(
-        'exam_result', 'changed_by',
+        'exam_result', 'changed_by', 'published_by',
     )

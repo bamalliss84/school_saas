@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
@@ -178,11 +179,14 @@ class SprintThreePointFivePublishTests(APITestCase):
         self.assertEqual(unpublish_log.ip_address, '127.0.0.35')
         self.assertEqual(unpublish_log.user_agent, 'Sprint35')
 
-    def test_60_notification_extension_point_is_invoked(self):
+    def test_60_notification_extension_point_is_invoked_after_commit(self):
         self.approve()
         with patch('core.services.exam_results.notify_results_published') as notify:
-            self.publish()
-        notify.assert_called_once()
+            with self.captureOnCommitCallbacks(execute=True):
+                self.publish()
+        notify.assert_called_once_with(
+            exam_id=self.exam.pk, result_ids=(self.result.pk,),
+        )
 
     def test_61_admin_exposes_actions_and_published_count(self):
         self.approve(); self.publish()
@@ -262,6 +266,8 @@ class SprintThreePointFivePublishTests(APITestCase):
         model_admin = ExamAdmin(Exam, admin.site)
         request = RequestFactory().post('/admin/core/exam/')
         request.user = self.admin_user
+        request.session = {}
+        request._messages = FallbackStorage(request)
         queryset = model_admin.get_queryset(request)
         self.assertFalse(queryset.filter(pk=self.other_exam.pk).exists())
         model_admin.publish_selected_results(
@@ -297,7 +303,8 @@ class SprintThreePointFivePublishTests(APITestCase):
             'core.services.exam_results.notify_results_published',
             side_effect=RuntimeError('provider unavailable'),
         ):
-            response = self.publish()
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.publish()
         self.assertEqual(response.status_code, 200)
         self.result.refresh_from_db()
         self.assertTrue(self.result.is_published)
