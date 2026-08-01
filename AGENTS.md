@@ -126,3 +126,14 @@ backend\venv\Scripts\python.exe backend\manage.py test core
 - هل شُغل السيرفر وأُوقف.
 - أي مخاطر أو نقاط متبقية.
 - لا تنفذ `commit` أو `push` إلا بطلب صريح.
+
+# Current task workflow
+
+- عند طلبي "نفذ المهمة الحالية"، اقرأ `tasks/CURRENT_TASK.md` بالكامل.
+- نفذ المهمة حسب `AGENTS.md`.
+- أثناء التنفيذ حدّث `reports/LATEST_REPORT.md` بعد كل مرحلة رئيسية.
+- عند الفشل سجّل الأمر الفاشل والخطأ والسبب والإصلاح.
+- في نهاية المهمة اكتب التقرير النهائي الكامل في `reports/LATEST_REPORT.md`.
+- لا تنفذ `commit` أو `push` إلا إذا نصت المهمة الحالية على ذلك.
+- لا تعدل محتوى `tasks/CURRENT_TASK.md` أثناء التنفيذ.
+- لا تضع أسرارًا أو tokens أو بيانات شخصية في التقرير.
