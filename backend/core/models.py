@@ -1,3 +1,6 @@
+import os
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
@@ -1353,3 +1356,245 @@ class ExamResultLog(models.Model):
 
     def __str__(self):
         return f"{self.exam_result} - {self.changed_at}"
+
+
+def _attachment_path(school_id, kind, owner_id, filename):
+    extension = os.path.splitext(filename)[1].lower()[:16]
+    return f"schools/{school_id}/{kind}/{owner_id}/{uuid.uuid4().hex}{extension}"
+
+
+def homework_attachment_upload_to(instance, filename):
+    return _attachment_path(instance.homework.school_id, 'homework', instance.homework_id, filename)
+
+
+def submission_attachment_upload_to(instance, filename):
+    return _attachment_path(
+        instance.submission.homework.school_id,
+        'homework-submissions',
+        instance.submission_id,
+        filename,
+    )
+
+
+class Homework(models.Model):
+    STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('closed', 'Closed'),
+    )
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='homework')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='homework')
+    academic_term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='homework')
+    teacher_assignment = models.ForeignKey(
+        TeacherAssignment, on_delete=models.CASCADE, related_name='homework',
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    publish_at = models.DateTimeField(blank=True, null=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    due_date = models.DateTimeField()
+    max_grade = models.DecimalField(max_digits=7, decimal_places=2, blank=True, null=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True, related_name='created_homework',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at', '-id')
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_grade__isnull=True) | models.Q(max_grade__gte=0),
+                name='homework_max_grade_nonnegative',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(publish_at__isnull=True) | models.Q(due_date__gte=models.F('publish_at')),
+                name='homework_due_after_scheduled_publish',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(published_at__isnull=True) | models.Q(due_date__gte=models.F('published_at')),
+                name='homework_due_after_actual_publish',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='draft', published_at__isnull=True)
+                    | models.Q(status__in=('published', 'closed'), published_at__isnull=False)
+                ),
+                name='homework_status_publication_metadata',
+            ),
+        ]
+
+    def clean(self):
+        assignment = self.teacher_assignment
+        if (
+            assignment.school_id != self.school_id
+            or assignment.academic_year_id != self.academic_year_id
+            or self.academic_term.school_id != self.school_id
+            or self.academic_term.academic_year_id != self.academic_year_id
+        ):
+            raise ValidationError('Invalid homework relationships.')
+        if self.publish_at and self.due_date < self.publish_at:
+            raise ValidationError('Due date cannot precede publish time.')
+        if self.published_at and self.due_date < self.published_at:
+            raise ValidationError('Due date cannot precede publication time.')
+        if self.max_grade is not None and self.max_grade < 0:
+            raise ValidationError('Maximum grade cannot be negative.')
+        if self.created_by_id and self.created_by.role != 'super_admin':
+            if self.created_by.school_id != self.school_id:
+                raise ValidationError('Homework creator must belong to its school.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+
+class HomeworkAttachment(models.Model):
+    homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to=homework_attachment_upload_to)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=150)
+    file_size = models.BigIntegerField()
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='uploaded_homework_attachments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        constraints = [models.CheckConstraint(
+            condition=models.Q(file_size__gte=0), name='homework_attachment_size_nonnegative',
+        )]
+
+    def __str__(self):
+        return self.original_name
+
+
+class HomeworkSubmission(models.Model):
+    STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('graded', 'Graded'),
+        ('returned', 'Returned'),
+    )
+
+    homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name='submissions')
+    student_enrollment = models.ForeignKey(
+        StudentEnrollment, on_delete=models.CASCADE, related_name='homework_submissions',
+    )
+    answer = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    grade = models.DecimalField(max_digits=7, decimal_places=2, blank=True, null=True)
+    teacher_note = models.TextField(blank=True)
+    graded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='graded_homework_submissions',
+    )
+    graded_at = models.DateTimeField(blank=True, null=True)
+    returned_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-submitted_at', '-created_at', '-id')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('homework', 'student_enrollment'),
+                name='unique_homework_submission_per_enrollment',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(grade__isnull=True) | models.Q(grade__gte=0),
+                name='homework_submission_grade_nonnegative',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='graded', grade__isnull=False, graded_at__isnull=False)
+                    | ~models.Q(status='graded')
+                ),
+                name='graded_submission_requires_metadata',
+            ),
+        ]
+
+    @property
+    def is_late(self):
+        return bool(self.submitted_at and self.submitted_at > self.homework.due_date)
+
+    def clean(self):
+        assignment = self.homework.teacher_assignment
+        enrollment = self.student_enrollment
+        if (
+            enrollment.school_id != self.homework.school_id
+            or enrollment.academic_year_id != self.homework.academic_year_id
+            or enrollment.classroom_id != assignment.classroom_id
+            or enrollment.section_id != assignment.section_id
+        ):
+            raise ValidationError('Invalid homework submission relationships.')
+        if self.grade is not None:
+            if self.homework.max_grade is None:
+                raise ValidationError('This homework is not graded.')
+            if self.grade < 0 or self.grade > self.homework.max_grade:
+                raise ValidationError('Grade is outside the allowed range.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.homework} - {self.student_enrollment.student}'
+
+
+class HomeworkSubmissionAttachment(models.Model):
+    submission = models.ForeignKey(
+        HomeworkSubmission, on_delete=models.CASCADE, related_name='attachments',
+    )
+    file = models.FileField(upload_to=submission_attachment_upload_to)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=150)
+    file_size = models.BigIntegerField()
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='uploaded_submission_attachments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        constraints = [models.CheckConstraint(
+            condition=models.Q(file_size__gte=0), name='submission_attachment_size_nonnegative',
+        )]
+
+    def __str__(self):
+        return self.original_name
+
+
+class HomeworkActionLog(models.Model):
+    school = models.ForeignKey(
+        School, on_delete=models.CASCADE, related_name='homework_action_logs',
+    )
+    actor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='homework_action_logs',
+    )
+    action = models.CharField(max_length=50)
+    entity_type = models.CharField(max_length=50)
+    entity_id = models.PositiveBigIntegerField()
+    old_data = models.JSONField(default=dict, blank=True)
+    new_data = models.JSONField(default=dict, blank=True)
+    reason = models.TextField(blank=True)
+    request_id = models.CharField(max_length=100, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=512, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at', '-id')
+        indexes = [models.Index(fields=('school', '-created_at'), name='hw_audit_school_time_idx')]
+
+    def __str__(self):
+        return f'{self.entity_type}:{self.entity_id} {self.action}'

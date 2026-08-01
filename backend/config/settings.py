@@ -137,6 +137,10 @@ REST_FRAMEWORK = {
         'bulk_results': os.environ.get('THROTTLE_BULK_RESULTS', '500/hour'),
         'bulk_publish': os.environ.get('THROTTLE_BULK_PUBLISH', '200/hour'),
         'docs': os.environ.get('THROTTLE_DOCS', '300/hour'),
+        'homework_write': os.environ.get('THROTTLE_HOMEWORK_WRITE', '500/hour'),
+        'homework_submit': os.environ.get('THROTTLE_HOMEWORK_SUBMIT', '500/hour'),
+        'homework_bulk_grade': os.environ.get('THROTTLE_HOMEWORK_BULK_GRADE', '200/hour'),
+        'attachment_upload': os.environ.get('THROTTLE_ATTACHMENT_UPLOAD', '200/hour'),
     },
 }
 
@@ -147,12 +151,15 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SECURITY': [{'jwtAuth': []}],
+    'PREPROCESSING_HOOKS': ['core.schema.exclude_compatibility_paths'],
     'ENUM_NAME_OVERRIDES': {
         'AttendanceStatusEnum': 'core.models.Attendance.STATUS_CHOICES',
         'ExamStatusEnum': 'core.models.Exam.STATUS_CHOICES',
         'ExamResultStatusEnum': 'core.models.ExamResult.STATUS_CHOICES',
         'ResultWorkflowStatusEnum': 'core.models.ExamResult.WORKFLOW_CHOICES',
         'ResultLogActionEnum': 'core.models.ExamResultLog.ACTION_CHOICES',
+        'HomeworkStatusEnum': 'core.models.Homework.STATUS_CHOICES',
+        'HomeworkSubmissionStatusEnum': 'core.models.HomeworkSubmission.STATUS_CHOICES',
         'EnrollmentStatusEnum': (
             'active', 'transferred', 'graduated', 'withdrawn', 'suspended',
         ),
@@ -239,3 +246,15 @@ EMAIL_BACKEND = os.environ.get(
     'django.core.mail.backends.console.EmailBackend',
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@example.invalid')
+# Homework attachments
+MAX_HOMEWORK_ATTACHMENT_SIZE_MB = env_int('MAX_HOMEWORK_ATTACHMENT_SIZE_MB', 10)
+MAX_SUBMISSION_ATTACHMENT_SIZE_MB = env_int('MAX_SUBMISSION_ATTACHMENT_SIZE_MB', 10)
+MAX_ATTACHMENTS_PER_HOMEWORK = env_int('MAX_ATTACHMENTS_PER_HOMEWORK', 10)
+MAX_ATTACHMENTS_PER_SUBMISSION = env_int('MAX_ATTACHMENTS_PER_SUBMISSION', 10)
+ALLOWED_ATTACHMENT_EXTENSIONS = tuple(env_list(
+    'ALLOWED_ATTACHMENT_EXTENSIONS', 'pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png',
+))
+ALLOWED_ATTACHMENT_MIME_TYPES = tuple(env_list(
+    'ALLOWED_ATTACHMENT_MIME_TYPES',
+    'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
+))

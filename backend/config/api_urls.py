@@ -1,5 +1,19 @@
 from django.urls import path
 
+from core.homework_views import (
+    BulkCloseHomeworkAPIView, BulkGradeSubmissionsAPIView,
+    BulkPublishHomeworkAPIView, ClassHomeworkSummaryAPIView,
+    CloseHomeworkAPIView, FinalSubmitAPIView, GradeSubmissionAPIView,
+    HomeworkAttachmentAPIView, HomeworkAttachmentDeleteAPIView,
+    HomeworkDetailAPIView, HomeworkListCreateAPIView,
+    HomeworkSubmissionCreateAPIView, HomeworkSubmissionDetailAPIView,
+    HomeworkSubmissionsAPIView, HomeworkSummaryAPIView,
+    ParentChildHomeworkAPIView, PublishHomeworkAPIView,
+    ReturnSubmissionAPIView, StudentHomeworkSummaryAPIView,
+    StudentOwnHomeworkAPIView, SubmissionAttachmentAPIView,
+    SubmissionAttachmentDeleteAPIView, SubmissionListAPIView,
+    TeacherOwnHomeworkAPIView,
+)
 from core.exam_views import (
     ApproveResultAPIView,
     BulkGradeAPIView,
@@ -49,6 +63,30 @@ from core.views import (
 
 
 urlpatterns = [
+    path('homework/', HomeworkListCreateAPIView.as_view(), name='homework-list'),
+    path('homework/bulk-publish/', BulkPublishHomeworkAPIView.as_view(), name='homework-bulk-publish'),
+    path('homework/bulk-close/', BulkCloseHomeworkAPIView.as_view(), name='homework-bulk-close'),
+    path('homework/student/<int:student_id>/summary/', StudentHomeworkSummaryAPIView.as_view(), name='homework-student-summary'),
+    path('homework/class/<int:classroom_id>/summary/', ClassHomeworkSummaryAPIView.as_view(), name='homework-class-summary'),
+    path('homework/<int:pk>/publish/', PublishHomeworkAPIView.as_view(), name='homework-publish'),
+    path('homework/<int:pk>/close/', CloseHomeworkAPIView.as_view(), name='homework-close'),
+    path('homework/<int:pk>/submission/', HomeworkSubmissionCreateAPIView.as_view(), name='homework-submission-create'),
+    path('homework/<int:pk>/submissions/', HomeworkSubmissionsAPIView.as_view(), name='homework-submissions'),
+    path('homework/<int:pk>/summary/', HomeworkSummaryAPIView.as_view(), name='homework-summary'),
+    path('homework/<int:pk>/attachments/', HomeworkAttachmentAPIView.as_view(), name='homework-attachments'),
+    path('homework/<int:pk>/attachments/<int:attachment_id>/', HomeworkAttachmentDeleteAPIView.as_view(), name='homework-attachment-delete'),
+    path('homework/<int:pk>/', HomeworkDetailAPIView.as_view(), name='homework-detail'),
+    path('homework-submissions/', SubmissionListAPIView.as_view(), name='homework-submission-list'),
+    path('homework-submissions/bulk-grade/', BulkGradeSubmissionsAPIView.as_view(), name='homework-submission-bulk-grade'),
+    path('homework-submissions/<int:pk>/final-submit/', FinalSubmitAPIView.as_view(), name='homework-submission-final-submit'),
+    path('homework-submissions/<int:pk>/return/', ReturnSubmissionAPIView.as_view(), name='homework-submission-return'),
+    path('homework-submissions/<int:pk>/grade/', GradeSubmissionAPIView.as_view(), name='homework-submission-grade'),
+    path('homework-submissions/<int:pk>/attachments/', SubmissionAttachmentAPIView.as_view(), name='submission-attachments'),
+    path('homework-submissions/<int:pk>/attachments/<int:attachment_id>/', SubmissionAttachmentDeleteAPIView.as_view(), name='submission-attachment-delete'),
+    path('homework-submissions/<int:pk>/', HomeworkSubmissionDetailAPIView.as_view(), name='homework-submission-detail'),
+    path('students/me/homework/', StudentOwnHomeworkAPIView.as_view(), name='student-own-homework'),
+    path('parents/me/children/<int:student_id>/homework/', ParentChildHomeworkAPIView.as_view(), name='parent-child-homework'),
+    path('teachers/me/homework/', TeacherOwnHomeworkAPIView.as_view(), name='teacher-own-homework'),
     path('auth/login/', LoginTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', SecureTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/logout/', LogoutAPIView.as_view(), name='token_logout'),

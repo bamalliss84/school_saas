@@ -30,3 +30,14 @@ class ProjectSwaggerView(SpectacularSwaggerView):
 class ProjectRedocView(SpectacularRedocView):
     permission_classes = (CanViewAPIDocumentation,)
     throttle_scope = 'docs'
+
+
+def exclude_compatibility_paths(endpoints):
+    """Keep legacy /api/ routes live while documenting canonical /api/v1/ only."""
+    return [
+        endpoint for endpoint in endpoints
+        if not (
+            endpoint[0].startswith('/api/')
+            and not endpoint[0].startswith('/api/v1/')
+        )
+    ]

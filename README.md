@@ -98,3 +98,13 @@ non-sensitive immutable IDs. Configure `TRUST_X_FORWARDED_FOR=True` only when a
 trusted reverse proxy sanitizes that header; otherwise audit logs use the direct
 `REMOTE_ADDR`. Migration 0018 enforces publication metadata consistency at the
 database layer.
+
+## Homework and submissions
+
+Sprint 4A adds tenant-scoped Homework and HomeworkSubmission workflows under
+`/api/v1/`, including atomic publish/close/grade operations, multipart
+attachments, aggregate reports, audit records, and Django Admin actions. Files
+are validated by configurable size, count, extension and MIME policies. Storage
+deletion and future notification hooks run only after database commit. The
+current hooks are no-op extension points; Announcements and Notifications are
+deferred to Sprints 4B and 4C.

@@ -1,9 +1,9 @@
 # School SaaS Roadmap
 
 - **المشروع:** School SaaS
-- **تاريخ آخر تحديث:** 2026-07-30
-- **المرحلة الحالية:** المرحلة 6 — الاختبارات والنتائج
-- **Sprint الحالي:** Sprint 4 — الواجبات والإعلانات (جاهز للبدء)
+- **تاريخ آخر تحديث:** 2026-08-01
+- **المرحلة الحالية:** المرحلة 7 — الواجبات
+- **Sprint الحالي:** Sprint 4B — Announcements (جاهز للبدء)
 - **نسبة التقدم التقريبية:** 65%
 - **آخر Commit مرجعي معروف:** `7e80ffe Sprint 2.5: harden infrastructure filters and admin UX`
 
@@ -129,13 +129,14 @@
 
 # المرحلة 7 — الواجبات
 
-**الحالة: ⬜ لم تبدأ**
+**الحالة: ✅ مكتملة (Sprint 4A)**
 
-- [ ] Homework.
-- [ ] HomeworkSubmission.
-- [ ] Submission.
-- [ ] Grading.
-- [ ] Teacher, student and parent views.
+- [x] Homework وmultiple attachments.
+- [x] HomeworkSubmission وmultiple attachments.
+- [x] Draft/Publish/Close وDraft/Submit/Return/Grade.
+- [x] Bulk publish/close/grade الذري.
+- [x] Teacher, student and parent views.
+- [x] Audit وAdmin وreports وOpenAPI.
 
 # المرحلة 8 — الإعلانات والإشعارات
 
@@ -253,7 +254,21 @@
 - [x] OpenAPI وAdmin و44 اختبار Sprint.
 - [x] بوابة التحقق النهائية: 176 اختبارًا وتغطية 92% وOpenAPI سليم.
 
-## Sprint 4 — الواجبات والإعلانات
+## Sprint 4 — Homework, Announcements & Notifications
+
+### Sprint 4A — Homework, Submissions & Attachments
+
+**الحالة: ✅ مكتملة**
+
+- [x] Workflows والمرفقات والتقارير والتدقيق وAdmin.
+- [x] 285 اختبارًا وOpenAPI نظيف.
+- [x] hooks no-op مؤجلة للربط في Sprint 4C.
+
+### Sprint 4B — Announcements
+
+**الحالة: ⬜ لم يبدأ**
+
+### Sprint 4C — Notifications
 
 **الحالة: ⬜ لم يبدأ**
 
@@ -309,3 +324,5 @@
 - [x] Join publisher relations in result and audit selectors.
 
 Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
+
+| 2026-08-01 | إكمال Sprint 4A: الواجبات والتسليمات والمرفقات والتقارير و285 اختبارًا. | ✅ مكتملة |

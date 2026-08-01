@@ -1,11 +1,18 @@
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from .models import School, AcademicYear, SchoolSetting, User
 from django.contrib.auth.admin import UserAdmin
 from .models import Classroom, Section, Subject, ClassSubject, Teacher, Parent, Student, StudentEnrollment
 from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,ExamType,Exam,ExamResult
 from .models import ExamResultLog
+from .models import (
+    Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
+    HomeworkSubmissionAttachment,
+)
 from rest_framework.exceptions import (
     PermissionDenied as DRFPermissionDenied, ValidationError as DRFValidationError,
 )
@@ -13,6 +20,10 @@ from rest_framework.exceptions import (
 from .services.exam_results import (
     create_exam_result, publish_results_bulk, unpublish_results_bulk,
     update_exam_result,
+)
+from .services.homework import (
+    bulk_close_homework, bulk_grade_submissions, bulk_publish_homework,
+    return_submission,
 )
 
 
@@ -46,6 +57,10 @@ class TenantAdminMixin:
         'core.attendance': 'student_enrollment__school_id',
         'core.examresult': 'exam__school_id',
         'core.examresultlog': 'exam_result__exam__school_id',
+        'core.homeworksubmission': 'homework__school_id',
+        'core.homeworkattachment': 'homework__school_id',
+        'core.homeworksubmissionattachment': 'submission__homework__school_id',
+        'core.homeworkactionlog': 'school_id',
     }
 
     def _is_global_admin(self, request):
@@ -754,6 +769,164 @@ class ExamResultLogAdmin(TenantAdminMixin, admin.ModelAdmin):
         'changed_by', 'published_by',
     )
     ordering = ('-changed_at',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+@admin.register(Homework)
+class HomeworkAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = (
+        'title', 'school', 'academic_year', 'academic_term', 'teacher_assignment',
+        'status', 'due_date', 'submission_count', 'attachment_count',
+    )
+    list_filter = ('status', 'school', 'academic_year', 'academic_term')
+    search_fields = ('title', 'description', 'teacher_assignment__teacher__full_name')
+    date_hierarchy = 'created_at'
+    list_select_related = (
+        'school', 'academic_year', 'academic_term', 'teacher_assignment__teacher',
+        'teacher_assignment__subject',
+    )
+    actions = ('publish_selected', 'close_selected')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _submission_count=Count('submissions', distinct=True),
+            _attachment_count=Count('attachments', distinct=True),
+        )
+
+    @admin.display(ordering='_submission_count')
+    def submission_count(self, obj):
+        return obj._submission_count
+
+    @admin.display(ordering='_attachment_count')
+    def attachment_count(self, obj):
+        return obj._attachment_count
+
+    @admin.action(description='Publish selected homework')
+    def publish_selected(self, request, queryset):
+        try:
+            with transaction.atomic():
+                saved = bulk_publish_homework(
+                    homework_items=list(queryset.order_by('pk')),
+                    actor=request.user, request=request,
+                )
+            self.message_user(request, f'Published {len(saved)} homework item(s).', messages.SUCCESS)
+        except (DRFValidationError, DRFPermissionDenied, PermissionDenied) as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+
+    @admin.action(description='Close selected homework')
+    def close_selected(self, request, queryset):
+        try:
+            with transaction.atomic():
+                saved = bulk_close_homework(
+                    homework_items=list(queryset.order_by('pk')),
+                    actor=request.user, request=request,
+                )
+            self.message_user(request, f'Closed {len(saved)} homework item(s).', messages.SUCCESS)
+        except (DRFValidationError, DRFPermissionDenied, PermissionDenied) as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+
+
+@admin.register(HomeworkAttachment)
+class HomeworkAttachmentAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('original_name', 'homework', 'content_type', 'file_size', 'uploaded_by', 'created_at')
+    list_filter = ('content_type', 'created_at')
+    search_fields = ('original_name', 'homework__title')
+    list_select_related = ('homework__school', 'uploaded_by')
+    readonly_fields = ('original_name', 'content_type', 'file_size', 'uploaded_by', 'created_at')
+
+
+
+class HomeworkSubmissionActionForm(ActionForm):
+    grade = forms.DecimalField(required=False, min_value=0, decimal_places=2)
+    teacher_note = forms.CharField(required=False)
+@admin.register(HomeworkSubmission)
+class HomeworkSubmissionAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = (
+        'student_name', 'student_code', 'homework', 'status', 'grade',
+        'submitted_at', 'graded_at',
+    )
+    list_filter = ('status', 'homework__school', 'homework__academic_year')
+    search_fields = (
+        'student_enrollment__student__full_name',
+        'student_enrollment__student__student_code', 'homework__title',
+    )
+    list_select_related = (
+        'homework__school', 'student_enrollment__student', 'graded_by',
+    )
+    actions = ('grade_selected', 'return_selected')
+    action_form = HomeworkSubmissionActionForm
+    readonly_fields = (
+        'answer', 'status', 'submitted_at', 'grade', 'teacher_note',
+        'graded_by', 'graded_at', 'returned_at', 'created_at', 'updated_at',
+    )
+
+    @admin.display(ordering='student_enrollment__student__full_name')
+    def student_name(self, obj):
+        return obj.student_enrollment.student.full_name
+
+    @admin.display(ordering='student_enrollment__student__student_code')
+    def student_code(self, obj):
+        return obj.student_enrollment.student.student_code
+
+
+    @admin.action(description='Grade selected submissions')
+    def grade_selected(self, request, queryset):
+        grade = request.POST.get('grade')
+        if grade in (None, ''):
+            self.message_user(request, 'A grade is required.', messages.ERROR)
+            return
+        try:
+            with transaction.atomic():
+                saved = bulk_grade_submissions(
+                    items=[{
+                        'submission': item,
+                        'grade': forms.DecimalField().clean(grade),
+                        'teacher_note': request.POST.get('teacher_note', ''),
+                    } for item in queryset.order_by('pk')],
+                    actor=request.user,
+                    request=request,
+                )
+            self.message_user(request, f'Graded {len(saved)} submission(s).', messages.SUCCESS)
+        except (forms.ValidationError, DRFValidationError, DRFPermissionDenied, PermissionDenied) as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+
+    @admin.action(description='Return selected submissions')
+    def return_selected(self, request, queryset):
+        try:
+            with transaction.atomic():
+                saved = [return_submission(
+                    submission=item, actor=request.user, request=request,
+                ) for item in queryset.order_by('pk')]
+            self.message_user(request, f'Returned {len(saved)} submission(s).', messages.SUCCESS)
+        except (DRFValidationError, DRFPermissionDenied, PermissionDenied) as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+
+
+@admin.register(HomeworkSubmissionAttachment)
+class HomeworkSubmissionAttachmentAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('original_name', 'submission', 'content_type', 'file_size', 'uploaded_by', 'created_at')
+    list_filter = ('content_type', 'created_at')
+    search_fields = ('original_name', 'submission__homework__title')
+    list_select_related = ('submission__homework__school', 'uploaded_by')
+    readonly_fields = ('original_name', 'content_type', 'file_size', 'uploaded_by', 'created_at')
+
+
+@admin.register(HomeworkActionLog)
+class HomeworkActionLogAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('entity_type', 'entity_id', 'action', 'school', 'actor', 'created_at')
+    list_filter = ('entity_type', 'action', 'school', 'created_at')
+    search_fields = ('entity_type', 'entity_id', 'request_id')
+    list_select_related = ('school', 'actor')
+    readonly_fields = (
+        'school', 'actor', 'action', 'entity_type', 'entity_id', 'old_data',
+        'new_data', 'reason', 'request_id', 'ip_address', 'user_agent', 'created_at',
+    )
 
     def has_add_permission(self, request):
         return False

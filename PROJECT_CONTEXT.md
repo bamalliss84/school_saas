@@ -653,3 +653,9 @@ convert service failures into tenant-safe UI messages and report affected counts
 Audit IP handling uses `REMOTE_ADDR` unless forwarded addresses are explicitly
 trusted through environment configuration. Publication selectors include the
 publisher relation to avoid N+1 queries.
+
+## 20. Sprint 4A — Homework, Submissions & Attachments
+
+أضيفت موديلات `Homework` و`HomeworkAttachment` و`HomeworkSubmission` و`HomeworkSubmissionAttachment` و`HomeworkActionLog` عبر migration 0019. يبقى `TeacherAssignment` المصدر الرسمي للمادة والصف والشعبة. يعزل selector القراءة حسب المدرسة والدور والقيد الحالي، وتنفذ الخدمات transitions ذرية مع row locks وتدقيق آمن وhooks مؤجلة إلى ما بعد commit.
+
+يرى الطالب وولي الأمر الواجبات Published وClosed المطابقة للقيد فقط، بينما يدير المعلم واجبات تكليفاته الحالية، وتبقى الإدارة داخل المدرسة. المرفقات متعددة ومحدودة بإعدادات environment، وتستخدم UUID في التخزين وحذفًا commit-aware. توفر الواجهات إجراءات فردية وجماعية وتقارير مجمعة وحقول صلاحية للعميل، مع بقاء الخادم مصدر القرار. Announcements مؤجلة إلى 4B وNotifications إلى 4C؛ hooks الحالية no-op لحين 4C.
