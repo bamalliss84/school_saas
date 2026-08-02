@@ -100,12 +100,18 @@ class UserContextSerializer(serializers.ModelSerializer):
     school = SchoolBriefSerializer(read_only=True)
     academic_year = AcademicYearBriefSerializer(read_only=True)
     linked_profile = serializers.SerializerMethodField()
+    active_context = serializers.SerializerMethodField()
+    contexts_count = serializers.SerializerMethodField()
+    has_multiple_contexts = serializers.SerializerMethodField()
+    legacy_role = serializers.CharField(source='_legacy_role', read_only=True, required=False)
+    legacy_school = serializers.IntegerField(source='_legacy_school_id', read_only=True, required=False)
 
     class Meta:
         model = User
         fields = (
             'id', 'username', 'full_name', 'email', 'phone', 'role', 'school',
-            'academic_year', 'linked_profile',
+            'academic_year', 'linked_profile', 'active_context', 'contexts_count',
+            'has_multiple_contexts', 'legacy_role', 'legacy_school',
         )
 
     def get_full_name(self, obj) -> str:
@@ -138,14 +144,47 @@ class UserContextSerializer(serializers.ModelSerializer):
         return {key: profile.pk}
 
 
+
+    def _memberships(self, obj):
+        from .context import get_user_memberships
+        return get_user_memberships(obj)
+
+    def get_active_context(self, obj) -> dict | None:
+        from .context_serializers import SchoolMembershipSerializer
+        request = self.context.get('request')
+        membership = getattr(request, 'active_membership', None) if request else None
+        if membership is None:
+            membership = self._memberships(obj).filter(is_default=True, status='active').first()
+            membership = membership or self._memberships(obj).filter(status='active').first()
+        return SchoolMembershipSerializer(
+            membership, context={'request': request},
+        ).data if membership else None
+
+    def get_contexts_count(self, obj) -> int:
+        return self._memberships(obj).count()
+
+    def get_has_multiple_contexts(self, obj) -> bool:
+        return self.get_contexts_count(obj) > 1
+
 class LoginTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        from .context import ensure_legacy_membership, get_user_memberships
         if not self.user.is_active_school_user:
             raise AuthenticationFailed('Authentication failed.')
-        if self.user.school_id and not self.user.school.is_active:
+        ensure_legacy_membership(self.user)
+        usable = get_user_memberships(self.user).filter(
+            status__in=('active', 'historical'), school__is_active=True,
+        )
+        if self.user.role != 'super_admin' and not usable.exists():
             raise AuthenticationFailed('Authentication failed.')
-        data['user'] = UserContextSerializer(self.user).data
+        default = usable.filter(status='active', is_default=True).first()
+        data['user'] = UserContextSerializer(
+            self.user, context=self.context,
+        ).data
+        data['contexts_count'] = usable.count()
+        data['has_multiple_contexts'] = usable.count() > 1
+        data['default_membership_id'] = default.pk if default else None
         return data
 
 
@@ -163,17 +202,15 @@ class SecureTokenRefreshSerializer(TokenRefreshSerializer):
                 **{api_settings.USER_ID_FIELD: user_id}
             ).first()
 
-        if (
-            user is None
-            or not user.is_active
-            or not user.is_active_school_user
-            or (
-                user.role != 'super_admin'
-                and (user.school_id is None or not user.school.is_active)
-            )
-        ):
+        if user is None or not user.is_active or not user.is_active_school_user:
             raise AuthenticationFailed('Authentication failed.')
-
+        from .context import ensure_legacy_membership, get_user_memberships
+        ensure_legacy_membership(user)
+        usable = get_user_memberships(user).filter(
+            status__in=('active', 'historical'), school__is_active=True,
+        )
+        if user.role != 'super_admin' and not usable.exists():
+            raise AuthenticationFailed('Authentication failed.')
         return super().validate(attrs)
 
 

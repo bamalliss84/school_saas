@@ -49,7 +49,8 @@ def api_exception_handler(exc, context):
         )
         if response.status_code not in DEFAULT_MESSAGES and detail:
             message = str(detail)
-        errors = {}
+        context_code = getattr(exc, 'context_error_code', None)
+        errors = {'code': context_code} if context_code else {}
 
     response.data = {
         'success': False,

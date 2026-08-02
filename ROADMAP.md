@@ -4,7 +4,7 @@
 - **تاريخ آخر تحديث:** 2026-08-01
 - **المرحلة الحالية:** المرحلة 7 — الواجبات
 - **Sprint الحالي:** Sprint 4B — Announcements (جاهز للبدء)
-- **نسبة التقدم التقريبية:** 65%
+- **نسبة التقدم التقريبية:** 72%
 - **آخر Commit مرجعي معروف:** `7e80ffe Sprint 2.5: harden infrastructure filters and admin UX`
 
 ## حالات التنفيذ
@@ -264,6 +264,29 @@
 - [x] 285 اختبارًا وOpenAPI نظيف.
 - [x] hooks no-op مؤجلة للربط في Sprint 4C.
 
+
+### Sprint 4D — Multi-School Identity & Context
+
+**الحالة: ✅ مكتملة ومتحقق منها**
+
+- [x] هوية User عالمية وSchoolMembership لكل مدرسة ودور.
+- [x] Active Context صريح وHistorical Context للقراءة فقط.
+- [x] تاريخ الطالب متعدد المدارس ونقل ذري مقيد بـsuper_admin.
+- [x] أولياء أمور ومعلمون متعددو المدارس والأدوار مع عزل كامل.
+- [x] migration 0020 واختبارات السياق والقيود والنقل.
+
+المرحلة التالية: Sprint 4B، ثم 4C، ثم مراجعة Context قبل Flutter.
+
+#### Sprint 4D.1 — Multi-School Consistency Hardening
+
+**الحالة: ✅ مكتملة بعد التحقق**
+
+- [x] تقوية migration 0020 ضد stale legacy schools.
+- [x] خدمات مزامنة موحدة للطالب وولي الأمر والمعلم.
+- [x] تحقق نقل الطالب وLegacy pointers.
+- [x] Historical Homework وتقليل last_used_at writes.
+- [x] حماية request-local compatibility adapter.
+- [ ] إزالة الاعتماد على request.user.school/role/academic_year تدريجيًا، وتحويل كل الكود إلى Active Context قبل التجميد النهائي لطبقة Flutter.
 ### Sprint 4B — Announcements
 
 **الحالة: ⬜ لم يبدأ**
@@ -326,3 +349,5 @@
 Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 
 | 2026-08-01 | إكمال Sprint 4A: الواجبات والتسليمات والمرفقات والتقارير و285 اختبارًا. | ✅ مكتملة |
+
+| 2026-08-02 | إكمال Sprint 4D: العضويات والسياق والنقل متعدد المدارس مع 341 اختبارًا مستهدفًا. | ✅ مكتملة |

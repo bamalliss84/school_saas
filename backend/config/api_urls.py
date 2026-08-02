@@ -1,3 +1,8 @@
+from core.identity_views import (
+    ParentChildAcademicHistoryAPIView, ParentChildSchoolsAPIView,
+    StudentMeAcademicHistoryAPIView, StudentMeSchoolsAPIView, StudentTransferAPIView,
+)
+from core.context_views import ContextListAPIView, CurrentContextAPIView, DefaultContextAPIView
 from django.urls import path
 
 from core.homework_views import (
@@ -63,6 +68,11 @@ from core.views import (
 
 
 urlpatterns = [
+    path('students/me/schools/', StudentMeSchoolsAPIView.as_view(), name='student-me-schools'),
+    path('students/me/academic-history/', StudentMeAcademicHistoryAPIView.as_view(), name='student-me-academic-history'),
+    path('students/<int:pk>/transfer/', StudentTransferAPIView.as_view(), name='student-transfer'),
+    path('parents/me/children/<int:student_id>/schools/', ParentChildSchoolsAPIView.as_view(), name='parent-child-schools'),
+    path('parents/me/children/<int:student_id>/academic-history/', ParentChildAcademicHistoryAPIView.as_view(), name='parent-child-academic-history'),
     path('homework/', HomeworkListCreateAPIView.as_view(), name='homework-list'),
     path('homework/bulk-publish/', BulkPublishHomeworkAPIView.as_view(), name='homework-bulk-publish'),
     path('homework/bulk-close/', BulkCloseHomeworkAPIView.as_view(), name='homework-bulk-close'),
@@ -87,6 +97,9 @@ urlpatterns = [
     path('students/me/homework/', StudentOwnHomeworkAPIView.as_view(), name='student-own-homework'),
     path('parents/me/children/<int:student_id>/homework/', ParentChildHomeworkAPIView.as_view(), name='parent-child-homework'),
     path('teachers/me/homework/', TeacherOwnHomeworkAPIView.as_view(), name='teacher-own-homework'),
+    path('auth/contexts/', ContextListAPIView.as_view(), name='auth-contexts'),
+    path('auth/context/', CurrentContextAPIView.as_view(), name='auth-context'),
+    path('auth/context/default/', DefaultContextAPIView.as_view(), name='auth-context-default'),
     path('auth/login/', LoginTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', SecureTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/logout/', LogoutAPIView.as_view(), name='token_logout'),

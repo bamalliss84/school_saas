@@ -108,3 +108,10 @@ are validated by configurable size, count, extension and MIME policies. Storage
 deletion and future notification hooks run only after database commit. The
 current hooks are no-op extension points; Announcements and Notifications are
 deferred to Sprints 4B and 4C.
+## Multi-school context (Sprint 4D)
+
+A user can belong to multiple schools and roles through `SchoolMembership`. Canonical school APIs accept `X-School-Membership-ID`; it is optional only when one active context exists. The official sources for new request-scoped code are `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year`. The corresponding `request.user` school, role, and academic-year values are temporary Legacy Compatibility Fields, not authorization sources. Multiple active contexts without the header return `409 context_required`. Historical memberships are read-only. Discover contexts at `/api/v1/auth/contexts/`. Student transfers are atomic and super-admin-only in this release. See `SPRINT_4D.md`.
+
+## Sprint 4D.1 consistency hardening
+
+Membership synchronization is centralized in `core.services.identity` without signals. The current active student enrollment controls the active/default student membership plus legacy Student/User school and academic-year pointers. Parent memberships reflect current and historical guarded children; teacher synchronization creates assignment-derived memberships without downgrading explicit active memberships. Historical contexts include published/closed Homework and owned submissions from the selected school, while all writes remain forbidden. Ordinary Header-based requests do not update `last_used_at`; explicit default-context selection does. Authentication's legacy user mutation is in-memory and request-local only.

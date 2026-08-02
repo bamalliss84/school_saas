@@ -383,7 +383,7 @@ class SprintTwoAttendanceAPITestCase(APITestCase):
 
     def test_50_create_rejects_inactive_enrollment(self):
         StudentEnrollment.objects.filter(pk=self.enrollment_peer.pk).update(
-            status='transferred',
+            status='transferred', is_current=False,
         )
         self.enrollment_peer.refresh_from_db()
         self.auth(self.admin_a)

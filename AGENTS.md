@@ -137,3 +137,25 @@ backend\venv\Scripts\python.exe backend\manage.py test core
 - لا تنفذ `commit` أو `push` إلا إذا نصت المهمة الحالية على ذلك.
 - لا تعدل محتوى `tasks/CURRENT_TASK.md` أثناء التنفيذ.
 - لا تضع أسرارًا أو tokens أو بيانات شخصية في التقرير.
+
+## Multi-school identity rules (Sprint 4D)
+
+- `User` is a global identity; `SchoolMembership` is the source of school and role authorization.
+- The canonical request context for all new code is `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year`.
+- `request.user.school`, `request.user.role`, and `request.user.academic_year` are temporary Legacy Compatibility Fields only; new code must not use them as authorization sources.
+- School APIs require an Active Context. New code must not authorize from `user.school` or `user.role`.
+- `StudentEnrollment` is the source of the student's school history; `Student.school` is a legacy current pointer only.
+- Teachers may have active memberships and assignments in multiple schools.
+- Historical Context is read-only at the server, regardless of client UI.
+- Never copy attendance, results, homework, submissions or files during a school transfer.
+- Use the shared context helpers and `require_writable_context`; never use thread-local state.
+
+## Sprint 4D.1 — Consistency hardening
+
+- Membership state changes must go through the synchronization services in `core.services.identity`; do not add signals.
+- A current active `StudentEnrollment` drives the student's active/default membership and all legacy school/year pointers.
+- Guardian changes must resynchronize parent memberships; one other current child keeps the school active.
+- Current teacher assignments require an active teacher membership. Derived synchronization never downgrades an explicit active membership.
+- `last_used_at` changes only on explicit default-context selection, never on ordinary context GET requests.
+- The in-memory user mutation in authentication is request-local compatibility only and must never be saved.
+- Historical student/parent Homework access uses the selected historical membership and remains read-only.

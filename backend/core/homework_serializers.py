@@ -37,6 +37,13 @@ class HomeworkQuerySerializer(serializers.Serializer):
         ),
     )
 
+    def validate(self, attrs):
+        # QueryDict treats absent checkbox-like booleans as False; absence means no filter.
+        for field in ('overdue', 'has_submission'):
+            if field not in self.initial_data:
+                attrs.pop(field, None)
+        return attrs
+
 
 
 class HomeworkReportQuerySerializer(serializers.Serializer):

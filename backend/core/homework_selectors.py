@@ -6,8 +6,13 @@ from .models import (
 )
 
 
-def _enrollment_scope(user):
-    queryset = StudentEnrollment.objects.filter(is_current=True, status='active')
+def _enrollment_scope(user, membership=None):
+    membership = membership or getattr(user, '_active_membership', None)
+    queryset = StudentEnrollment.objects.filter(school_id=user.school_id)
+    if not membership or membership.status == 'active':
+        queryset = queryset.filter(is_current=True, status='active')
+    elif membership.status != 'historical':
+        return queryset.none()
     if user.role == 'student':
         return queryset.filter(student__user=user)
     if user.role == 'parent':
@@ -15,7 +20,7 @@ def _enrollment_scope(user):
     return queryset.none()
 
 
-def homework_for_user(user):
+def homework_for_user(user, request=None):
     queryset = Homework.objects.select_related(
         'school', 'academic_year', 'academic_term', 'created_by',
         'teacher_assignment__teacher', 'teacher_assignment__classroom',
@@ -39,8 +44,9 @@ def homework_for_user(user):
         return queryset.filter(teacher_assignment__teacher__user=user)
     if user.role not in ('student', 'parent'):
         return queryset.none()
+    membership = getattr(request, 'active_membership', None) if request else None
     scope = Q()
-    for enrollment in _enrollment_scope(user).only(
+    for enrollment in _enrollment_scope(user, membership).only(
         'academic_year_id', 'classroom_id', 'section_id',
     ):
         scope |= Q(
@@ -53,7 +59,7 @@ def homework_for_user(user):
     return queryset.filter(scope, status__in=('published', 'closed')).distinct()
 
 
-def submissions_for_user(user):
+def submissions_for_user(user, request=None):
     queryset = HomeworkSubmission.objects.select_related(
         'homework__school', 'homework__academic_year', 'homework__academic_term',
         'homework__teacher_assignment__teacher',
@@ -77,11 +83,18 @@ def submissions_for_user(user):
         return queryset
     if user.role == 'teacher':
         return queryset.filter(homework__teacher_assignment__teacher__user=user)
+    membership = getattr(request, 'active_membership', None) if request else getattr(user, '_active_membership', None)
+    if membership and membership.status == 'historical':
+        queryset = queryset.filter(homework__status__in=('published', 'closed'))
     if user.role == 'student':
-        return queryset.filter(student_enrollment__student__user=user)
+        return queryset.filter(
+            student_enrollment__student__user=user,
+            student_enrollment__school_id=user.school_id,
+        )
     if user.role == 'parent':
         return queryset.filter(
             student_enrollment__student__guardians__parent__user=user,
+            student_enrollment__school_id=user.school_id,
         ).distinct()
     return queryset.none()
 

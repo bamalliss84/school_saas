@@ -170,9 +170,12 @@ class StudentAcademicHistoryAPIView(generics.ListAPIView):
             students_for_user(self.request.user),
             pk=self.kwargs['pk'],
         )
-        return student.enrollments.select_related(
+        queryset = student.enrollments.select_related(
             'school', 'academic_year', 'classroom', 'section',
-        ).order_by('-academic_year__start_date', '-created_at')
+        )
+        if self.request.user.role != 'super_admin':
+            queryset = queryset.filter(school_id=self.request.user.school_id)
+        return queryset.order_by('-academic_year__start_date', '-created_at')
 
 
 class ParentChildrenAPIView(generics.ListAPIView):
@@ -183,17 +186,16 @@ class ParentChildrenAPIView(generics.ListAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return StudentGuardian.objects.none()
         try:
-            parent = Parent.objects.get(
-                user=self.request.user,
-                school_id=self.request.user.school_id,
-            )
+            parent = Parent.objects.get(user=self.request.user)
         except Parent.DoesNotExist as exc:
             raise NotFound('Parent profile not found.') from exc
 
         enrollments = StudentEnrollment.objects.select_related(
             'school', 'academic_year', 'classroom', 'section',
         ).order_by('-is_current', '-academic_year__start_date', '-created_at')
-        return StudentGuardian.objects.filter(parent=parent).select_related(
+        return StudentGuardian.objects.filter(
+            parent=parent, student__enrollments__school_id=self.request.user.school_id,
+        ).distinct().select_related(
             'student', 'student__school',
         ).prefetch_related(
             Prefetch('student__enrollments', queryset=enrollments),
@@ -202,7 +204,7 @@ class ParentChildrenAPIView(generics.ListAPIView):
 
 def _teacher_for_user(user):
     try:
-        return Teacher.objects.get(user=user, school_id=user.school_id)
+        return Teacher.objects.get(user=user)
     except Teacher.DoesNotExist as exc:
         raise NotFound('Teacher profile not found.') from exc
 

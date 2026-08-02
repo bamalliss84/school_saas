@@ -144,6 +144,85 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+
+class SchoolMembership(models.Model):
+    ROLE_CHOICES = User.ROLE_CHOICES
+    STATUS_CHOICES = (
+        ('active', 'Active'),
+        ('historical', 'Historical'),
+        ('suspended', 'Suspended'),
+        ('ended', 'Ended'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='school_memberships')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='memberships')
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    is_default = models.BooleanField(default=False)
+    last_used_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('user_id', '-is_default', 'school_id', 'role')
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'school', 'role'), name='unique_user_school_role_membership'),
+            models.UniqueConstraint(
+                fields=('user',), condition=models.Q(role='student', status='active'),
+                name='unique_active_student_membership',
+            ),
+            models.UniqueConstraint(
+                fields=('user',), condition=models.Q(is_default=True),
+                name='unique_default_membership_per_user',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(start_date__isnull=True) | models.Q(end_date__isnull=True)
+                    | models.Q(start_date__lte=models.F('end_date'))
+                ),
+                name='membership_dates_in_order',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(is_default=False) | models.Q(status='active'),
+                name='default_membership_must_be_active',
+            ),
+        ]
+
+    @property
+    def access_mode(self):
+        if not self.school.is_active or self.status in ('suspended', 'ended'):
+            return 'unavailable'
+        if self.status == 'historical':
+            return 'read_only'
+        return 'read_write'
+
+    @property
+    def can_read(self):
+        return self.access_mode in ('read_write', 'read_only')
+
+    @property
+    def can_write(self):
+        return self.access_mode == 'read_write'
+
+    def clean(self):
+        if self.is_default and self.status != 'active':
+            raise ValidationError('Only an active membership can be default.')
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError('Membership start date must not follow end date.')
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            SchoolMembership.objects.filter(user_id=self.user_id, is_default=True).exclude(
+                pk=self.pk,
+            ).update(is_default=False)
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.user} - {self.school} - {self.role}'
+
 class Classroom(models.Model):
     school = models.ForeignKey(
         School,
@@ -597,12 +676,18 @@ class StudentEnrollment(models.Model):
             models.UniqueConstraint(
                 fields=['student', 'academic_year'],
                 name='unique_student_academic_year_enrollment'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=['student'], condition=models.Q(is_current=True),
+                name='unique_current_enrollment_per_student',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(is_current=False) | models.Q(status='active'),
+                name='current_enrollment_must_be_active',
+            ),
         ]
 
     def clean(self):
-        if self.student.school_id != self.school_id:
-            raise ValidationError('Student school must match enrollment school.')
 
         if self.classroom.school_id != self.school_id:
             raise ValidationError('Classroom school must match enrollment school.')
@@ -629,6 +714,9 @@ class StudentEnrollment(models.Model):
             ).exclude(pk=self.pk).update(is_current=False)
 
         super().save(*args, **kwargs)
+        if self.is_current and self.status == 'active' and self.student.school_id != self.school_id:
+            Student.objects.filter(pk=self.student_id).update(school_id=self.school_id)
+            self.student.school_id = self.school_id
 
     def __str__(self):
         return f"{self.student.full_name} - {self.academic_year.name} - {self.classroom.name}"
@@ -674,10 +762,6 @@ class StudentGuardian(models.Model):
                 name='unique_student_parent_guardian'
             )
         ]
-
-    def clean(self):
-        if self.student.school_id != self.parent.school_id:
-            raise ValidationError('Student and guardian must belong to the same school.')
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -752,8 +836,16 @@ class TeacherAssignment(models.Model):
         ]
 
     def clean(self):
-        if self.teacher.school_id != self.school_id:
-            raise ValidationError('Teacher school must match assignment school.')
+        if self.teacher.user_id:
+            memberships = SchoolMembership.objects.filter(
+                user_id=self.teacher.user_id, role='teacher',
+            )
+            if memberships.exists() and not memberships.filter(
+                school_id=self.school_id, status='active',
+            ).exists():
+                raise ValidationError('Teacher requires an active membership in assignment school.')
+            if not memberships.exists() and self.teacher.school_id != self.school_id:
+                raise ValidationError('Teacher school must match assignment school for legacy users.')
 
         if self.classroom.school_id != self.school_id:
             raise ValidationError('Classroom school must match assignment school.')

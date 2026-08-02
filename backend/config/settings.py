@@ -110,7 +110,7 @@ SIMPLE_JWT = {
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'core.context.MembershipJWTAuthentication',
     ),
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -152,6 +152,10 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     'SECURITY': [{'jwtAuth': []}],
     'PREPROCESSING_HOOKS': ['core.schema.exclude_compatibility_paths'],
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'core.schema.add_school_context_header',
+    ],
     'ENUM_NAME_OVERRIDES': {
         'AttendanceStatusEnum': 'core.models.Attendance.STATUS_CHOICES',
         'ExamStatusEnum': 'core.models.Exam.STATUS_CHOICES',

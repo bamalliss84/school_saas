@@ -39,16 +39,13 @@ def students_for_user(user):
     if not user.school_id:
         return queryset.none()
 
-    queryset = queryset.filter(school_id=user.school_id)
+    queryset = queryset.filter(enrollments__school_id=user.school_id).distinct()
 
     if user.role == 'school_admin':
         return queryset
 
     if user.role == 'teacher':
-        teacher = Teacher.objects.filter(
-            user=user,
-            school_id=user.school_id,
-        ).first()
+        teacher = Teacher.objects.filter(user=user).first()
         if teacher is None:
             return queryset.none()
 
@@ -82,10 +79,13 @@ def students_for_user(user):
         return queryset.filter(enrollment_scope).distinct()
 
     if user.role == 'parent':
-        return queryset.filter(guardians__parent__user=user).distinct()
+        return queryset.filter(
+            guardians__parent__user=user,
+            enrollments__school_id=user.school_id,
+        ).distinct()
 
     if user.role == 'student':
-        return queryset.filter(user=user)
+        return queryset.filter(user=user, enrollments__school_id=user.school_id).distinct()
 
     return queryset.none()
 

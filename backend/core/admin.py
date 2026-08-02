@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError as DjangoValidationError
 from django.db import transaction
+from django.http import HttpResponseRedirect
 from django.db.models import Count, Prefetch, Q
 from .models import School, AcademicYear, SchoolSetting, User
 from django.contrib.auth.admin import UserAdmin
@@ -11,6 +12,7 @@ from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,E
 from .models import ExamResultLog
 from .models import (
     Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
+    SchoolMembership,
     HomeworkSubmissionAttachment,
 )
 from rest_framework.exceptions import (
@@ -24,6 +26,10 @@ from .services.exam_results import (
 from .services.homework import (
     bulk_close_homework, bulk_grade_submissions, bulk_publish_homework,
     return_submission,
+)
+from .services.identity import (
+    set_current_student_enrollment, sync_parent_memberships,
+    sync_student_memberships, sync_teacher_memberships,
 )
 
 
@@ -109,6 +115,28 @@ class TenantAdminMixin:
         obj.full_clean()
         super().save_model(request, obj, form, change)
 
+    def _safe_admin_mutation(self, request, callback):
+        try:
+            return callback()
+        except (DjangoValidationError, DRFValidationError, DRFPermissionDenied, PermissionDenied) as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            return HttpResponseRedirect(request.path)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        return self._safe_admin_mutation(
+            request,
+            lambda: super(TenantAdminMixin, self).changeform_view(
+                request, object_id, form_url, extra_context,
+            ),
+        )
+
+    def delete_view(self, request, object_id, extra_context=None):
+        return self._safe_admin_mutation(
+            request,
+            lambda: super(TenantAdminMixin, self).delete_view(
+                request, object_id, extra_context,
+            ),
+        )
     def has_add_permission(self, request):
         if (
             self.model._meta.label_lower == 'core.school'
@@ -324,6 +352,7 @@ class TeacherAdmin(TenantAdminMixin, admin.ModelAdmin):
         'full_name',
         'school',
         'academic_year',
+        'active_membership_schools',
         'phone',
         'specialization',
         'is_active',
@@ -347,6 +376,19 @@ class TeacherAdmin(TenantAdminMixin, admin.ModelAdmin):
         'employee_code',
         'created_at',
     )
+    def get_queryset(self, request):
+        memberships = SchoolMembership.objects.filter(
+            role='teacher', status='active',
+        ).select_related('school')
+        return super().get_queryset(request).prefetch_related(
+            Prefetch('user__school_memberships', queryset=memberships, to_attr='_admin_teacher_memberships'),
+        )
+
+    @admin.display(description='Active schools')
+    def active_membership_schools(self, obj):
+        if not obj.user_id:
+            return '-'
+        return ', '.join(item.school.name for item in obj.user._admin_teacher_memberships) or '-'
 
 @admin.register(Parent)
 class ParentAdmin(TenantAdminMixin, admin.ModelAdmin):
@@ -383,6 +425,7 @@ class StudentAdmin(TenantAdminMixin, admin.ModelAdmin):
         'student_code',
         'full_name',
         'school',
+        'current_school',
         'gender',
         'current_classroom',
         'current_section',
@@ -416,6 +459,12 @@ class StudentAdmin(TenantAdminMixin, admin.ModelAdmin):
 
     def _current_enrollment(self, obj):
         return obj._admin_current[0] if obj._admin_current else None
+
+
+    @admin.display(description='Current school')
+    def current_school(self, obj):
+        enrollment = self._current_enrollment(obj)
+        return enrollment.school if enrollment else '-'
 
     def current_classroom(self, obj):
         enrollment = self._current_enrollment(obj)
@@ -453,6 +502,18 @@ class StudentEnrollmentAdmin(TenantAdminMixin, admin.ModelAdmin):
         'student__full_name',
         'student__student_code',
     )
+    readonly_fields = ('is_current',)
+
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+            if obj.is_current:
+                set_current_student_enrollment(obj)
+            else:
+                sync_student_memberships(obj.student)
+        except Exception as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            raise
 
 @admin.register(StudentGuardian)
 class StudentGuardianAdmin(TenantAdminMixin, admin.ModelAdmin):
@@ -478,6 +539,25 @@ class StudentGuardianAdmin(TenantAdminMixin, admin.ModelAdmin):
         'parent__full_name',
         'parent__parent_code',
     )
+
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+            sync_parent_memberships(parent=obj.parent)
+        except Exception as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            raise
+
+    def delete_model(self, request, obj):
+        parent = obj.parent
+        super().delete_model(request, obj)
+        sync_parent_memberships(parent=parent)
+
+    def delete_queryset(self, request, queryset):
+        parents = list({item.parent for item in queryset.select_related('parent')})
+        super().delete_queryset(request, queryset)
+        for parent in parents:
+            sync_parent_memberships(parent=parent)
 
 @admin.register(TeacherAssignment)
 class TeacherAssignmentAdmin(TenantAdminMixin, admin.ModelAdmin):
@@ -507,6 +587,14 @@ class TeacherAssignmentAdmin(TenantAdminMixin, admin.ModelAdmin):
         'classroom__name',
         'section__name',
     )
+
+    def save_model(self, request, obj, form, change):
+        try:
+            super().save_model(request, obj, form, change)
+            sync_teacher_memberships(obj.teacher)
+        except Exception as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            raise
 
 @admin.register(AcademicTerm)
 class AcademicTermAdmin(TenantAdminMixin, admin.ModelAdmin):
@@ -936,3 +1024,21 @@ class HomeworkActionLogAdmin(TenantAdminMixin, admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+@admin.register(SchoolMembership)
+class SchoolMembershipAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = (
+        'user', 'school', 'role', 'status', 'is_default', 'start_date',
+        'end_date', 'last_used_at',
+    )
+    list_filter = ('school', 'role', 'status', 'is_default')
+    search_fields = ('user__username', 'user__email', 'school__name', 'school__code')
+    list_select_related = ('user', 'school')
+    date_hierarchy = 'created_at'
+
+    def save_model(self, request, obj, form, change):
+        if not self._is_global_admin(request):
+            if request.user.role != 'school_admin' or obj.school_id != request.user.school_id:
+                raise PermissionDenied
+            if obj.role == 'super_admin':
+                raise PermissionDenied
+        super().save_model(request, obj, form, change)
