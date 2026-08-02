@@ -105,9 +105,7 @@ Sprint 4A adds tenant-scoped Homework and HomeworkSubmission workflows under
 `/api/v1/`, including atomic publish/close/grade operations, multipart
 attachments, aggregate reports, audit records, and Django Admin actions. Files
 are validated by configurable size, count, extension and MIME policies. Storage
-deletion and future notification hooks run only after database commit. The
-current hooks are no-op extension points; Announcements and Notifications are
-deferred to Sprints 4B and 4C.
+deletion and future notification hooks run only after database commit. The workflow hooks now create membership-scoped Notifications after commit. Announcements and targeting remain deferred to Sprint 4C.
 ## Multi-school context (Sprint 4D)
 
 A user can belong to multiple schools and roles through `SchoolMembership`. Canonical school APIs accept `X-School-Membership-ID`; it is optional only when one active context exists. The official sources for new request-scoped code are `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year`. The corresponding `request.user` school, role, and academic-year values are temporary Legacy Compatibility Fields, not authorization sources. Multiple active contexts without the header return `409 context_required`. Historical memberships are read-only. Discover contexts at `/api/v1/auth/contexts/`. Student transfers are atomic and super-admin-only in this release. See `SPRINT_4D.md`.
@@ -115,3 +113,13 @@ A user can belong to multiple schools and roles through `SchoolMembership`. Cano
 ## Sprint 4D.1 consistency hardening
 
 Membership synchronization is centralized in `core.services.identity` without signals. The current active student enrollment controls the active/default student membership plus legacy Student/User school and academic-year pointers. Parent memberships reflect current and historical guarded children; teacher synchronization creates assignment-derived memberships without downgrading explicit active memberships. Historical contexts include published/closed Homework and owned submissions from the selected school, while all writes remain forbidden. Ordinary Header-based requests do not update `last_used_at`; explicit default-context selection does. Authentication's legacy user mutation is in-memory and request-local only.
+
+
+## Sprint 4B communications
+
+Membership-scoped notifications, homework completion/dashboard APIs, conversations, messages, safe attachments, teacher broadcasts, and the School Inbox are available under `/api/v1/`. Clients must select a context and send `X-School-Membership-ID`; feeds and unread badges are isolated to that membership. Message and workflow notifications are created after database commit. Historical contexts are read-only except documented personal read markers. See `SPRINT_4B.md` for routes, DTOs, privacy rules, and the Flutter context-switch flow. Announcements and targeting are planned for Sprint 4C.
+
+
+## Sprint 4B.1 privacy hardening
+
+Guardian and homework conversations are private two-party threads; the platform never creates parent group chats. School Support creation notifies active same-school administrators after commit using a safe preview. Attachment batches and support transitions are atomic. Broadcast actions accept only documented routes and scoped parameters, while notification payloads reject secrets recursively. Authorization is enforced again inside specialized messaging services. The original communication schema remains in migration 0021; migration 0022 applies the privacy-hardening constraints without rewriting an already-applied migration.

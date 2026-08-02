@@ -666,3 +666,13 @@ publisher relation to avoid N+1 queries.
 ## 22. Sprint 4D.1 — Multi-School Consistency Hardening
 
 Migration 0020 now determines each student's current active enrollment before legacy backfill, forces every other student membership historical, selects the current school as default, updates legacy user pointers, and remains idempotent. Central identity services synchronize student, parent and teacher memberships and protect current-enrollment switches. Transfer validation rejects inactive destinations, mismatched relationships and invalid dates before any update. Historical Homework uses the explicit membership context, exposes only published/closed work and owned submissions, and remains read-only. `last_used_at` is written only by explicit default selection. Compatibility mutation never persists request-selected role or school.
+
+
+## 23. Sprint 4B - Context-Aware Communications
+
+Sprint 4B adds membership-scoped Notifications, derived Homework completion and dashboards, participant-scoped Conversations and Messages, safe attachments, teacher broadcast, and a private School Inbox. The canonical tenant identity is always the active `SchoolMembership`; historical contexts are read-only except personal notification/conversation read markers. Homework and result workflows now create deduplicated notifications after commit. Migration 0021 contains the five communication models and their integrity constraints/indexes. Announcements remain deferred to Sprint 4C. See `SPRINT_4B.md` for API and Flutter contracts.
+
+
+## 24. Sprint 4B.1 communication hardening
+
+Communication privacy is pairwise for guardian and homework discussions: one parent membership per conversation and no parent-to-parent visibility. Specialized services, not serializers, are the authorization boundary. School Support creation notifies active same-school administrators after commit. Attachment batches and support transitions are atomic. Broadcast actions are route-whitelisted and notification payloads are recursively validated. Migration 0021 remains the original communication schema. Migration 0022 defensively normalizes existing communication metadata and then adds related-context, support-category, status-timestamp, participant-left, and message-deletion consistency constraints.

@@ -27,7 +27,7 @@ Single-exam and bulk publication are atomic. Publishing processes Approved resul
 
 ## Admin and integrations
 
-Django Admin shows the published-result count and provides publish/unpublish actions. `notify_results_published` is a no-op extension point for a future notification provider. Scheduled publication is deferred until a scheduler and its operational guarantees are selected.
+Django Admin shows the published-result count and provides publish/unpublish actions. `notify_results_published` now creates membership-scoped student and guardian Notifications through Sprint 4B services after commit. Scheduled publication is deferred until a scheduler and its operational guarantees are selected.
 
 
 ## Verification

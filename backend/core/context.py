@@ -15,7 +15,7 @@ class ContextRequired(APIException):
 
 
 def get_user_memberships(user, *, include_ended=False):
-    queryset = SchoolMembership.objects.filter(user=user).select_related('school')
+    queryset = SchoolMembership.objects.filter(user=user).select_related('school', 'user')
     if not include_ended:
         queryset = queryset.exclude(status='ended')
     return queryset.order_by('-is_default', 'school__name', 'role', 'pk')
@@ -131,7 +131,14 @@ def resolve_membership_context(request, user, *, optional=False):
         raise PermissionDenied('This school context is not available.')
     if not membership.school.is_active:
         raise PermissionDenied('This school context is not available.')
-    if membership.status == 'historical' and request.method not in SAFE_METHODS:
+    personal_state_write = (
+        request.method == 'POST' and (
+            request.path.endswith('/notifications/read-all/')
+            or ('/notifications/' in request.path and request.path.endswith('/read/'))
+            or ('/conversations/' in request.path and request.path.endswith('/read/'))
+        )
+    )
+    if membership.status == 'historical' and request.method not in SAFE_METHODS and not personal_state_write:
         raise PermissionDenied('Historical school context is read-only.')
     apply_membership_context(request, user, membership)
     return membership

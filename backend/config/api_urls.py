@@ -5,13 +5,28 @@ from core.identity_views import (
 from core.context_views import ContextListAPIView, CurrentContextAPIView, DefaultContextAPIView
 from django.urls import path
 
+from core.communication_views import (
+    CommunicationBadgesAPIView, NotificationBroadcastAPIView, SchoolInboxAssignAPIView,
+    SchoolInboxDetailAPIView, SchoolInboxListCreateAPIView, SchoolInboxReplyAPIView,
+    SchoolInboxStatusAPIView,
+)
+from core.messaging_views import (
+    ConversationCloseAPIView, ConversationDetailAPIView, ConversationListAPIView,
+    ConversationMessagesAPIView, ConversationReadAPIView, ConversationReopenAPIView,
+    ConversationStartAPIView, MessageAttachmentAPIView, MessageAttachmentDeleteAPIView,
+)
+from core.notification_views import (
+    NotificationDetailAPIView, NotificationListAPIView, NotificationReadAllAPIView,
+    NotificationReadAPIView, NotificationUnreadCountAPIView,
+)
+
 from core.homework_views import (
     BulkCloseHomeworkAPIView, BulkGradeSubmissionsAPIView,
     BulkPublishHomeworkAPIView, ClassHomeworkSummaryAPIView,
     CloseHomeworkAPIView, FinalSubmitAPIView, GradeSubmissionAPIView,
     HomeworkAttachmentAPIView, HomeworkAttachmentDeleteAPIView,
     HomeworkDetailAPIView, HomeworkListCreateAPIView,
-    HomeworkSubmissionCreateAPIView, HomeworkSubmissionDetailAPIView,
+    HomeworkDashboardAPIView, HomeworkSubmissionCreateAPIView, HomeworkSubmissionDetailAPIView,
     HomeworkSubmissionsAPIView, HomeworkSummaryAPIView,
     ParentChildHomeworkAPIView, PublishHomeworkAPIView,
     ReturnSubmissionAPIView, StudentHomeworkSummaryAPIView,
@@ -68,12 +83,34 @@ from core.views import (
 
 
 urlpatterns = [
+    path('communication/badges/', CommunicationBadgesAPIView.as_view(), name='communication-badges'),
+    path('notifications/broadcast/', NotificationBroadcastAPIView.as_view(), name='notification-broadcast'),
+    path('school-inbox/', SchoolInboxListCreateAPIView.as_view(), name='school-inbox-list'),
+    path('school-inbox/<int:pk>/assign/', SchoolInboxAssignAPIView.as_view(), name='school-inbox-assign'),
+    path('school-inbox/<int:pk>/status/', SchoolInboxStatusAPIView.as_view(), name='school-inbox-status'),
+    path('school-inbox/<int:pk>/reply/', SchoolInboxReplyAPIView.as_view(), name='school-inbox-reply'),
+    path('school-inbox/<int:pk>/', SchoolInboxDetailAPIView.as_view(), name='school-inbox-detail'),
+    path('conversations/', ConversationListAPIView.as_view(), name='conversation-list'),
+    path('conversations/start/', ConversationStartAPIView.as_view(), name='conversation-start'),
+    path('conversations/<int:pk>/messages/', ConversationMessagesAPIView.as_view(), name='conversation-messages'),
+    path('conversations/<int:pk>/read/', ConversationReadAPIView.as_view(), name='conversation-read'),
+    path('conversations/<int:pk>/close/', ConversationCloseAPIView.as_view(), name='conversation-close'),
+    path('conversations/<int:pk>/reopen/', ConversationReopenAPIView.as_view(), name='conversation-reopen'),
+    path('conversations/<int:pk>/', ConversationDetailAPIView.as_view(), name='conversation-detail'),
+    path('messages/<int:pk>/attachments/', MessageAttachmentAPIView.as_view(), name='message-attachments'),
+    path('messages/<int:pk>/attachments/<int:attachment_id>/', MessageAttachmentDeleteAPIView.as_view(), name='message-attachment-delete'),
+    path('notifications/', NotificationListAPIView.as_view(), name='notification-list'),
+    path('notifications/read-all/', NotificationReadAllAPIView.as_view(), name='notification-read-all'),
+    path('notifications/unread-count/', NotificationUnreadCountAPIView.as_view(), name='notification-unread-count'),
+    path('notifications/<int:pk>/read/', NotificationReadAPIView.as_view(), name='notification-read'),
+    path('notifications/<int:pk>/', NotificationDetailAPIView.as_view(), name='notification-detail'),
     path('students/me/schools/', StudentMeSchoolsAPIView.as_view(), name='student-me-schools'),
     path('students/me/academic-history/', StudentMeAcademicHistoryAPIView.as_view(), name='student-me-academic-history'),
     path('students/<int:pk>/transfer/', StudentTransferAPIView.as_view(), name='student-transfer'),
     path('parents/me/children/<int:student_id>/schools/', ParentChildSchoolsAPIView.as_view(), name='parent-child-schools'),
     path('parents/me/children/<int:student_id>/academic-history/', ParentChildAcademicHistoryAPIView.as_view(), name='parent-child-academic-history'),
     path('homework/', HomeworkListCreateAPIView.as_view(), name='homework-list'),
+    path('homework/dashboard/', HomeworkDashboardAPIView.as_view(), name='homework-dashboard'),
     path('homework/bulk-publish/', BulkPublishHomeworkAPIView.as_view(), name='homework-bulk-publish'),
     path('homework/bulk-close/', BulkCloseHomeworkAPIView.as_view(), name='homework-bulk-close'),
     path('homework/student/<int:student_id>/summary/', StudentHomeworkSummaryAPIView.as_view(), name='homework-student-summary'),

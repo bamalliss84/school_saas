@@ -14,13 +14,16 @@ class SchoolMembershipSerializer(serializers.ModelSerializer):
     membership_id = serializers.IntegerField(source='pk', read_only=True)
     can_write = serializers.SerializerMethodField()
     is_current_school = serializers.SerializerMethodField()
+    unread_notifications_count = serializers.SerializerMethodField()
+    unread_conversations_count = serializers.SerializerMethodField()
 
     class Meta:
         model = SchoolMembership
         fields = (
             'membership_id', 'school', 'role', 'status', 'access_mode',
             'is_default', 'is_current_school', 'academic_year', 'can_write',
-            'start_date', 'end_date', 'last_used_at',
+            'start_date', 'end_date', 'last_used_at', 'unread_notifications_count',
+            'unread_conversations_count',
         )
         read_only_fields = fields
 
@@ -28,6 +31,9 @@ class SchoolMembershipSerializer(serializers.ModelSerializer):
         return {'id': obj.school_id, 'name': obj.school.name}
 
     def get_academic_year(self, obj) -> dict | None:
+        year_map = self.context.get('academic_year_map')
+        if year_map is not None:
+            return year_map.get(obj.pk)
         request = self.context.get('request')
         if request is None:
             year = obj.school.academic_years.filter(is_active=True).order_by('-start_date').first()
@@ -40,6 +46,17 @@ class SchoolMembershipSerializer(serializers.ModelSerializer):
 
     def get_can_write(self, obj) -> bool:
         return obj.can_write
+
+    def get_unread_notifications_count(self, obj) -> int:
+        counts = self.context.get('notification_counts')
+        return counts.get(obj.pk, 0) if counts is not None else obj.notifications.filter(is_read=False).count()
+
+    def get_unread_conversations_count(self, obj) -> int:
+        counts = self.context.get('conversation_counts')
+        if counts is not None:
+            return counts.get(obj.pk, 0)
+        from .services.messaging import get_context_unread_conversation_counts
+        return get_context_unread_conversation_counts([obj]).get(obj.pk, 0)
 
     def get_is_current_school(self, obj) -> bool:
         user = obj.user

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.db.models import Avg, Count, Max, Min, Q
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -430,10 +431,12 @@ def _homework_summary(homework):
     submitted = stats['submitted'] + stats['graded'] + stats['returned']
     return {
         'homework_id': homework.pk, 'target_students': target_students,
-        'submitted': submitted, 'not_submitted': max(target_students - submitted, 0),
-        'draft': stats['draft'], 'graded': stats['graded'], 'returned': stats['returned'],
-        'late': stats['late'],
+        'submitted': stats['submitted'], 'not_started': max(target_students - (stats['total'] or 0), 0),
+        'drafts': stats['draft'], 'graded': stats['graded'], 'returned': stats['returned'],
+        'late': stats['late'], 'missing': max(target_students - submitted, 0),
         'completion_rate': round((submitted / target_students * 100), 2) if target_students else 0,
+        'grading_progress': round((stats['graded'] / submitted * 100), 2) if submitted else 0,
+        'pending_grading_count': stats['submitted'],
         'average_grade': stats['average_grade'], 'highest_grade': stats['highest_grade'],
         'lowest_grade': stats['lowest_grade'],
     }
@@ -524,7 +527,12 @@ class ParentChildHomeworkAPIView(HomeworkListCreateAPIView):
     def get_queryset(self):
         _require_role(self.request.user, ('parent',))
         student = generics.get_object_or_404(students_for_user(self.request.user), pk=self.kwargs['student_id'])
-        enrollments = student.enrollments.filter(is_current=True, status='active')
+        membership = getattr(self.request, 'active_membership', None)
+        if membership is None:
+            raise PermissionDenied('An active school context is required.')
+        enrollments = student.enrollments.filter(school_id=membership.school_id)
+        if membership.status == 'active':
+            enrollments = enrollments.filter(is_current=True, status='active')
         scope = Q()
         for enrollment in enrollments:
             scope |= Q(
@@ -542,3 +550,52 @@ class TeacherOwnHomeworkAPIView(HomeworkListCreateAPIView):
         if self.request.user.role != 'teacher':
             raise PermissionDenied('Teacher access is required.')
         return super().get_queryset()
+class HomeworkDashboardAPIView(APIView):
+    permission_classes = (IsActiveSchoolUser,)
+    throttle_scope = 'homework_dashboard'
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
+    def get(self, request):
+        role = request.active_role
+        queryset = homework_for_user(request.user, request)
+        now = timezone.now()
+        if role == 'teacher':
+            active = queryset.filter(status='published')
+            pending = submissions_for_user(request.user, request).filter(status='submitted').count()
+            return Response({
+                'active_homework_count': active.count(), 'pending_grading_count': pending,
+                'overdue_homework_count': active.filter(due_date__lt=now).count(),
+                'recent_homework': HomeworkSerializer(queryset[:5], many=True, context={'request': request}).data,
+                'homework_needing_action': HomeworkSerializer(active.filter(due_date__lt=now)[:5], many=True, context={'request': request}).data,
+            })
+        if role == 'student':
+            rows = list(queryset)
+            data = [HomeworkSerializer(item, context={'request': request}).data for item in rows]
+            today = timezone.localdate()
+            week = today + timedelta(days=7)
+            return Response({
+                'due_today_count': sum(item.due_date.date() == today for item in rows),
+                'due_this_week_count': sum(today <= item.due_date.date() <= week for item in rows),
+                'overdue_count': sum(item['completion_status'] == 'overdue' for item in data),
+                'returned_count': sum(item['completion_status'] == 'returned' for item in data),
+                'pending_grades_count': sum(item['completion_status'] == 'submitted' for item in data),
+                'next_due_homework': next((item for item in data if item['completion_status'] not in ('graded', 'closed_without_submission')), None),
+            })
+        submissions = submissions_for_user(request.user, request)
+        if role == 'parent':
+            return Response({
+                'children_summary': [],
+                'missing_count': queryset.filter(due_date__lt=now).exclude(submissions__in=submissions).count(),
+                'due_soon_count': queryset.filter(due_date__gte=now, due_date__lte=now + timedelta(days=7)).count(),
+                'recently_graded_count': submissions.filter(status='graded', graded_at__gte=now-timedelta(days=7)).count(),
+            })
+        target = StudentEnrollment.objects.filter(
+            school=request.active_school, is_current=True, status='active',
+        ).count() * queryset.filter(status__in=('published', 'closed')).count()
+        submitted = submissions.exclude(status='draft').count()
+        return Response({
+            'active_homework_count': queryset.filter(status='published').count(),
+            'overall_completion_rate': round(submitted * 100 / target, 2) if target else 0,
+            'pending_grading_count': submissions.filter(status='submitted').count(),
+            'missing_submissions_count': max(target-submitted, 0),
+        })

@@ -12,7 +12,7 @@ from .models import StudentGuardian, TeacherAssignment,AcademicTerm,Attendance,E
 from .models import ExamResultLog
 from .models import (
     Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
-    SchoolMembership,
+    SchoolMembership, Notification, Conversation, ConversationParticipant, Message, MessageAttachment,
     HomeworkSubmissionAttachment,
 )
 from rest_framework.exceptions import (
@@ -67,6 +67,11 @@ class TenantAdminMixin:
         'core.homeworkattachment': 'homework__school_id',
         'core.homeworksubmissionattachment': 'submission__homework__school_id',
         'core.homeworkactionlog': 'school_id',
+        'core.notification': 'school_id',
+        'core.conversation': 'school_id',
+        'core.conversationparticipant': 'conversation__school_id',
+        'core.message': 'conversation__school_id',
+        'core.messageattachment': 'message__conversation__school_id',
     }
 
     def _is_global_admin(self, request):
@@ -1042,3 +1047,60 @@ class SchoolMembershipAdmin(TenantAdminMixin, admin.ModelAdmin):
             if obj.role == 'super_admin':
                 raise PermissionDenied
         super().save_model(request, obj, form, change)
+@admin.register(Notification)
+class NotificationAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('school', 'recipient', 'recipient_membership', 'notification_type', 'title', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read', 'school')
+    search_fields = ('title', 'recipient__username')
+    date_hierarchy = 'created_at'
+    list_select_related = ('school', 'recipient', 'recipient_membership')
+    readonly_fields = (
+        'school', 'recipient', 'recipient_membership', 'notification_type', 'title', 'body',
+        'action_url', 'payload', 'source_type', 'source_id', 'deduplication_key',
+        'is_read', 'read_at', 'created_at', 'updated_at',
+    )
+
+    def has_add_permission(self, request):
+        return bool(request.user.is_superuser)
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(request.user.is_superuser)
+
+@admin.register(Conversation)
+class ConversationAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('subject', 'school', 'conversation_type', 'status', 'priority', 'assigned_to_membership', 'last_message_at')
+    list_filter = ('conversation_type', 'status', 'priority', 'school')
+    search_fields = ('subject',)
+    list_select_related = ('school', 'created_by_membership__user', 'assigned_to_membership__user')
+    readonly_fields = ('created_at', 'updated_at', 'last_message_at')
+
+
+@admin.register(ConversationParticipant)
+class ConversationParticipantAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('conversation', 'membership', 'is_active', 'last_read_at', 'joined_at')
+    list_filter = ('is_active',)
+    list_select_related = ('conversation__school', 'membership__user')
+
+
+@admin.register(Message)
+class MessageAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('conversation', 'sender_membership', 'created_at')
+    search_fields = ('conversation__subject', 'body')
+    list_select_related = ('conversation__school', 'sender_membership__user')
+    readonly_fields = ('conversation', 'sender_membership', 'body', 'reply_to', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(MessageAttachment)
+class MessageAttachmentAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('original_name', 'message', 'content_type', 'file_size', 'uploaded_by_membership', 'created_at')
+    list_select_related = ('message__conversation__school', 'uploaded_by_membership__user')
+    readonly_fields = ('message', 'file', 'original_name', 'content_type', 'file_size', 'uploaded_by_membership', 'created_at')
+
+    def has_add_permission(self, request):
+        return False

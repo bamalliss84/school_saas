@@ -268,8 +268,8 @@ def reopen_exam_result(*, exam_result, changed_by, reason=None, request=None):
     )
 
 def notify_results_published(*, exam_id, result_ids):
-    """No-op extension point receiving immutable, non-sensitive identifiers."""
-    return None
+    from .notifications import notify_results_published as notify
+    return notify(exam_id=exam_id, result_ids=result_ids)
 
 
 def _notify_results_published_safely(*, exam_id, result_ids):

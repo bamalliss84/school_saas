@@ -3,6 +3,9 @@ from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .context import ensure_legacy_membership
 
 from . import test_sprint3_exams
 from .models import Homework, HomeworkSubmission
@@ -15,6 +18,14 @@ class SprintFourAApiCoverageTests(APITestCase):
 
     def auth(self, user=None):
         self.client.force_authenticate(user=user or self.teacher_user)
+
+    def auth_context(self, user):
+        membership = ensure_legacy_membership(user)
+        self.client.force_authenticate(user=None)
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f'Bearer {RefreshToken.for_user(user).access_token}',
+            HTTP_X_SCHOOL_MEMBERSHIP_ID=str(membership.pk),
+        )
 
     def homework(self, title='API homework', published=False, **changes):
         values = {
@@ -150,7 +161,7 @@ class SprintFourAApiCoverageTests(APITestCase):
 
     def test_14_parent_child_homework(self):
         homework = self.homework(published=True)
-        self.auth(self.parent_user)
+        self.auth_context(self.parent_user)
         response = self.client.get(f'/api/v1/parents/me/children/{self.student.pk}/homework/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['results'][0]['id'], homework.pk)
@@ -189,7 +200,7 @@ class SprintFourAApiCoverageTests(APITestCase):
 
     def test_20_parent_cannot_publish(self):
         homework = self.homework()
-        self.auth(self.parent_user)
+        self.auth_context(self.parent_user)
         self.assertEqual(self.client.post(f'/api/v1/homework/{homework.pk}/publish/').status_code, 403)
 
     def test_21_bulk_missing_id_is_404(self):
@@ -204,7 +215,7 @@ class SprintFourAApiCoverageTests(APITestCase):
         _, submission = self.submitted()
         submission.teacher_note = 'Internal note'
         submission.save()
-        self.auth(self.parent_user)
+        self.auth_context(self.parent_user)
         response = self.client.get(f'/api/v1/homework-submissions/{submission.pk}/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['teacher_note'], '')

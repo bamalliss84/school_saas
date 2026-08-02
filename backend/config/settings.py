@@ -141,6 +141,16 @@ REST_FRAMEWORK = {
         'homework_submit': os.environ.get('THROTTLE_HOMEWORK_SUBMIT', '500/hour'),
         'homework_bulk_grade': os.environ.get('THROTTLE_HOMEWORK_BULK_GRADE', '200/hour'),
         'attachment_upload': os.environ.get('THROTTLE_ATTACHMENT_UPLOAD', '200/hour'),
+        'notification_list': os.environ.get('THROTTLE_NOTIFICATION_LIST', '1000/hour'),
+        'notification_read': os.environ.get('THROTTLE_NOTIFICATION_READ', '1000/hour'),
+        'notification_read_all': os.environ.get('THROTTLE_NOTIFICATION_READ_ALL', '300/hour'),
+        'notification_broadcast': os.environ.get('THROTTLE_NOTIFICATION_BROADCAST', '100/hour'),
+        'conversation_list': os.environ.get('THROTTLE_CONVERSATION_LIST', '1000/hour'),
+        'message_send': os.environ.get('THROTTLE_MESSAGE_SEND', '500/hour'),
+        'message_attachment_upload': os.environ.get('THROTTLE_MESSAGE_ATTACHMENT_UPLOAD', '200/hour'),
+        'school_support_create': os.environ.get('THROTTLE_SCHOOL_SUPPORT_CREATE', '100/hour'),
+        'school_support_reply': os.environ.get('THROTTLE_SCHOOL_SUPPORT_REPLY', '500/hour'),
+        'homework_dashboard': os.environ.get('THROTTLE_HOMEWORK_DASHBOARD', '1000/hour'),
     },
 }
 
@@ -164,6 +174,7 @@ SPECTACULAR_SETTINGS = {
         'ResultLogActionEnum': 'core.models.ExamResultLog.ACTION_CHOICES',
         'HomeworkStatusEnum': 'core.models.Homework.STATUS_CHOICES',
         'HomeworkSubmissionStatusEnum': 'core.models.HomeworkSubmission.STATUS_CHOICES',
+        'ConversationStatusEnum': 'core.models.Conversation.STATUS_CHOICES',
         'EnrollmentStatusEnum': (
             'active', 'transferred', 'graduated', 'withdrawn', 'suspended',
         ),
@@ -260,5 +271,15 @@ ALLOWED_ATTACHMENT_EXTENSIONS = tuple(env_list(
 ))
 ALLOWED_ATTACHMENT_MIME_TYPES = tuple(env_list(
     'ALLOWED_ATTACHMENT_MIME_TYPES',
+    'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
+))
+MAX_MESSAGE_LENGTH = env_int('MAX_MESSAGE_LENGTH', 4000)
+MAX_MESSAGE_ATTACHMENT_SIZE_MB = env_int('MAX_MESSAGE_ATTACHMENT_SIZE_MB', 10)
+MAX_ATTACHMENTS_PER_MESSAGE = env_int('MAX_ATTACHMENTS_PER_MESSAGE', 5)
+ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS = tuple(env_list(
+    'ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS', 'pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png',
+))
+ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = tuple(env_list(
+    'ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES',
     'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
 ))

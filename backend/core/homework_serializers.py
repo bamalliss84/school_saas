@@ -10,6 +10,7 @@ from .models import (
 )
 from .selectors import user_can_manage_teacher_assignment
 from .services.homework import create_homework, update_homework
+from .services.homework_completion import completion_flags
 
 
 class HomeworkQuerySerializer(serializers.Serializer):
@@ -29,6 +30,11 @@ class HomeworkQuerySerializer(serializers.Serializer):
     submission_status = serializers.ChoiceField(
         required=False, choices=HomeworkSubmission.STATUS_CHOICES,
     )
+    completion_status = serializers.ChoiceField(required=False, choices=(
+        'not_started', 'draft', 'submitted', 'returned', 'graded', 'overdue', 'closed_without_submission',
+    ))
+    graded = serializers.BooleanField(required=False)
+    pending_grading = serializers.BooleanField(required=False)
     search = serializers.CharField(required=False, allow_blank=True)
     ordering = serializers.ChoiceField(
         required=False, default='-created_at', choices=(
@@ -39,9 +45,12 @@ class HomeworkQuerySerializer(serializers.Serializer):
 
     def validate(self, attrs):
         # QueryDict treats absent checkbox-like booleans as False; absence means no filter.
-        for field in ('overdue', 'has_submission'):
+        for field in ('overdue', 'has_submission', 'graded', 'pending_grading'):
             if field not in self.initial_data:
                 attrs.pop(field, None)
+        for start, end in (('publish_from', 'publish_to'), ('due_from', 'due_to')):
+            if attrs.get(start) and attrs.get(end) and attrs[start] > attrs[end]:
+                raise serializers.ValidationError({end: f'Must be on or after {start}.'})
         return attrs
 
 
@@ -167,6 +176,13 @@ class HomeworkSerializer(serializers.ModelSerializer):
     can_close = serializers.SerializerMethodField()
     can_submit = serializers.SerializerMethodField()
     can_grade = serializers.SerializerMethodField()
+    completion_status = serializers.SerializerMethodField()
+    is_overdue = serializers.SerializerMethodField()
+    can_create_draft = serializers.SerializerMethodField()
+    can_final_submit = serializers.SerializerMethodField()
+    submission_attachments_count = serializers.SerializerMethodField()
+    teacher = serializers.CharField(source='teacher_assignment.teacher.full_name', read_only=True)
+    description_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = Homework
@@ -177,18 +193,23 @@ class HomeworkSerializer(serializers.ModelSerializer):
             'max_grade', 'created_by', 'attachments', 'attachments_count',
             'submission_status', 'submitted_at', 'graded_at', 'grade',
             'teacher_note', 'is_late', 'can_edit', 'can_publish', 'can_close',
-            'can_submit', 'can_grade', 'created_at', 'updated_at',
+            'can_submit', 'can_grade', 'completion_status', 'is_overdue',
+            'can_create_draft', 'can_final_submit', 'submission_attachments_count',
+            'teacher', 'description_preview', 'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'status', 'published_at', 'created_at', 'updated_at')
 
     def _own_submission(self, obj):
         request = self.context.get('request')
-        if not request or request.user.role != 'student':
+        if not request:
             return None
-        return next((
-            item for item in obj.submissions.all()
-            if item.student_enrollment.student.user_id == request.user.id
-        ), None)
+        active_role = getattr(request, 'active_role', None)
+        if active_role == 'student':
+            return next((item for item in obj.submissions.all() if item.student_enrollment.student.user_id == request.user.id), None)
+        if active_role == 'parent':
+            student_id = request.parser_context.get('kwargs', {}).get('student_id') if request.parser_context else None
+            return next((item for item in obj.submissions.all() if item.student_enrollment.student_id == student_id), None)
+        return None
 
     def get_submission_status(self, obj) -> str | None:
         submission = self._own_submission(obj)
@@ -230,6 +251,30 @@ class HomeworkSerializer(serializers.ModelSerializer):
     def get_can_submit(self, obj) -> bool:
         request = self.context.get('request')
         return bool(request and request.user.role == 'student' and obj.status == 'published')
+
+    def _completion(self, obj):
+        request = self.context.get('request')
+        membership = getattr(request, 'active_membership', None) if request else None
+        return completion_flags(obj, self._own_submission(obj), writable=bool(membership and membership.can_write))
+
+    def get_completion_status(self, obj) -> str:
+        return self._completion(obj)['completion_status']
+
+    def get_is_overdue(self, obj) -> bool:
+        return self._completion(obj)['is_overdue']
+
+    def get_can_create_draft(self, obj) -> bool:
+        return self._completion(obj)['can_create_draft']
+
+    def get_can_final_submit(self, obj) -> bool:
+        return self._completion(obj)['can_final_submit']
+
+    def get_submission_attachments_count(self, obj) -> int:
+        submission = self._own_submission(obj)
+        return submission.attachments.count() if submission else 0
+
+    def get_description_preview(self, obj) -> str:
+        return obj.description[:160]
 
     def get_can_grade(self, obj) -> bool:
         return self._can_manage(obj) and obj.max_grade is not None

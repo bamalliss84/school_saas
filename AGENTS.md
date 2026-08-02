@@ -159,3 +159,24 @@ backend\venv\Scripts\python.exe backend\manage.py test core
 - `last_used_at` changes only on explicit default-context selection, never on ordinary context GET requests.
 - The in-memory user mutation in authentication is request-local compatibility only and must never be saved.
 - Historical student/parent Homework access uses the selected historical membership and remains read-only.
+
+
+## Sprint 4B communication rules
+
+- New communication code must authorize only from `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year`; never from legacy `request.user.school/role/academic_year`.
+- A Notification belongs to exactly one `recipient_membership`; a Conversation participant and Message sender belong to `SchoolMembership`.
+- Never permit cross-school messaging or free recipient search. Resolve recipients from active-context academic relationships.
+- Historical contexts are read-only except the documented personal notification/conversation read markers.
+- Notification and message side effects run after commit using immutable IDs; do not add signals.
+
+
+## Sprint 4B.1 hardening rules
+
+- Teacher-parent and homework conversations are private pairs; never place multiple guardians or a student and guardians in one conversation.
+- Conversation serializers validate input shape only. Specialized messaging services are the security boundary and must revalidate role, membership, school, academic year, assignment, enrollment, guardian, and reuse policy.
+- School Support creation notifications run after commit and contain only a bounded subject preview.
+- Attachment batches validate completely under a message lock and clean only files created by the failed batch.
+- Support status, timestamps, resolution note, and audit must be one atomic service operation.
+- Broadcast actions must use the documented route whitelist and route-specific parameters.
+- Notification payload checks must be recursive, depth-limited, size-limited, JSON-native, and reject sensitive keys case-insensitively.
+- Never rewrite an already-applied communication migration to add hardening constraints; preserve 0021 and apply the additional guarantees through 0022 or a later forward migration.

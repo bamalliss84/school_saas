@@ -1690,3 +1690,183 @@ class HomeworkActionLog(models.Model):
 
     def __str__(self):
         return f'{self.entity_type}:{self.entity_id} {self.action}'
+class Notification(models.Model):
+    TYPE_CHOICES = (
+        ('homework_published', 'Homework published'), ('homework_graded', 'Homework graded'),
+        ('homework_returned', 'Homework returned'), ('result_published', 'Result published'),
+        ('message_received', 'Message received'), ('school_reply', 'School reply'),
+        ('school_support_created', 'School support created'), ('system', 'System'),
+    )
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='notifications')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    recipient_membership = models.ForeignKey(SchoolMembership, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=40, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    action_url = models.CharField(max_length=300, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    source_type = models.CharField(max_length=50, blank=True)
+    source_id = models.PositiveBigIntegerField(blank=True, null=True)
+    deduplication_key = models.CharField(max_length=255, blank=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at', '-id')
+        indexes = [
+            models.Index(fields=('recipient_membership', 'is_read', '-created_at'), name='notif_member_read_time_idx'),
+            models.Index(fields=('school', 'notification_type', '-created_at'), name='notif_school_type_time_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=('recipient_membership', 'deduplication_key'), condition=~models.Q(deduplication_key=''), name='unique_notification_dedup_key'),
+            models.CheckConstraint(condition=models.Q(is_read=False, read_at__isnull=True) | models.Q(is_read=True, read_at__isnull=False), name='notification_read_metadata_consistent'),
+        ]
+
+    def clean(self):
+        if self.recipient_membership_id:
+            if self.recipient_id != self.recipient_membership.user_id:
+                raise ValidationError('Notification recipient must match membership user.')
+            if self.school_id != self.recipient_membership.school_id:
+                raise ValidationError('Notification school must match membership school.')
+        if self.is_read != bool(self.read_at):
+            raise ValidationError('Notification read metadata is inconsistent.')
+
+
+class Conversation(models.Model):
+    TYPE_CHOICES = (
+        ('teacher_student', 'Teacher and student'), ('teacher_parent', 'Teacher and parent'),
+        ('homework_discussion', 'Homework discussion'), ('school_support', 'School support'),
+    )
+    STATUS_CHOICES = (('open', 'Open'), ('in_progress', 'In progress'), ('resolved', 'Resolved'), ('closed', 'Closed'))
+    RELATED_TYPE_CHOICES = (('', 'None'), ('homework', 'Homework'), ('homework_submission', 'Homework submission'), ('subject', 'Subject'), ('general', 'General'), ('student', 'Student'))
+    CATEGORY_CHOICES = (('', 'None'), ('academic_inquiry', 'Academic inquiry'), ('absence_excuse', 'Absence excuse'), ('profile_update', 'Profile update'), ('technical_issue', 'Technical issue'), ('complaint', 'Complaint'), ('other', 'Other'))
+    PRIORITY_CHOICES = (('low', 'Low'), ('normal', 'Normal'), ('high', 'High'))
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='conversations')
+    conversation_type = models.CharField(max_length=40, choices=TYPE_CHOICES)
+    subject = models.CharField(max_length=200)
+    created_by_membership = models.ForeignKey(SchoolMembership, on_delete=models.PROTECT, related_name='created_conversations')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    related_type = models.CharField(max_length=40, choices=RELATED_TYPE_CHOICES, blank=True)
+    related_id = models.PositiveBigIntegerField(blank=True, null=True)
+    assigned_to_membership = models.ForeignKey(SchoolMembership, on_delete=models.SET_NULL, blank=True, null=True, related_name='assigned_conversations')
+    category = models.CharField(max_length=40, choices=CATEGORY_CHOICES, blank=True)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
+    resolution_note = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    last_message_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-last_message_at', '-created_at', '-id')
+        indexes = [models.Index(fields=('school', 'conversation_type', 'status', '-last_message_at'), name='conv_school_type_state_idx')]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(related_type='', related_id__isnull=True)
+                    | models.Q(related_type='general', related_id__isnull=True)
+                    | (~models.Q(related_type__in=('', 'general')) & models.Q(related_id__isnull=False))
+                ), name='conversation_related_metadata_consistent',
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(conversation_type='school_support') | ~models.Q(category=''),
+                name='school_support_category_required',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='resolved', resolved_at__isnull=False, closed_at__isnull=True)
+                    | models.Q(status='closed', resolved_at__isnull=True, closed_at__isnull=False)
+                    | models.Q(status__in=('open', 'in_progress'), resolved_at__isnull=True, closed_at__isnull=True)
+                ), name='conversation_status_timestamps_consistent',
+            ),
+        ]
+
+    def clean(self):
+        if self.created_by_membership_id and self.created_by_membership.school_id != self.school_id:
+            raise ValidationError('Conversation creator membership must belong to its school.')
+        if self.assigned_to_membership_id and self.assigned_to_membership.school_id != self.school_id:
+            raise ValidationError('Conversation assignee membership must belong to its school.')
+
+
+class ConversationParticipant(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='participants')
+    membership = models.ForeignKey(SchoolMembership, on_delete=models.CASCADE, related_name='conversation_participations')
+    participant_role = models.CharField(max_length=50)
+    can_reply = models.BooleanField(default=True)
+    last_read_at = models.DateTimeField(blank=True, null=True)
+    joined_at = models.DateTimeField(auto_now_add=True)
+    left_at = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('conversation', 'membership'), name='unique_conversation_membership'),
+            models.CheckConstraint(
+                condition=(models.Q(is_active=True, left_at__isnull=True) | models.Q(is_active=False)),
+                name='active_participant_has_not_left',
+            ),
+        ]
+        indexes = [models.Index(fields=('membership', 'is_active', '-joined_at'), name='conv_part_member_active_idx')]
+
+    def clean(self):
+        if self.conversation_id and self.membership_id and self.conversation.school_id != self.membership.school_id:
+            raise ValidationError('Participant membership must belong to conversation school.')
+
+
+class Message(models.Model):
+    TYPE_CHOICES = (('text', 'Text'), ('system', 'System'))
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender_membership = models.ForeignKey(SchoolMembership, on_delete=models.PROTECT, related_name='sent_messages')
+    body = models.TextField(blank=True)
+    reply_to = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='replies')
+    message_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='text')
+    created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        indexes = [models.Index(fields=('conversation', 'created_at', 'id'), name='message_conv_time_idx')]
+        constraints = [models.CheckConstraint(
+            condition=(
+                models.Q(is_deleted=False, deleted_at__isnull=True)
+                | models.Q(is_deleted=True, deleted_at__isnull=False)
+            ), name='message_deleted_metadata_consistent',
+        )]
+
+    def clean(self):
+        if self.sender_membership_id and self.conversation_id:
+            if self.sender_membership.school_id != self.conversation.school_id:
+                raise ValidationError('Message sender must belong to conversation school.')
+            if not ConversationParticipant.objects.filter(conversation_id=self.conversation_id, membership_id=self.sender_membership_id, is_active=True, can_reply=True, left_at__isnull=True).exists():
+                raise ValidationError('Message sender is not an active participant.')
+        if self.reply_to_id and self.reply_to.conversation_id != self.conversation_id:
+            raise ValidationError('Reply target must belong to the same conversation.')
+        if not self.body.strip() and not self.pk:
+            raise ValidationError('Message body is required before attachments can be added.')
+
+
+def message_attachment_upload_to(instance, filename):
+    return _attachment_path(instance.message.conversation.school_id, 'messages', instance.message_id, filename)
+
+
+class MessageAttachment(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to=message_attachment_upload_to)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=150)
+    file_size = models.BigIntegerField()
+    uploaded_by_membership = models.ForeignKey(SchoolMembership, on_delete=models.PROTECT, related_name='uploaded_message_attachments')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        constraints = [models.CheckConstraint(condition=models.Q(file_size__gt=0), name='message_attachment_size_positive')]
+
+    def clean(self):
+        if self.uploaded_by_membership_id and self.message_id and self.uploaded_by_membership.school_id != self.message.conversation.school_id:
+            raise ValidationError('Attachment uploader must belong to conversation school.')

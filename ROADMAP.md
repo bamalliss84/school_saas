@@ -3,7 +3,7 @@
 - **المشروع:** School SaaS
 - **تاريخ آخر تحديث:** 2026-08-01
 - **المرحلة الحالية:** المرحلة 7 — الواجبات
-- **Sprint الحالي:** Sprint 4B — Announcements (جاهز للبدء)
+- **Current sprint:** Sprint 4B - Context-Aware Notifications, Homework Completion, Messaging & School Inbox (complete)
 - **نسبة التقدم التقريبية:** 72%
 - **آخر Commit مرجعي معروف:** `7e80ffe Sprint 2.5: harden infrastructure filters and admin UX`
 
@@ -351,3 +351,19 @@ Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 | 2026-08-01 | إكمال Sprint 4A: الواجبات والتسليمات والمرفقات والتقارير و285 اختبارًا. | ✅ مكتملة |
 
 | 2026-08-02 | إكمال Sprint 4D: العضويات والسياق والنقل متعدد المدارس مع 341 اختبارًا مستهدفًا. | ✅ مكتملة |
+
+| 2026-08-02 | Completed Sprint 4B: notifications, homework completion, messaging, and School Inbox; 503 tests and 93% coverage. | Complete |
+
+
+### Sprint 4B.1 - Communication Privacy & Consistency Hardening
+
+**Status: implemented; final verification pending**
+
+- [x] One-parent private conversations and pairwise homework discussions.
+- [x] School Support creation notifications after commit.
+- [x] Atomic attachment batches and support transitions.
+- [x] Precise transition audit events.
+- [x] Broadcast route whitelist and recursive payload validation.
+- [x] Specialized messaging authorization services.
+- [x] Preserve the original Migration 0021 and place hardening constraints in Migration 0022.
+- [ ] Re-run the complete Windows/PostgreSQL verification gate after applying 0022.
