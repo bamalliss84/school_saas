@@ -323,6 +323,15 @@
 
 **الحالة: ⬜ لم يبدأ**
 
+## Sprint 4.6 — Demo Data + Real E2E Acceptance
+
+**الحالة: ✅ مكتملة ومقبولة**
+
+- [x] Management Command آمن وحتمي وقابل لإعادة التشغيل/reset محدود.
+- [x] بيانات مدرستين وسياقات multi-school وhistorical مترابطة.
+- [x] اختبارات API E2E للسياق والأدوار والعزل وIDOR.
+- [x] بوابات Full Core/Coverage/OpenAPI/Live Server النهائية: 590 tests، Coverage 93%.
+
 ## Sprint 6 — Flutter Teacher
 
 **الحالة: ⬜ لم يبدأ**

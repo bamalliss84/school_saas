@@ -441,7 +441,7 @@ class Teacher(models.Model):
             if last_teacher and last_teacher.employee_code:
                 try:
                     next_number = int(
-                        last_teacher.employee_code.split('-')[-1]
+                        last_teacher.employee_code.split('-')[-1].removeprefix('T')
                     ) + 1
                 except Exception:
                     next_number = 1
@@ -1147,7 +1147,13 @@ class Exam(models.Model):
             raise ValidationError('Exam date must fall within the academic term dates.')
 
         if self.created_by_id and self.created_by.role != 'super_admin':
-            if self.created_by.school_id != self.school_id:
+            memberships = SchoolMembership.objects.filter(
+                user_id=self.created_by_id, role__in=('school_admin', 'teacher'),
+            )
+            if (
+                memberships.exists()
+                and not memberships.filter(school_id=self.school_id, status='active').exists()
+            ) or (not memberships.exists() and self.created_by.school_id != self.school_id):
                 raise ValidationError('Exam creator must belong to the exam school.')
 
     def save(self, *args, **kwargs):
@@ -1534,7 +1540,13 @@ class Homework(models.Model):
         if self.max_grade is not None and self.max_grade < 0:
             raise ValidationError('Maximum grade cannot be negative.')
         if self.created_by_id and self.created_by.role != 'super_admin':
-            if self.created_by.school_id != self.school_id:
+            memberships = SchoolMembership.objects.filter(
+                user_id=self.created_by_id, role__in=('school_admin', 'teacher'),
+            )
+            if (
+                memberships.exists()
+                and not memberships.filter(school_id=self.school_id, status='active').exists()
+            ) or (not memberships.exists() and self.created_by.school_id != self.school_id):
                 raise ValidationError('Homework creator must belong to its school.')
 
     def save(self, *args, **kwargs):

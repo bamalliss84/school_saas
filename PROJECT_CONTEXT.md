@@ -1,5 +1,7 @@
 # School SaaS — Project Context
 
+> Sprint 4.6 adds a development-only Demo seeder and API-driven E2E acceptance suite. It does not add a public endpoint, model, migration, or Flutter code. Demo records are synthetic and marked by `DEMO_`/`demo_`; see `DEMO_DATA.md`.
+
 هذا المستند يصف الحالة الحالية للمشروع كما هي في الشيفرة والمستندات وملفات migrations، ويقترح اتجاهًا عمليًا للتطوير قبل بدء أي Sprint. لا يمثل أي بند مقترح هنا ميزة منفذة ما لم يُذكر صراحة أنها موجودة حاليًا.
 
 ## 1. وصف كامل للمشروع

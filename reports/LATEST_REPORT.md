@@ -1,5 +1,26 @@
 # Final Backend Handover & Acceptance — Progress Report
 
+## Sprint 4.6 — Demo Data + E2E Acceptance
+
+- Baseline: clean `503f7b6`.
+- Baseline `manage.py check`: PASS.
+- Baseline migration drift: `No changes detected`.
+- مرحلة التنفيذ الحالية: Management Command للـDemo مع guard وatomic/idempotent/reset محدود بالـprefix.
+- فشل أول تشغيل للأمر: `User.password` فارغ أثناء `update_or_create` قبل `set_password`؛ لم تبق بيانات جزئية بسبب `transaction.atomic`. الإصلاح: إنشاء المستخدم الجديد بـpassword hash قبل أول save.
+- فشل التشغيل الثاني: مولد `Teacher.employee_code` القديم لا يزيل الحرف `T` قبل التحويل الرقمي، فيكرر `T00001`. لم تبق بيانات جزئية. عزل الـSeeder أكواده إلى `DEMO_T*`، وسيضاف regression test وإصلاح إنتاجي محدود للسبب الجذري.
+- اختبار reset كشف `ProtectedError` لأن Announcement يحمي creator membership. الإصلاح: حذف إعلانات مدارس Demo أولًا، ثم المدارس وبياناتها التابعة، ثم حسابات `demo_` المتبقية؛ لا يزال الحذف محصورًا بعلامة Demo.
+- إعادة اختبار reset كشفت ترتيب `SET_NULL` مع قيد نتيجة منشورة: حذف Admin قبل نتيجة Exam المنشورة يخالف metadata constraint مؤقتًا. الإصلاح: حذف ExamResults التابعة لمدارس Demo قبل حذف المدرسة، مع بقاء النطاق محصورًا.
+- E2E setup كشف عيب Active Context حقيقي: `Homework.clean` (وكذلك `Exam.clean`) كان يقارن `created_by.school` Legacy بمدرسة السجل، فيرفض المعلم متعدد المدارس في سياقه الثاني. الإصلاح المحدود: التحقق من Membership فعالة للمستخدم في مدرسة السجل ودور teacher/admin؛ لا تغيير للعقد.
+- Full Sprint 4.6 targeted run كشف `PROTECT` مماثلًا في Conversation/Message أثناء reset بعد إضافة بيانات التواصل. أضيف حذف Conversations التابعة لمدارس Demo قبل حذف المدارس.
+- أول Full Core بعد إصلاح Active Membership أظهر errors مبكرة في fixtures legacy بلا Membership، فأوقف التشغيل. الإصلاح المصحح يحافظ على fallback للـlegacy school فقط عندما لا توجد أي teacher/admin membership، ويستخدم العضوية الفعالة عند وجودها.
+- اختبارات Exam/Homework legacy + multi-school targeted: 73/73 PASS.
+- Full Core النهائي الأول: 590/590 PASS في 558.170s على PostgreSQL.
+- Coverage full run: 590/590 PASS في 579.866s؛ TOTAL 93% (9950 statements / 710 missing).
+- Django check PASS؛ deploy warnings الثلاثة المقبولة فقط؛ no model drift/pending migrations؛ Ruff PASS؛ OpenAPI 0/0.
+- Live HTTP: login 200، contexts=2، missing header 409، وجميع موارد السياق المحدد الأساسية 200؛ RUNSERVER_COUNT=0.
+- Database consistency: جميع فحوص duplicate/cross-school/publication/receipt/notification = 0.
+- القرار: **SPRINT 4.6 E2E ACCEPTED — READY FOR FLUTTER**.
+
 ## المرحلة 1: Pre-flight وقراءة الوثائق
 
 - الحالة: مكتملة.

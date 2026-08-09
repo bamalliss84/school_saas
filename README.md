@@ -59,6 +59,10 @@ backend\venv\Scripts\python.exe -m coverage report
 
 `DEBUG` defaults to `False`; set `DJANGO_DEBUG=True` explicitly for local development. `python backend/manage.py check --deploy` retains three expected development-environment warnings until a production SECRET_KEY, HTTPS redirect, and HSTS are configured through environment variables.
 
+## Development demo dataset
+
+Sprint 4.6 provides the development-only `seed_demo_school` management command. It creates two synthetic, interconnected schools and E2E personas without exposing a public seed endpoint. See `DEMO_DATA.md`; the command is guarded outside `DEBUG`, is idempotent, and `--reset-demo` removes only marked Demo data.
+
 ## Static and media
 
 Django serves media only in local development when `DEBUG=True`. Production must serve static/media through infrastructure designed for that purpose. School logos and operational media are not tracked in Git.
