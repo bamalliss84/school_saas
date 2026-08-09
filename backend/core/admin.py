@@ -14,6 +14,7 @@ from .models import (
     Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
     SchoolMembership, Notification, Conversation, ConversationParticipant, Message, MessageAttachment,
     HomeworkSubmissionAttachment, Announcement, AnnouncementAttachment, AnnouncementReceipt,
+    SchoolTimetableConfig, SchoolPeriod, TimetableEntry,
 )
 from rest_framework.exceptions import (
     PermissionDenied as DRFPermissionDenied, ValidationError as DRFValidationError,
@@ -1213,3 +1214,33 @@ class AnnouncementReceiptAdmin(TenantAdminMixin, admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(SchoolTimetableConfig)
+class SchoolTimetableConfigAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('school', 'academic_year', 'working_days', 'updated_at')
+    list_select_related = ('school', 'academic_year')
+
+
+@admin.register(SchoolPeriod)
+class SchoolPeriodAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = (
+        'name', 'school', 'academic_year', 'sequence', 'start_time', 'end_time',
+        'kind', 'is_active',
+    )
+    list_filter = ('school', 'academic_year', 'kind', 'is_active')
+    list_select_related = ('school', 'academic_year')
+
+
+@admin.register(TimetableEntry)
+class TimetableEntryAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = (
+        'teacher_assignment', 'school', 'academic_year', 'weekday', 'period',
+        'room_or_location', 'valid_from', 'valid_to', 'is_active',
+    )
+    list_filter = ('school', 'academic_year', 'weekday', 'is_active')
+    list_select_related = (
+        'school', 'academic_year', 'period', 'teacher_assignment__teacher',
+        'teacher_assignment__classroom', 'teacher_assignment__section',
+        'teacher_assignment__subject',
+    )

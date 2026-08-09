@@ -129,6 +129,15 @@ backend\venv\Scripts\python.exe backend\manage.py test core
 
 # Current task workflow
 
+## Sprint 4.7 timetable rules
+
+- `TeacherAssignment` is the who/what/whom source; `TimetableEntry` adds when/where and must not duplicate teacher/class/section/subject.
+- New timetable code authorizes only from `request.active_membership`, `active_school`, `active_role`, and `active_academic_year`.
+- Only active School Admin/Super Admin contexts write schedules; Teacher/Student/Parent and every historical context are read-only.
+- Break periods are display timeline rows and cannot own teaching entries.
+- Same-school teacher and class/section conflicts over overlapping validity are hard errors; never disclose another school's schedule.
+- Timetable enhances Attendance UX but never replaces TeacherAssignment authorization or disables existing Attendance APIs.
+
 - عند طلبي "نفذ المهمة الحالية"، اقرأ `tasks/CURRENT_TASK.md` بالكامل.
 - نفذ المهمة حسب `AGENTS.md`.
 - أثناء التنفيذ حدّث `reports/LATEST_REPORT.md` بعد كل مرحلة رئيسية.

@@ -131,3 +131,10 @@ Guardian and homework conversations are private two-party threads; the platform 
 ## Announcements and targeting
 
 Sprint 4C provides tenant-safe announcements under `/api/v1/announcements/`. School administrators can target their school, roles, classrooms, sections, assignments, or selected students; teachers are limited to their own current assignment. Delivery and read state are stored per `SchoolMembership`, and publication notifications run after database commit. Historical contexts are read-only apart from personal read markers. See `SPRINT_4C.md` for routes and policies.
+
+## Timetable and daily schedule
+
+Sprint 4.7 adds context-scoped period setup, atomic timetable Grid operations,
+and role-aware Today/Week/Current/Next APIs. `TeacherAssignment` remains the
+source of who teaches what to whom; `TimetableEntry` adds when and where. See
+`TIMETABLE_API_CONTRACT.md` and `TIMETABLE_ADMIN_UX.md`.

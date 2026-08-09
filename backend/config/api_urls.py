@@ -9,6 +9,12 @@ from core.identity_views import (
     ParentChildAcademicHistoryAPIView, ParentChildSchoolsAPIView,
     StudentMeAcademicHistoryAPIView, StudentMeSchoolsAPIView, StudentTransferAPIView,
 )
+from core.timetable_views import (
+    AssignmentOptionsAPIView, BulkTimetableAPIView, CopyDayAPIView, CopyWeekAPIView,
+    CurrentAPIView, EntryDetailAPIView, EntryListCreateAPIView, GridAPIView, NextAPIView,
+    PeriodBulkAPIView, PeriodDetailAPIView, PeriodListCreateAPIView, TimetableConfigAPIView,
+    TodayAPIView, ValidateTimetableAPIView, WeekAPIView,
+)
 from core.context_views import ContextListAPIView, CurrentContextAPIView, DefaultContextAPIView
 from django.urls import path
 
@@ -90,6 +96,22 @@ from core.views import (
 
 
 urlpatterns = [
+    path('timetable/config/', TimetableConfigAPIView.as_view(), name='timetable-config'),
+    path('timetable/periods/', PeriodListCreateAPIView.as_view(), name='timetable-period-list'),
+    path('timetable/periods/bulk/', PeriodBulkAPIView.as_view(), name='timetable-period-bulk'),
+    path('timetable/periods/<int:pk>/', PeriodDetailAPIView.as_view(), name='timetable-period-detail'),
+    path('timetable/entries/', EntryListCreateAPIView.as_view(), name='timetable-entry-list'),
+    path('timetable/entries/<int:pk>/', EntryDetailAPIView.as_view(), name='timetable-entry-detail'),
+    path('timetable/grid/', GridAPIView.as_view(), name='timetable-grid'),
+    path('timetable/bulk/', BulkTimetableAPIView.as_view(), name='timetable-bulk'),
+    path('timetable/validate/', ValidateTimetableAPIView.as_view(), name='timetable-validate'),
+    path('timetable/copy-day/', CopyDayAPIView.as_view(), name='timetable-copy-day'),
+    path('timetable/copy-week/', CopyWeekAPIView.as_view(), name='timetable-copy-week'),
+    path('timetable/assignment-options/', AssignmentOptionsAPIView.as_view(), name='timetable-assignment-options'),
+    path('timetable/today/', TodayAPIView.as_view(), name='timetable-today'),
+    path('timetable/week/', WeekAPIView.as_view(), name='timetable-week'),
+    path('timetable/current/', CurrentAPIView.as_view(), name='timetable-current'),
+    path('timetable/next/', NextAPIView.as_view(), name='timetable-next'),
     path('announcements/', AnnouncementListCreateAPIView.as_view(), name='announcement-list'),
     path('announcements/<int:pk>/publish/', AnnouncementPublishAPIView.as_view(), name='announcement-publish'),
     path('announcements/<int:pk>/close/', AnnouncementCloseAPIView.as_view(), name='announcement-close'),

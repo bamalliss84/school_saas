@@ -1,5 +1,27 @@
 # Final Backend Handover & Acceptance — Progress Report
 
+## Sprint 4.7.1 — Timetable Integrity & Grid Hardening
+
+- `ROADMAP.md` updated after acceptance with the complete Deferred/Future register (28 groups), actual Sprint 4.7/4.7.1 residual risks, and the fixed short path through Flutter Foundation; no deferred feature was implemented.
+- Daily attendance is Classroom+Section/day (`not_recorded`/`partial`/`recorded`) with recorded/expected counts, not period attendance.
+- `can_take_attendance` is limited to the owning Teacher in a writable current context on today's eligible lesson; Student/Parent/Admin/historical are false.
+- Added used working-day and used-period mutation/deletion guards.
+- Bulk/copy use one clear-first projected final state; clear+move, swap, validate-only and copy day/week parity pass atomically.
+- Targeted 19/19 PASS; Full Core 609/609 PASS; Coverage 93% (10,925 statements / 770 missing); Teacher Today query budget 8.
+- Django check PASS; no migration drift; Ruff PASS; OpenAPI 0 errors / 0 warnings. No migration added.
+- Minimal HTTP smoke: Teacher Today 200, Student Today 200, Parent Week 200, used-day config 400, clear+move validation 200, copy-day clear-target preview 200; temporary server stopped. No git add, commit or push.
+
+## Sprint 4.7 — Timetable & Daily Schedule
+
+- Baseline `06c5e08`; existing untracked Backend UX Contract files preserved unchanged.
+- Added Config/Period/Entry models and additive migration 0024.
+- Added atomic conflict/bulk/validate/copy services and role-scoped Grid/Today/Week/Current/Next APIs.
+- Demo Seeder now creates independent multi-school and historical timetable data.
+- Targeted timetable tests: 15 current tests; Full Core final command 604/604 PASS plus final query-budget test PASS.
+- Coverage 93% (10785/800); Ruff PASS; Django check PASS; migration drift none; OpenAPI 0/0.
+- Live HTTP Teacher/Student/Parent/Admin succeeded; temporary server stopped, count zero.
+- Decision: **SPRINT 4.7 TIMETABLE ACCEPTED — READY FOR BACKEND UX CONTRACT**.
+
 ## Sprint 4.6 — Demo Data + E2E Acceptance
 
 - Baseline: clean `503f7b6`.

@@ -871,6 +871,177 @@ class TeacherAssignment(models.Model):
 
     def __str__(self):
         return f"{self.teacher.full_name} - {self.subject.name} - {self.classroom.name} - {self.section.name}"
+
+
+class SchoolTimetableConfig(models.Model):
+    WEEKDAY_CHOICES = (
+        (0, 'Sunday'), (1, 'Monday'), (2, 'Tuesday'), (3, 'Wednesday'),
+        (4, 'Thursday'), (5, 'Friday'), (6, 'Saturday'),
+    )
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='timetable_configs')
+    academic_year = models.OneToOneField(
+        AcademicYear, on_delete=models.CASCADE, related_name='timetable_config',
+    )
+    working_days = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('school', 'academic_year'), name='unique_timetable_config_school_year',
+        )]
+
+    def clean(self):
+        if self.academic_year.school_id != self.school_id:
+            raise ValidationError('Timetable academic year must belong to its school.')
+        valid = {value for value, _ in self.WEEKDAY_CHOICES}
+        if (
+            not isinstance(self.working_days, list)
+            or not self.working_days
+            or len(self.working_days) != len(set(self.working_days))
+            or any(not isinstance(day, int) or day not in valid for day in self.working_days)
+        ):
+            raise ValidationError('Working days must be a non-empty unique weekday list.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class SchoolPeriod(models.Model):
+    KIND_CHOICES = (('lesson', 'Lesson'), ('break', 'Break'))
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='school_periods')
+    academic_year = models.ForeignKey(
+        AcademicYear, on_delete=models.CASCADE, related_name='school_periods',
+    )
+    name = models.CharField(max_length=100)
+    sequence = models.PositiveSmallIntegerField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='lesson')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('sequence', 'start_time', 'id')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('school', 'academic_year', 'sequence'),
+                name='unique_period_sequence_school_year',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(start_time__lt=models.F('end_time')),
+                name='school_period_start_before_end',
+            ),
+        ]
+
+    def clean(self):
+        if self.academic_year.school_id != self.school_id:
+            raise ValidationError('Period academic year must belong to its school.')
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError('Period start time must precede end time.')
+        if self.school_id and self.academic_year_id and self.start_time and self.end_time:
+            overlap = SchoolPeriod.objects.filter(
+                school_id=self.school_id, academic_year_id=self.academic_year_id,
+                start_time__lt=self.end_time, end_time__gt=self.start_time,
+            ).exclude(pk=self.pk)
+            if overlap.exists():
+                raise ValidationError('School periods cannot overlap.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.name} ({self.start_time}-{self.end_time})'
+
+
+class TimetableEntry(models.Model):
+    WEEKDAY_CHOICES = SchoolTimetableConfig.WEEKDAY_CHOICES
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='timetable_entries')
+    academic_year = models.ForeignKey(
+        AcademicYear, on_delete=models.CASCADE, related_name='timetable_entries',
+    )
+    teacher_assignment = models.ForeignKey(
+        TeacherAssignment, on_delete=models.PROTECT, related_name='timetable_entries',
+    )
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES)
+    period = models.ForeignKey(
+        SchoolPeriod, on_delete=models.PROTECT, related_name='timetable_entries',
+    )
+    room_or_location = models.CharField(max_length=120, blank=True)
+    valid_from = models.DateField(blank=True, null=True)
+    valid_to = models.DateField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='created_timetable_entries',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('weekday', 'period__sequence', 'id')
+        indexes = [
+            models.Index(
+                fields=('school', 'academic_year', 'weekday', 'is_active'),
+                name='tt_school_year_day_idx',
+            ),
+            models.Index(
+                fields=('teacher_assignment', 'weekday', 'is_active'),
+                name='tt_assignment_day_idx',
+            ),
+        ]
+        constraints = [models.CheckConstraint(
+            condition=(
+                models.Q(valid_from__isnull=True) | models.Q(valid_to__isnull=True)
+                | models.Q(valid_from__lte=models.F('valid_to'))
+            ),
+            name='timetable_validity_dates_ordered',
+        )]
+
+    def clean(self):
+        errors = {}
+        if self.academic_year.school_id != self.school_id:
+            errors['academic_year'] = 'Academic year must belong to timetable school.'
+        if (
+            self.period.school_id != self.school_id
+            or self.period.academic_year_id != self.academic_year_id
+        ):
+            errors['period'] = 'Period is outside timetable context.'
+        elif self.period.kind != 'lesson':
+            errors['period'] = 'Break periods cannot contain teaching entries.'
+        assignment = self.teacher_assignment
+        if (
+            assignment.school_id != self.school_id
+            or assignment.academic_year_id != self.academic_year_id
+            or not assignment.is_current
+        ):
+            errors['teacher_assignment'] = 'A current assignment in timetable context is required.'
+        config = SchoolTimetableConfig.objects.filter(
+            school_id=self.school_id, academic_year_id=self.academic_year_id,
+        ).first()
+        if config and self.weekday not in config.working_days:
+            errors['weekday'] = 'Weekday is not a configured working day.'
+        if self.valid_from and self.valid_to and self.valid_from > self.valid_to:
+            errors['valid_to'] = 'Validity end must not precede its start.'
+        if self.valid_from and self.valid_from < self.academic_year.start_date:
+            errors['valid_from'] = 'Validity must fall within the academic year.'
+        if self.valid_to and self.valid_to > self.academic_year.end_date:
+            errors['valid_to'] = 'Validity must fall within the academic year.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.teacher_assignment} - {self.get_weekday_display()} - {self.period}'
     
 
 class AcademicTerm(models.Model):

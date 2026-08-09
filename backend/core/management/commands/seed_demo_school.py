@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -13,6 +13,7 @@ from core.models import (
     HomeworkSubmission, Notification, Parent, School, SchoolMembership,
     SchoolSetting, Section, Student, StudentEnrollment, StudentGuardian,
     Subject, Teacher, TeacherAssignment, User, Message,
+    SchoolPeriod, SchoolTimetableConfig, TimetableEntry,
 )
 
 
@@ -47,6 +48,7 @@ class Command(BaseCommand):
         ))
 
     def _reset_demo(self):
+        TimetableEntry.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
         Announcement.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
         Conversation.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
         ExamResult.objects.filter(exam__school__code__in=DEMO_SCHOOL_CODES).delete()
@@ -217,6 +219,70 @@ class Command(BaseCommand):
                 subject=structure['subjects'][subject_code],
                 defaults={'school': structure['school'], 'is_current': True},
             )
+        assignments['a_math_previous'], _ = TeacherAssignment.objects.update_or_create(
+            teacher=teacher_a, academic_year=a['years']['previous'],
+            classroom=a['classrooms'][('previous', 6)],
+            section=a['sections'][('previous', 6, 'A')], subject=a['subjects']['MATH'],
+            defaults={'school': school_a, 'is_current': True},
+        )
+
+        periods = {}
+        for label, structure in (('a', a), ('b', b)):
+            SchoolTimetableConfig.objects.update_or_create(
+                school=structure['school'], academic_year=structure['years']['current'],
+                defaults={'working_days': [0, 1, 2, 3, 4]},
+            )
+            for sequence, name, start, end, kind in (
+                (1, 'DEMO First Lesson', time(7, 0), time(7, 45), 'lesson'),
+                (2, 'DEMO Second Lesson', time(7, 50), time(8, 35), 'lesson'),
+                (3, 'DEMO Break', time(8, 35), time(8, 55), 'break'),
+                (4, 'DEMO Third Lesson', time(8, 55), time(9, 40), 'lesson'),
+            ):
+                periods[(label, sequence)], _ = SchoolPeriod.objects.update_or_create(
+                    school=structure['school'], academic_year=structure['years']['current'],
+                    sequence=sequence,
+                    defaults={
+                        'name': name, 'start_time': start, 'end_time': end,
+                        'kind': kind, 'is_active': True,
+                    },
+                )
+        SchoolTimetableConfig.objects.update_or_create(
+            school=school_a, academic_year=a['years']['previous'],
+            defaults={'working_days': [0, 1, 2, 3, 4]},
+        )
+        historical_period, _ = SchoolPeriod.objects.update_or_create(
+            school=school_a, academic_year=a['years']['previous'], sequence=1,
+            defaults={
+                'name': 'DEMO Historical First Lesson', 'start_time': time(7, 0),
+                'end_time': time(7, 45), 'kind': 'lesson', 'is_active': True,
+            },
+        )
+        for key, assignment, period, weekday, room in (
+            ('a_math_sun', assignments['a_math'], periods[('a', 1)], 0, 'DEMO Room A1'),
+            ('a_science_sun', assignments['a_science'], periods[('a', 2)], 0, 'DEMO Lab A'),
+            ('a_science_mon', assignments['a_science'], periods[('a', 1)], 1, 'DEMO Lab A'),
+            ('b_math_sun', assignments['b_math'], periods[('b', 1)], 0, 'DEMO Room B1'),
+            ('b_english_sun', assignments['b_english'], periods[('b', 2)], 0, 'DEMO Room B2'),
+            ('b_math_mon', assignments['b_math'], periods[('b', 2)], 1, 'DEMO Room B1'),
+        ):
+            TimetableEntry.objects.update_or_create(
+                school=assignment.school, academic_year=assignment.academic_year,
+                teacher_assignment=assignment, weekday=weekday, period=period,
+                valid_from=None, valid_to=None,
+                defaults={
+                    'room_or_location': room, 'is_active': True,
+                    'created_by': admin_a if assignment.school_id == school_a.pk else admin_b,
+                },
+            )
+        TimetableEntry.objects.update_or_create(
+            school=school_a, academic_year=a['years']['previous'],
+            teacher_assignment=assignments['a_math_previous'], weekday=0,
+            period=historical_period, valid_from=None, valid_to=None,
+            defaults={
+                'room_or_location': 'DEMO Historical Room', 'is_active': True,
+                'created_by': admin_a,
+            },
+        )
 
         parents = {}
         for username, structure in (('demo_parent_a', a), ('demo_parent_multi', b)):

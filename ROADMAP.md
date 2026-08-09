@@ -1,11 +1,11 @@
 # School SaaS Roadmap
 
 - **المشروع:** School SaaS
-- **تاريخ آخر تحديث:** 2026-08-01
-- **المرحلة الحالية:** المرحلة 7 — الواجبات
-- **Current sprint:** Sprint 4B - Context-Aware Notifications, Homework Completion, Messaging & School Inbox (complete)
-- **نسبة التقدم التقريبية:** 72%
-- **آخر Commit مرجعي معروف:** `7e80ffe Sprint 2.5: harden infrastructure filters and admin UX`
+- **تاريخ آخر تحديث:** 2026-08-10
+- **المرحلة الحالية:** المرحلة 9 — الجدول الدراسي
+- **Current sprint:** Sprint 4.7.1 — Timetable Integrity & Grid Hardening (accepted; awaiting commit)
+- **نسبة التقدم التقريبية:** 78%
+- **آخر Commit مرجعي معروف:** `06c5e08 Sprint 4.6: add demo data and end-to-end backend acceptance`
 
 ## حالات التنفيذ
 
@@ -156,11 +156,11 @@
 
 - [ ] SchoolDay.
 - [ ] TimeSlot.
-- [ ] Timetable.
-- [ ] TimetableEntry.
-- [ ] Student timetable.
-- [ ] Teacher timetable.
-- [ ] Class timetable.
+- [x] Timetable period/configuration foundation (Sprint 4.7).
+- [x] TimetableEntry linked to TeacherAssignment (Sprint 4.7).
+- [x] Student and linked-parent timetable APIs (Sprint 4.7).
+- [x] Teacher Today/Week/Current/Next APIs (Sprint 4.7).
+- [x] Class Grid, atomic bulk/validate/copy APIs (Sprint 4.7).
 
 # المرحلة 10 — التقارير
 
@@ -332,6 +332,17 @@
 - [x] اختبارات API E2E للسياق والأدوار والعزل وIDOR.
 - [x] بوابات Full Core/Coverage/OpenAPI/Live Server النهائية: 590 tests، Coverage 93%.
 
+## Sprint 4.7 — Timetable & Daily Schedule
+
+**الحالة: ✅ مكتملة ومقبولة في شجرة العمل؛ تنتظر Commit مستقل**
+
+- [x] Config/Periods/TimetableEntry وربط WHEN/WHERE بـTeacherAssignment.
+- [x] Grid وBulk/Validate وCopy Day/Week.
+- [x] Today/Week/Current/Next للمعلم والطالب وولي الأمر.
+- [x] Sprint 4.7.1: Daily Attendance semantics، role-safe shortcut، mutation guards، final-state validation وpreview/save parity.
+- [x] بوابات القبول: 609 اختبارًا، Coverage 93%، Ruff/Django/OpenAPI ناجحة.
+- [ ] إنشاء Commit Timetable المستقل.
+
 ## Sprint 6 — Flutter Teacher
 
 **الحالة: ⬜ لم يبدأ**
@@ -339,6 +350,185 @@
 ## Sprint 7 — Flutter Parent and Student
 
 **الحالة: ⬜ لم يبدأ**
+
+# المسار القصير الحالي
+
+لا يتغير ترتيب التنفيذ الحالي:
+
+`Sprint 4.7.1 → Commit Timetable → Backend UX Contract V1 → Teacher UI Freeze V1 → Sprint 5 Flutter`
+
+لا يبدأ أي عنصر أدناه ضمن Sprint 4.7.1؛ كلها **Deferred / Future** فقط.
+
+# Deferred / Future Roadmap
+
+## بعد Sprint 4.7.1 مباشرة
+
+### 1. Backend UX Contract V1
+
+- [ ] تحديث/إعادة بناء `BACKEND_UX_CONTRACT_V1.md` و`BACKEND_UX_CONTRACT_REPORT.md` من الكود الفعلي بعد Timetable.
+- [ ] توثيق API → Role → State → Permission → UI وتحديد Supported / Planned / Not Allowed.
+- [ ] اعتماد Timetable كميزة Supported فعليًا.
+
+### 2. Teacher UI Final Review
+
+- [ ] مقارنة تصميم Nano Banana مع Backend UX Contract وتثبيت `TEACHER UI FREEZE V1`.
+- [ ] كل شاشة لها مهمة رئيسية واحدة، دون حشو معلومات أو dashboard مزدحم.
+
+### 3. Sprint 5 — Flutter Foundation
+
+- [ ] Project structure وArabic-first RTL وDesign System وtypography/colors/components.
+- [ ] Responsive layout وحالات Loading/Empty/Error/Offline.
+- [ ] Role routing/navigation وSecure Storage وAPI client وenvironment configuration.
+
+### 4. Flutter Authentication & Active Context
+
+- [ ] JWT login/refresh/logout-blacklist و`auth/me` و`auth/contexts`.
+- [ ] `X-School-Membership-ID` و409 `context_required` وتبديل السياق.
+- [ ] active/historical/suspended/ended وinactive school وsession expired.
+- [ ] Historical read-only UI.
+
+### 5. Flutter Student App
+
+- [ ] تنفيذ `STUDENT UI FREEZE V1`: Home وTimetable Today/Current/Next/Week.
+- [ ] Homework/submission lifecycle وResults وAttendance.
+- [ ] Notifications وAnnouncements وMessaging وHomework discussion وSchool Support وAcademic history.
+
+### 6. Flutter Parent App
+
+- [ ] تثبيت وبناء `PARENT UI FREEZE V1` مع multiple children عبر مدارس متعددة وchild context.
+- [ ] Timetable وAttendance وHomework monitoring وpublished results وupdates.
+- [ ] Notifications وTeacher conversations المرتبطة بالطفل وSchool Support وAnnouncements والسجلات التاريخية.
+
+### 7. Flutter Teacher App
+
+- [ ] Multi-school context وTeacher Home وCurrent/Next/Today/Weekly timetable.
+- [ ] Attendance والطلاب ضمن TeacherAssignment.
+- [ ] Homework create/publish/close وsubmission review/grade/return.
+- [ ] Exams وresult entry وsubmit/returned correction.
+- [ ] Messaging وparent conversation المرتبطة بالطالب وhomework discussion وbroadcast.
+- [ ] Notifications وAnnouncements وhistorical teaching context.
+
+## School Admin Web Portal
+
+### 8. School Admin Web Portal
+
+- [ ] واجهة Web مدرسية مستقلة؛ Django Admin ليس واجهة العميل.
+- [ ] Dashboard بسيط للطلاب والأولياء والمعلمين والسنوات والصفوف والشعب والمواد والتكليفات.
+- [ ] Attendance oversight ونتائج/اعتماد/نشر وHomework وAnnouncements وSchool Inbox وTimetable Grid وSettings.
+
+### 9. School Onboarding Wizard
+
+- [ ] School profile ثم academic year/classes/sections/subjects/teachers/students/parents/assignments.
+- [ ] Review وGo Live بأقل عدد عملي من الخطوات.
+
+### 10. Excel Import Center
+
+- [ ] ImportJob/staging وXLSX templates/upload/column mapping/validation/preview.
+- [ ] Row errors وduplicate detection وatomic import حيث يناسب وerror export.
+- [ ] استيراد الطلاب والأولياء والمعلمين والصفوف/الشعب والمواد والتكليفات.
+- [ ] Timetable import لاحقًا؛ لا كتابة مباشرة إلى production tables دون validation.
+
+## Platform Owner / SaaS Control Plane
+
+### 11. Platform Owner Control Plane
+
+- [ ] فصل Platform Owner/Admin/Support معماريًا عن SchoolMembership.
+- [ ] عقد مستقل مناسب مثل `/api/platform/v1/` لإدارة المدارس وonboarding والتفعيل/التعليق والمقاييس والمديرين والتدقيق.
+- [ ] Controlled impersonation/support access؛ لا يعتمد Platform Owner على `User.school`.
+
+### 12. Subscription Management
+
+- [ ] SubscriptionPlan وSchoolSubscription وحالات Trial/Active/Grace/Past Due/Suspended/Cancelled.
+- [ ] Dates/limits/entitlements/renewal وmanual payment عند الحاجة وسياسة تعليق تلقائي لاحقًا.
+- [ ] لا تحذف بيانات المدرسة عند تعليق الاشتراك.
+
+### 13. Parent / Student App Subscription
+
+- [ ] Entitlement مستقل عن School SaaS subscription وعن الرسوم الدراسية إذا اعتمد دفع ولي الأمر.
+- [ ] تحديد Free/Paid قبل التنفيذ؛ لا تعطيل SchoolMembership بسبب اشتراك التطبيق.
+
+## Timetable Future Enhancements
+
+### 14. Cross-School Teacher Conflict Warning
+
+- [ ] تحذير privacy-safe لا يكشف المدرسة الأخرى أو تفاصيلها ولا يكسر multi-school support.
+
+### 15. School Calendar / Exceptions
+
+- [ ] Holidays وsuspended days وtemporary schedules وexam days وexceptional replacement lessons.
+- [ ] لا ينفذ قبل تصميم School Calendar مستقل.
+
+### 16. Bell-Time Versioning
+
+- [ ] Versioned period schedule يحفظ تاريخ تغير الأوقات داخل السنة بدل تغيير العرض التاريخي القديم.
+
+### 17. Rooms
+
+- [ ] `SchoolRoom` ومنع room conflicts فقط عند ظهور حاجة فعلية؛ النص الحالي كافٍ.
+
+### 18. Templates
+
+- [ ] Suggested period/copy timetable templates دون فرض أوقات عالمية.
+
+### 19. Timetable Excel Import
+
+- [ ] يمر عبر Import Center ويعيد استخدام Bulk/Validate مع Preview قبل الكتابة.
+
+### مؤجلات Timetable ظهرت فعليًا في Sprint 4.7/4.7.1
+
+- [ ] تعريف اختيار صريح عند دعم أكثر من TeacherAssignment حالي لنفس المادة في target class (co-teaching) بدل subject-only copy mapping.
+- [ ] تقوية ضمانات conflict/validity إذا أضيفت write paths جديدة؛ جميع الكتابات المستقبلية يجب أن تمر بالخدمة المعتمدة ولا تتجاوز final-state validation.
+
+## Architecture Technical Debt
+
+### 20. Remove Legacy User Context Dependency
+
+- [ ] ترحيل production code تدريجيًا من `request.user.school/role/academic_year` إلى Active Context canonical fields.
+- [ ] لا Search/Replace أعمى؛ تمرير context values صراحة إلى services حيث يمكن.
+- [ ] إزالة request-local legacy projection فقط بعد اكتمال الترحيل.
+
+### 21. Legacy Fields Removal — Future Major Migration
+
+- [ ] إزالة `User.school` و`User.role` و`User.academic_year` وlegacy domain school fields لاحقًا.
+- [ ] لا حذف قبل اكتمال Flutter/API migration واختبارات backward compatibility.
+
+### 22. Account Merge / Advanced Identity
+
+- [ ] Duplicate account merge وSSO وschool-local codes وdual approval لنقل الطالب.
+
+## Production Readiness
+
+### 23. Production Security
+
+- [ ] Real SECRET_KEY وHTTPS redirect وHSTS وsecure cookies وtrusted proxy.
+- [ ] `TRUST_X_FORWARDED_FOR` فقط خلف proxy موثوق، مع سياسات CSRF/CORS وAllowed Hosts.
+
+### 24. Production Storage
+
+- [ ] Object storage وmedia/retention policy وbackups وantivirus/provider integration عند اعتماده.
+
+### 25. External Notification Providers
+
+- [ ] Push عبر Firebase/APNs حسب Flutter، وEmail/SMS/WhatsApp فقط حسب business requirements.
+- [ ] Failure isolation بعد transaction commit.
+
+### 26. Scheduled Jobs
+
+- [ ] Scheduled publish إن بقي مطلوبًا، retries للإشعارات، وmaintenance/background tasks خارج request lifecycle.
+
+### 27. Monitoring / Operations
+
+- [ ] Error monitoring وstructured logging وhealth/ready monitoring وaudit review.
+- [ ] Backup/restore drills وDB monitoring.
+
+## Design / UX Freezes
+
+### 28. Existing UI References
+
+- [ ] `PARENT UI FREEZE V1` و`STUDENT UI FREEZE V1` معتمدان كمرجع تصميم.
+- [ ] اتجاه Teacher البصري معتمد، لكن Final Freeze ينتظر Backend UX Contract.
+- [ ] Arabic-first RTL وشاشات task-focused بلا dashboards مزدحمة.
+- [ ] Visual mockups ليست مصدر صلاحيات؛ Backend Contract هو مصدر الحقيقة الوظيفية.
 
 # سجل التحديثات
 

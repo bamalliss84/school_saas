@@ -1,5 +1,14 @@
 # School SaaS — Project Context
 
+## Sprint 4.7 timetable architecture
+
+`TeacherAssignment` answers who teaches what to whom. `SchoolPeriod` defines one
+school/year timeline and `TimetableEntry` answers when and where by referencing a
+current assignment. Timetable APIs authorize only from `request.active_*`, keep
+historical contexts read-only, and never make Timetable a prerequisite for the
+existing Attendance authorization contract. Migration 0024 is additive and does
+not derive schedules from `ClassSubject.weekly_periods`.
+
 > Sprint 4.6 adds a development-only Demo seeder and API-driven E2E acceptance suite. It does not add a public endpoint, model, migration, or Flutter code. Demo records are synthetic and marked by `DEMO_`/`demo_`; see `DEMO_DATA.md`.
 
 هذا المستند يصف الحالة الحالية للمشروع كما هي في الشيفرة والمستندات وملفات migrations، ويقترح اتجاهًا عمليًا للتطوير قبل بدء أي Sprint. لا يمثل أي بند مقترح هنا ميزة منفذة ما لم يُذكر صراحة أنها موجودة حاليًا.
