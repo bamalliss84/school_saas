@@ -1,6 +1,8 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from .serializer_fields import OptionalBooleanField
+
 from .exam_selectors import exams_for_user
 from .models import (
     Exam, ExamResult, ExamResultLog, ExamType, School, StudentEnrollment,
@@ -11,7 +13,7 @@ from .services.exam_results import create_exam_result, update_exam_result
 
 
 class ExamTypeQuerySerializer(serializers.Serializer):
-    is_active = serializers.BooleanField(required=False)
+    is_active = OptionalBooleanField(required=False)
 
 
 class ExamQuerySerializer(serializers.Serializer):

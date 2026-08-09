@@ -136,6 +136,7 @@ def resolve_membership_context(request, user, *, optional=False):
             request.path.endswith('/notifications/read-all/')
             or ('/notifications/' in request.path and request.path.endswith('/read/'))
             or ('/conversations/' in request.path and request.path.endswith('/read/'))
+            or ('/announcements/' in request.path and request.path.endswith('/read/'))
         )
     )
     if membership.status == 'historical' and request.method not in SAFE_METHODS and not personal_state_write:

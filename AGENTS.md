@@ -180,3 +180,14 @@ backend\venv\Scripts\python.exe backend\manage.py test core
 - Broadcast actions must use the documented route whitelist and route-specific parameters.
 - Notification payload checks must be recursive, depth-limited, size-limited, JSON-native, and reject sensitive keys case-insensitively.
 - Never rewrite an already-applied communication migration to add hardening constraints; preserve 0021 and apply the additional guarantees through 0022 or a later forward migration.
+
+# Sprint 4C announcement rules
+
+- Announcement authorization and targeting must use `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year`.
+- Never use `request.user.school`, `request.user.role`, or `request.user.academic_year` as an authorization source in new announcement code.
+- Every delivery/read receipt is tied to a specific `SchoolMembership`.
+- Never resolve recipients across schools or from a client-supplied membership list.
+- Teachers may target only their own current `TeacherAssignment`.
+- Historical contexts may read delivered announcements and update a personal read marker, but cannot create, edit, publish, close, archive, or upload files.
+- Announcements remain one-way content; inquiries must create a separate authorized conversation.
+- Publication notifications and storage side effects must occur only after successful transaction commit.

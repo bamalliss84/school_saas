@@ -358,19 +358,28 @@ def validate_attachment(uploaded_file, *, kind):
         'homework': 'MAX_HOMEWORK_ATTACHMENT_SIZE_MB',
         'submission': 'MAX_SUBMISSION_ATTACHMENT_SIZE_MB',
         'message': 'MAX_MESSAGE_ATTACHMENT_SIZE_MB',
+        'announcement': 'MAX_ANNOUNCEMENT_ATTACHMENT_SIZE_MB',
     }.get(kind, 'MAX_SUBMISSION_ATTACHMENT_SIZE_MB')
     limit = _setting(size_setting, 10) * 1024 * 1024
     if uploaded_file.size > limit:
         raise ValidationError('Attachment exceeds the allowed size.')
     suffixes = [suffix.lower().lstrip('.') for suffix in PurePath(name).suffixes]
     extension = suffixes[-1] if suffixes else ''
-    allowed_extensions = set(_setting('ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS' if kind == 'message' else 'ALLOWED_ATTACHMENT_EXTENSIONS', ()))
+    allowed_extensions_setting = {
+        'message': 'ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS',
+        'announcement': 'ALLOWED_ANNOUNCEMENT_ATTACHMENT_EXTENSIONS',
+    }.get(kind, 'ALLOWED_ATTACHMENT_EXTENSIONS')
+    allowed_extensions = set(_setting(allowed_extensions_setting, ()))
     if not extension or any(suffix in BLOCKED_EXTENSIONS for suffix in suffixes):
         raise ValidationError('Attachment type is not allowed.')
     if allowed_extensions and extension not in allowed_extensions:
         raise ValidationError('Attachment type is not allowed.')
     declared = (getattr(uploaded_file, 'content_type', '') or '').lower()
-    allowed_mimes = set(_setting('ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES' if kind == 'message' else 'ALLOWED_ATTACHMENT_MIME_TYPES', ()))
+    allowed_mimes_setting = {
+        'message': 'ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES',
+        'announcement': 'ALLOWED_ANNOUNCEMENT_ATTACHMENT_MIME_TYPES',
+    }.get(kind, 'ALLOWED_ATTACHMENT_MIME_TYPES')
+    allowed_mimes = set(_setting(allowed_mimes_setting, ()))
     guessed = (mimetypes.guess_type(name)[0] or '').lower()
     if not declared or declared not in allowed_mimes or guessed != declared:
         raise ValidationError('Attachment content type is not allowed.')

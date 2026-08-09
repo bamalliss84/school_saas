@@ -1695,7 +1695,7 @@ class Notification(models.Model):
         ('homework_published', 'Homework published'), ('homework_graded', 'Homework graded'),
         ('homework_returned', 'Homework returned'), ('result_published', 'Result published'),
         ('message_received', 'Message received'), ('school_reply', 'School reply'),
-        ('school_support_created', 'School support created'), ('system', 'System'),
+        ('school_support_created', 'School support created'), ('announcement_published', 'Announcement published'), ('system', 'System'),
     )
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='notifications')
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -1870,3 +1870,198 @@ class MessageAttachment(models.Model):
     def clean(self):
         if self.uploaded_by_membership_id and self.message_id and self.uploaded_by_membership.school_id != self.message.conversation.school_id:
             raise ValidationError('Attachment uploader must belong to conversation school.')
+
+def announcement_attachment_upload_to(instance, filename):
+    return _attachment_path(instance.announcement.school_id, 'announcements', instance.announcement_id, filename)
+
+
+class Announcement(models.Model):
+    STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('closed', 'Closed'),
+        ('archived', 'Archived'),
+    )
+    PRIORITY_CHOICES = (
+        ('normal', 'Normal'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    )
+    AUDIENCE_CHOICES = (
+        ('school', 'Entire school'),
+        ('roles', 'Selected roles'),
+        ('classroom', 'Classroom'),
+        ('section', 'Section'),
+        ('teacher_assignment', 'Teacher assignment'),
+        ('students', 'Selected students'),
+    )
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='announcements')
+    academic_year = models.ForeignKey(
+        AcademicYear, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='announcements',
+    )
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
+    audience_type = models.CharField(max_length=30, choices=AUDIENCE_CHOICES, default='school')
+    target_roles = models.JSONField(default=list, blank=True)
+    classroom = models.ForeignKey(
+        Classroom, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='announcements',
+    )
+    section = models.ForeignKey(
+        Section, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='announcements',
+    )
+    teacher_assignment = models.ForeignKey(
+        TeacherAssignment, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='announcements',
+    )
+    target_students = models.ManyToManyField(Student, blank=True, related_name='targeted_announcements')
+    include_parents = models.BooleanField(default=False)
+    allow_inquiry = models.BooleanField(default=True)
+    created_by_membership = models.ForeignKey(
+        SchoolMembership, on_delete=models.PROTECT, related_name='created_announcements',
+    )
+    published_by_membership = models.ForeignKey(
+        SchoolMembership, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='published_announcements',
+    )
+    published_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    archived_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-published_at', '-created_at', '-id')
+        indexes = [
+            models.Index(fields=('school', 'status', '-published_at'), name='ann_school_status_time_idx'),
+            models.Index(fields=('school', 'priority', '-created_at'), name='ann_school_priority_idx'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status='draft', published_at__isnull=True, closed_at__isnull=True, archived_at__isnull=True)
+                    | models.Q(status='published', published_at__isnull=False, closed_at__isnull=True, archived_at__isnull=True)
+                    | models.Q(status='closed', published_at__isnull=False, closed_at__isnull=False, archived_at__isnull=True)
+                    | models.Q(status='archived', archived_at__isnull=False)
+                ),
+                name='announcement_status_metadata_consistent',
+            ),
+        ]
+
+    def clean(self):
+        if self.created_by_membership_id and self.created_by_membership.school_id != self.school_id:
+            raise ValidationError('Announcement creator must belong to the announcement school.')
+        if self.published_by_membership_id and self.published_by_membership.school_id != self.school_id:
+            raise ValidationError('Announcement publisher must belong to the announcement school.')
+        if self.academic_year_id and self.academic_year.school_id != self.school_id:
+            raise ValidationError('Announcement academic year must belong to the school.')
+        if self.classroom_id and (
+            self.classroom.school_id != self.school_id
+            or not self.classroom.is_active
+            or (self.academic_year_id and self.classroom.academic_year_id != self.academic_year_id)
+        ):
+            raise ValidationError('Announcement classroom is invalid.')
+        if self.section_id and (
+            self.section.school_id != self.school_id
+            or not self.section.is_active
+            or (self.classroom_id and self.section.classroom_id != self.classroom_id)
+            or (self.academic_year_id and self.section.academic_year_id != self.academic_year_id)
+        ):
+            raise ValidationError('Announcement section is invalid.')
+        if self.teacher_assignment_id and (
+            self.teacher_assignment.school_id != self.school_id
+            or not self.teacher_assignment.is_current
+            or (self.academic_year_id and self.teacher_assignment.academic_year_id != self.academic_year_id)
+        ):
+            raise ValidationError('Announcement teacher assignment is invalid.')
+        if self.audience_type != 'roles' and self.target_roles:
+            raise ValidationError('Target roles are allowed only for role targeting.')
+        if self.audience_type not in ('classroom', 'section') and self.classroom_id:
+            raise ValidationError('Classroom is not valid for this audience type.')
+        if self.audience_type != 'section' and self.section_id:
+            raise ValidationError('Section is not valid for this audience type.')
+        if self.audience_type != 'teacher_assignment' and self.teacher_assignment_id:
+            raise ValidationError('Teacher assignment is not valid for this audience type.')
+        if self.audience_type in ('school', 'roles') and self.include_parents:
+            raise ValidationError('Parent expansion is not valid for this audience type.')
+        valid_roles = {choice[0] for choice in User.ROLE_CHOICES} - {'super_admin'}
+        if not isinstance(self.target_roles, list) or any(role not in valid_roles for role in self.target_roles):
+            raise ValidationError('Announcement target roles are invalid.')
+        if self.audience_type == 'roles' and not self.target_roles:
+            raise ValidationError('At least one target role is required.')
+        if self.audience_type == 'classroom' and not self.classroom_id:
+            raise ValidationError('A classroom is required for this audience.')
+        if self.audience_type == 'section' and (not self.classroom_id or not self.section_id):
+            raise ValidationError('A classroom and section are required for this audience.')
+        if self.audience_type == 'teacher_assignment' and not self.teacher_assignment_id:
+            raise ValidationError('A teacher assignment is required for this audience.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+
+class AnnouncementAttachment(models.Model):
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to=announcement_attachment_upload_to)
+    original_name = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=150)
+    file_size = models.BigIntegerField()
+    uploaded_by_membership = models.ForeignKey(
+        SchoolMembership, on_delete=models.PROTECT, related_name='uploaded_announcement_attachments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        constraints = [models.CheckConstraint(
+            condition=models.Q(file_size__gt=0), name='announcement_attachment_size_positive',
+        )]
+
+    def clean(self):
+        if self.uploaded_by_membership_id and self.announcement_id:
+            if self.uploaded_by_membership.school_id != self.announcement.school_id:
+                raise ValidationError('Attachment uploader must belong to announcement school.')
+
+    def __str__(self):
+        return self.original_name
+
+
+class AnnouncementReceipt(models.Model):
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='receipts')
+    recipient_membership = models.ForeignKey(
+        SchoolMembership, on_delete=models.CASCADE, related_name='announcement_receipts',
+    )
+    delivered_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('-delivered_at', '-id')
+        constraints = [models.UniqueConstraint(
+            fields=('announcement', 'recipient_membership'),
+            name='unique_announcement_receipt_membership',
+        )]
+        indexes = [models.Index(
+            fields=('recipient_membership', 'read_at', '-delivered_at'),
+            name='ann_receipt_member_read_idx',
+        )]
+
+    @property
+    def is_read(self):
+        return self.read_at is not None
+
+    def clean(self):
+        if self.announcement_id and self.recipient_membership_id:
+            if self.announcement.school_id != self.recipient_membership.school_id:
+                raise ValidationError('Announcement receipt must remain inside one school.')
+
+    def __str__(self):
+        return f'{self.announcement_id}:{self.recipient_membership_id}'

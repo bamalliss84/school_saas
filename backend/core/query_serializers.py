@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Attendance
+from .serializer_fields import OptionalBooleanField
 
 
 class DateRangeQuerySerializer(serializers.Serializer):
@@ -21,7 +22,7 @@ class DateRangeQuerySerializer(serializers.Serializer):
 
 class StudentListQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
-    is_active = serializers.BooleanField(required=False)
+    is_active = OptionalBooleanField(required=False)
     school_id = serializers.IntegerField(required=False, min_value=1)
     academic_year_id = serializers.IntegerField(required=False, min_value=1)
     classroom_id = serializers.IntegerField(required=False, min_value=1)
@@ -32,7 +33,7 @@ class StudentListQuerySerializer(serializers.Serializer):
             'active', 'transferred', 'graduated', 'withdrawn', 'suspended',
         ),
     )
-    is_current = serializers.BooleanField(required=False)
+    is_current = OptionalBooleanField(required=False)
     ordering = serializers.ChoiceField(
         required=False,
         default='full_name',
@@ -44,7 +45,7 @@ class StudentListQuerySerializer(serializers.Serializer):
 
 
 class TeacherAssignmentQuerySerializer(serializers.Serializer):
-    current = serializers.BooleanField(required=False)
+    current = OptionalBooleanField(required=False)
     academic_year_id = serializers.IntegerField(required=False, min_value=1)
     classroom_id = serializers.IntegerField(required=False, min_value=1)
     section_id = serializers.IntegerField(required=False, min_value=1)

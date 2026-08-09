@@ -1,9 +1,10 @@
 from rest_framework import serializers
+from .serializer_fields import OptionalBooleanField
 from .models import Notification
 
 
 class NotificationQuerySerializer(serializers.Serializer):
-    is_read = serializers.BooleanField(required=False)
+    is_read = OptionalBooleanField(required=False)
     notification_type = serializers.ChoiceField(choices=Notification.TYPE_CHOICES, required=False)
     date_from = serializers.DateTimeField(required=False)
     date_to = serializers.DateTimeField(required=False)

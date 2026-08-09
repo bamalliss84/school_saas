@@ -1,3 +1,10 @@
+from core.announcement_views import (
+    AnnouncementArchiveAPIView, AnnouncementAttachmentAPIView,
+    AnnouncementAttachmentDeleteAPIView, AnnouncementCloseAPIView,
+    AnnouncementDetailAPIView, AnnouncementInquiryAPIView, AnnouncementListCreateAPIView,
+    AnnouncementPublishAPIView, AnnouncementReadAPIView,
+    AnnouncementSummaryAPIView, AnnouncementTargetPreviewAPIView,
+)
 from core.identity_views import (
     ParentChildAcademicHistoryAPIView, ParentChildSchoolsAPIView,
     StudentMeAcademicHistoryAPIView, StudentMeSchoolsAPIView, StudentTransferAPIView,
@@ -83,6 +90,17 @@ from core.views import (
 
 
 urlpatterns = [
+    path('announcements/', AnnouncementListCreateAPIView.as_view(), name='announcement-list'),
+    path('announcements/<int:pk>/publish/', AnnouncementPublishAPIView.as_view(), name='announcement-publish'),
+    path('announcements/<int:pk>/close/', AnnouncementCloseAPIView.as_view(), name='announcement-close'),
+    path('announcements/<int:pk>/archive/', AnnouncementArchiveAPIView.as_view(), name='announcement-archive'),
+    path('announcements/<int:pk>/read/', AnnouncementReadAPIView.as_view(), name='announcement-read'),
+    path('announcements/<int:pk>/inquiry/', AnnouncementInquiryAPIView.as_view(), name='announcement-inquiry'),
+    path('announcements/<int:pk>/summary/', AnnouncementSummaryAPIView.as_view(), name='announcement-summary'),
+    path('announcements/<int:pk>/target-preview/', AnnouncementTargetPreviewAPIView.as_view(), name='announcement-target-preview'),
+    path('announcements/<int:pk>/attachments/', AnnouncementAttachmentAPIView.as_view(), name='announcement-attachments'),
+    path('announcements/<int:pk>/attachments/<int:attachment_id>/', AnnouncementAttachmentDeleteAPIView.as_view(), name='announcement-attachment-delete'),
+    path('announcements/<int:pk>/', AnnouncementDetailAPIView.as_view(), name='announcement-detail'),
     path('communication/badges/', CommunicationBadgesAPIView.as_view(), name='communication-badges'),
     path('notifications/broadcast/', NotificationBroadcastAPIView.as_view(), name='notification-broadcast'),
     path('school-inbox/', SchoolInboxListCreateAPIView.as_view(), name='school-inbox-list'),

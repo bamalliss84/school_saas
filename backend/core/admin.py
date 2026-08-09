@@ -13,7 +13,7 @@ from .models import ExamResultLog
 from .models import (
     Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
     SchoolMembership, Notification, Conversation, ConversationParticipant, Message, MessageAttachment,
-    HomeworkSubmissionAttachment,
+    HomeworkSubmissionAttachment, Announcement, AnnouncementAttachment, AnnouncementReceipt,
 )
 from rest_framework.exceptions import (
     PermissionDenied as DRFPermissionDenied, ValidationError as DRFValidationError,
@@ -27,6 +27,7 @@ from .services.homework import (
     bulk_close_homework, bulk_grade_submissions, bulk_publish_homework,
     return_submission,
 )
+from .services.announcements import archive_announcement, close_announcement, publish_announcement
 from .services.identity import (
     set_current_student_enrollment, sync_parent_memberships,
     sync_student_memberships, sync_teacher_memberships,
@@ -72,6 +73,9 @@ class TenantAdminMixin:
         'core.conversationparticipant': 'conversation__school_id',
         'core.message': 'conversation__school_id',
         'core.messageattachment': 'message__conversation__school_id',
+        'core.announcement': 'school_id',
+        'core.announcementattachment': 'announcement__school_id',
+        'core.announcementreceipt': 'announcement__school_id',
     }
 
     def _is_global_admin(self, request):
@@ -1103,4 +1107,109 @@ class MessageAttachmentAdmin(TenantAdminMixin, admin.ModelAdmin):
     readonly_fields = ('message', 'file', 'original_name', 'content_type', 'file_size', 'uploaded_by_membership', 'created_at')
 
     def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('title', 'school', 'status', 'priority', 'audience_type', 'created_by_membership', 'published_at')
+    list_filter = ('status', 'priority', 'audience_type', 'school')
+    search_fields = ('title', 'body')
+    date_hierarchy = 'created_at'
+    list_select_related = ('school', 'academic_year', 'created_by_membership__user', 'published_by_membership__user')
+    readonly_fields = (
+        'status', 'created_by_membership', 'published_by_membership', 'published_at',
+        'closed_at', 'archived_at', 'created_at', 'updated_at',
+    )
+    actions = ('publish_selected', 'close_selected', 'archive_selected')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return bool(obj and obj.status == 'draft' and super().has_delete_permission(request, obj))
+
+    def _membership_for(self, request, announcement):
+        return SchoolMembership.objects.filter(
+            user=request.user, school_id=announcement.school_id, status='active',
+            role__in=('super_admin', 'school_admin'),
+        ).first()
+
+    @admin.action(description='Publish selected announcements')
+    def publish_selected(self, request, queryset):
+        done = 0
+        for item in queryset:
+            membership = self._membership_for(request, item)
+            if not membership:
+                self.message_user(request, f'No active school membership for {item}.', messages.ERROR)
+                continue
+            result = self._safe_admin_mutation(
+                request, lambda item=item, membership=membership: publish_announcement(
+                    announcement=item, membership=membership, request=request,
+                ),
+            )
+            if not isinstance(result, HttpResponseRedirect):
+                done += 1
+        if done:
+            self.message_user(request, f'Published {done} announcement(s).', messages.SUCCESS)
+
+    @admin.action(description='Close selected announcements')
+    def close_selected(self, request, queryset):
+        done = 0
+        for item in queryset:
+            membership = self._membership_for(request, item)
+            if not membership:
+                continue
+            result = self._safe_admin_mutation(
+                request, lambda item=item, membership=membership: close_announcement(
+                    announcement=item, membership=membership, request=request,
+                ),
+            )
+            if not isinstance(result, HttpResponseRedirect):
+                done += 1
+        if done:
+            self.message_user(request, f'Closed {done} announcement(s).', messages.SUCCESS)
+
+    @admin.action(description='Archive selected announcements')
+    def archive_selected(self, request, queryset):
+        done = 0
+        for item in queryset:
+            membership = self._membership_for(request, item)
+            if not membership:
+                continue
+            result = self._safe_admin_mutation(
+                request, lambda item=item, membership=membership: archive_announcement(
+                    announcement=item, membership=membership, request=request,
+                ),
+            )
+            if not isinstance(result, HttpResponseRedirect):
+                done += 1
+        if done:
+            self.message_user(request, f'Archived {done} announcement(s).', messages.SUCCESS)
+
+
+@admin.register(AnnouncementAttachment)
+class AnnouncementAttachmentAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('original_name', 'announcement', 'content_type', 'file_size', 'uploaded_by_membership', 'created_at')
+    list_select_related = ('announcement__school', 'uploaded_by_membership__user')
+    readonly_fields = ('announcement', 'file', 'original_name', 'content_type', 'file_size', 'uploaded_by_membership', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(AnnouncementReceipt)
+class AnnouncementReceiptAdmin(TenantAdminMixin, admin.ModelAdmin):
+    list_display = ('announcement', 'recipient_membership', 'delivered_at', 'read_at')
+    list_filter = ('announcement__school', 'read_at')
+    list_select_related = ('announcement__school', 'recipient_membership__user')
+    readonly_fields = ('announcement', 'recipient_membership', 'delivered_at', 'read_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

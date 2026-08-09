@@ -1,8 +1,13 @@
 from rest_framework.permissions import BasePermission
 
 
+def _request_role(request):
+    """Return the canonical request role, with legacy fallback only for old paths."""
+    return getattr(request, 'active_role', None) or getattr(request.user, 'role', None)
+
+
 class IsActiveSchoolUser(BasePermission):
-    """Reject stale access tokens when the account or tenant is disabled."""
+    """Reject stale tokens and unavailable active tenant contexts."""
 
     def has_permission(self, request, view):
         user = request.user
@@ -10,8 +15,22 @@ class IsActiveSchoolUser(BasePermission):
             return False
         if not user.is_active or not user.is_active_school_user:
             return False
-        if user.role == 'super_admin':
+
+        role = _request_role(request)
+        if role == 'super_admin':
             return True
+
+        membership = getattr(request, 'active_membership', None)
+        school = getattr(request, 'active_school', None)
+        if membership is not None:
+            return bool(
+                membership.status in ('active', 'historical')
+                and school
+                and school.is_active
+            )
+
+        # Temporary fallback for legacy endpoints that don't yet resolve an
+        # explicit membership context. New APIs must use request.active_*.
         return bool(user.school_id and user.school.is_active)
 
 
@@ -22,7 +41,7 @@ class RolePermission(BasePermission):
         return bool(
             request.user
             and request.user.is_authenticated
-            and request.user.role in self.allowed_roles
+            and _request_role(request) in self.allowed_roles
         )
 
 
@@ -44,6 +63,7 @@ class IsParent(RolePermission):
 
 class IsStudent(RolePermission):
     allowed_roles = ('student',)
+
 
 class IsAttendanceManager(RolePermission):
     allowed_roles = ('super_admin', 'school_admin', 'teacher')

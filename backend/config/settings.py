@@ -151,6 +151,10 @@ REST_FRAMEWORK = {
         'school_support_create': os.environ.get('THROTTLE_SCHOOL_SUPPORT_CREATE', '100/hour'),
         'school_support_reply': os.environ.get('THROTTLE_SCHOOL_SUPPORT_REPLY', '500/hour'),
         'homework_dashboard': os.environ.get('THROTTLE_HOMEWORK_DASHBOARD', '1000/hour'),
+        'announcement_list': os.environ.get('THROTTLE_ANNOUNCEMENT_LIST', '1000/hour'),
+        'announcement_write': os.environ.get('THROTTLE_ANNOUNCEMENT_WRITE', '200/hour'),
+        'announcement_read': os.environ.get('THROTTLE_ANNOUNCEMENT_READ', '1000/hour'),
+        'announcement_attachment_upload': os.environ.get('THROTTLE_ANNOUNCEMENT_ATTACHMENT_UPLOAD', '200/hour'),
     },
 }
 
@@ -175,6 +179,8 @@ SPECTACULAR_SETTINGS = {
         'HomeworkStatusEnum': 'core.models.Homework.STATUS_CHOICES',
         'HomeworkSubmissionStatusEnum': 'core.models.HomeworkSubmission.STATUS_CHOICES',
         'ConversationStatusEnum': 'core.models.Conversation.STATUS_CHOICES',
+        'ConversationPriorityEnum': 'core.models.Conversation.PRIORITY_CHOICES',
+        'AnnouncementPriorityEnum': 'core.models.Announcement.PRIORITY_CHOICES',
         'EnrollmentStatusEnum': (
             'active', 'transferred', 'graduated', 'withdrawn', 'suspended',
         ),
@@ -281,5 +287,16 @@ ALLOWED_MESSAGE_ATTACHMENT_EXTENSIONS = tuple(env_list(
 ))
 ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES = tuple(env_list(
     'ALLOWED_MESSAGE_ATTACHMENT_MIME_TYPES',
+    'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
+))
+# Announcements
+MAX_ANNOUNCEMENT_ATTACHMENT_SIZE_MB = env_int('MAX_ANNOUNCEMENT_ATTACHMENT_SIZE_MB', 10)
+MAX_ATTACHMENTS_PER_ANNOUNCEMENT = env_int('MAX_ATTACHMENTS_PER_ANNOUNCEMENT', 10)
+ALLOWED_ANNOUNCEMENT_ATTACHMENT_EXTENSIONS = tuple(env_list(
+    'ALLOWED_ANNOUNCEMENT_ATTACHMENT_EXTENSIONS',
+    'pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png',
+))
+ALLOWED_ANNOUNCEMENT_ATTACHMENT_MIME_TYPES = tuple(env_list(
+    'ALLOWED_ANNOUNCEMENT_ATTACHMENT_MIME_TYPES',
     'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
 ))

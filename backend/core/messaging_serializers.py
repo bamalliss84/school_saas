@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from .serializer_fields import OptionalBooleanField
+
 from .models import Conversation, Message, MessageAttachment
 
 
@@ -127,11 +129,11 @@ class MessageCreateSerializer(serializers.Serializer):
 class ConversationQuerySerializer(serializers.Serializer):
     conversation_type = serializers.ChoiceField(choices=Conversation.TYPE_CHOICES, required=False)
     status = serializers.ChoiceField(choices=Conversation.STATUS_CHOICES, required=False)
-    unread_only = serializers.BooleanField(required=False)
+    unread_only = OptionalBooleanField(required=False)
     related_homework_id = serializers.IntegerField(required=False, min_value=1)
     student_id = serializers.IntegerField(required=False, min_value=1)
     category = serializers.ChoiceField(choices=Conversation.CATEGORY_CHOICES, required=False)
-    assigned_to_me = serializers.BooleanField(required=False)
+    assigned_to_me = OptionalBooleanField(required=False)
     updated_from = serializers.DateTimeField(required=False)
     updated_to = serializers.DateTimeField(required=False)
     search = serializers.CharField(required=False, allow_blank=True, max_length=100)

@@ -123,3 +123,7 @@ Membership-scoped notifications, homework completion/dashboard APIs, conversatio
 ## Sprint 4B.1 privacy hardening
 
 Guardian and homework conversations are private two-party threads; the platform never creates parent group chats. School Support creation notifies active same-school administrators after commit using a safe preview. Attachment batches and support transitions are atomic. Broadcast actions accept only documented routes and scoped parameters, while notification payloads reject secrets recursively. Authorization is enforced again inside specialized messaging services. The original communication schema remains in migration 0021; migration 0022 applies the privacy-hardening constraints without rewriting an already-applied migration.
+
+## Announcements and targeting
+
+Sprint 4C provides tenant-safe announcements under `/api/v1/announcements/`. School administrators can target their school, roles, classrooms, sections, assignments, or selected students; teachers are limited to their own current assignment. Delivery and read state are stored per `SchoolMembership`, and publication notifications run after database commit. Historical contexts are read-only apart from personal read markers. See `SPRINT_4C.md` for routes and policies.

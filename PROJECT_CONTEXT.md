@@ -60,7 +60,7 @@
 
 ## 2. جميع الموديلات الموجودة
 
-يحتوي تطبيق `core` على 20 موديلًا:
+يحتوي تطبيق `core` حاليًا على 33 موديلًا، وتشمل القائمة التالية الموديلات الأساسية الأولى، بينما توثق أقسام Sprints الموديلات المضافة لاحقًا:
 
 ### 2.1 `School`
 
@@ -676,3 +676,7 @@ Sprint 4B adds membership-scoped Notifications, derived Homework completion and 
 ## 24. Sprint 4B.1 communication hardening
 
 Communication privacy is pairwise for guardian and homework discussions: one parent membership per conversation and no parent-to-parent visibility. Specialized services, not serializers, are the authorization boundary. School Support creation notifies active same-school administrators after commit. Attachment batches and support transitions are atomic. Broadcast actions are route-whitelisted and notification payloads are recursively validated. Migration 0021 remains the original communication schema. Migration 0022 defensively normalizes existing communication metadata and then adds related-context, support-category, status-timestamp, participant-left, and message-deletion consistency constraints.
+
+## Sprint 4C announcements and targeting
+
+Sprint 4C adds membership-scoped announcements with Draft/Published/Closed/Archived workflow, safe attachments, targeting by school, role, classroom, section, teacher assignment, or selected students, and per-membership delivery/read receipts. Publishing creates deduplicated `announcement_published` notifications after transaction commit. Announcement inquiry opens a separate authorized conversation rather than turning the announcement into a chat. New code uses only `request.active_membership`, `request.active_school`, `request.active_role`, and `request.active_academic_year` for school context and authorization.

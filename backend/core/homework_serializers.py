@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from .serializer_fields import OptionalBooleanField
+
 from .models import (
     AcademicTerm, AcademicYear, Homework, HomeworkActionLog, HomeworkAttachment,
     HomeworkSubmission, HomeworkSubmissionAttachment, StudentEnrollment,
@@ -25,16 +27,16 @@ class HomeworkQuerySerializer(serializers.Serializer):
     publish_to = serializers.DateTimeField(required=False)
     due_from = serializers.DateTimeField(required=False)
     due_to = serializers.DateTimeField(required=False)
-    overdue = serializers.BooleanField(required=False)
-    has_submission = serializers.BooleanField(required=False)
+    overdue = OptionalBooleanField(required=False)
+    has_submission = OptionalBooleanField(required=False)
     submission_status = serializers.ChoiceField(
         required=False, choices=HomeworkSubmission.STATUS_CHOICES,
     )
     completion_status = serializers.ChoiceField(required=False, choices=(
         'not_started', 'draft', 'submitted', 'returned', 'graded', 'overdue', 'closed_without_submission',
     ))
-    graded = serializers.BooleanField(required=False)
-    pending_grading = serializers.BooleanField(required=False)
+    graded = OptionalBooleanField(required=False)
+    pending_grading = OptionalBooleanField(required=False)
     search = serializers.CharField(required=False, allow_blank=True)
     ordering = serializers.ChoiceField(
         required=False, default='-created_at', choices=(
@@ -73,8 +75,8 @@ class SubmissionQuerySerializer(serializers.Serializer):
     student_id = serializers.IntegerField(required=False, min_value=1)
     submitted_from = serializers.DateTimeField(required=False)
     submitted_to = serializers.DateTimeField(required=False)
-    graded = serializers.BooleanField(required=False)
-    late = serializers.BooleanField(required=False)
+    graded = OptionalBooleanField(required=False)
+    late = OptionalBooleanField(required=False)
     ordering = serializers.ChoiceField(
         required=False, default='-submitted_at', choices=(
             'submitted_at', '-submitted_at', 'graded_at', '-graded_at',

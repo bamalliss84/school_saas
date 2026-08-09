@@ -262,7 +262,7 @@
 
 - [x] Workflows والمرفقات والتقارير والتدقيق وAdmin.
 - [x] 285 اختبارًا وOpenAPI نظيف.
-- [x] hooks no-op مؤجلة للربط في Sprint 4C.
+- [x] ربط hooks مع Notifications الفعلية في Sprint 4B.
 
 
 ### Sprint 4D — Multi-School Identity & Context
@@ -275,7 +275,7 @@
 - [x] أولياء أمور ومعلمون متعددو المدارس والأدوار مع عزل كامل.
 - [x] migration 0020 واختبارات السياق والقيود والنقل.
 
-المرحلة التالية: Sprint 4B، ثم 4C، ثم مراجعة Context قبل Flutter.
+المرحلة التالية بعد اعتماد Sprint 4C: Architecture Freeze V1 ثم Flutter Foundation.
 
 #### Sprint 4D.1 — Multi-School Consistency Hardening
 
@@ -287,13 +287,37 @@
 - [x] Historical Homework وتقليل last_used_at writes.
 - [x] حماية request-local compatibility adapter.
 - [ ] إزالة الاعتماد على request.user.school/role/academic_year تدريجيًا، وتحويل كل الكود إلى Active Context قبل التجميد النهائي لطبقة Flutter.
-### Sprint 4B — Announcements
+### Sprint 4B — Notifications, Messaging & School Inbox
 
-**الحالة: ⬜ لم يبدأ**
+**الحالة: ✅ مكتملة ومثبتة في Commit `99a8f53`**
 
-### Sprint 4C — Notifications
+- [x] Notifications معزولة حسب SchoolMembership.
+- [x] Homework completion وdashboards.
+- [x] المحادثات والرسائل والمرفقات.
+- [x] School Inbox وTeacher Broadcast.
+- [x] Privacy hardening وMigration 0022.
+- [x] 533 اختبارًا ناجحًا وتغطية 93%.
 
-**الحالة: ⬜ لم يبدأ**
+### Sprint 4C — Announcements & Targeting
+
+**الحالة: 🟡 منفذة في شجرة العمل وتنتظر التحقق النهائي**
+
+- [x] Draft/Publish/Close/Archive workflow.
+- [x] استهداف المدرسة والأدوار والصف والشعبة والتكليف والطلاب.
+- [x] Membership-scoped delivery/read receipts.
+- [x] Safe attachments وAdmin وOpenAPI-ready APIs.
+- [x] Notifications بعد Commit.
+- [x] Inquiry يفتح محادثة منفصلة وآمنة.
+- [ ] تشغيل فحص Windows/PostgreSQL الكامل وتثبيت Commit مستقل.
+
+### Architecture Freeze V1
+
+**الحالة: ⬜ بعد اعتماد Sprint 4C**
+
+- [ ] `ARCHITECTURE_FREEZE_V1.md`
+- [ ] `API_CONTRACT_V1.md`
+- [ ] `FLUTTER_UI_CONTRACT_V1.md`
+- [ ] إزالة أي اعتماد جديد على Legacy request.user context قبل Flutter freeze.
 
 ## Sprint 5 — Flutter Foundation
 
@@ -357,7 +381,7 @@ Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 
 ### Sprint 4B.1 - Communication Privacy & Consistency Hardening
 
-**Status: implemented; final verification pending**
+**Status: completed and committed in `99a8f53`**
 
 - [x] One-parent private conversations and pairwise homework discussions.
 - [x] School Support creation notifications after commit.
@@ -366,4 +390,4 @@ Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 - [x] Broadcast route whitelist and recursive payload validation.
 - [x] Specialized messaging authorization services.
 - [x] Preserve the original Migration 0021 and place hardening constraints in Migration 0022.
-- [ ] Re-run the complete Windows/PostgreSQL verification gate after applying 0022.
+- [x] Complete Windows/PostgreSQL verification after applying 0022: 533 tests, 93% coverage.
