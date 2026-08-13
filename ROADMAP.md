@@ -1,9 +1,9 @@
 # School SaaS Roadmap
 
 - **المشروع:** School SaaS
-- **تاريخ آخر تحديث:** 2026-08-10
-- **المرحلة الحالية:** المرحلة 9 — الجدول الدراسي
-- **Current sprint:** Sprint 4.7.1 — Timetable Integrity & Grid Hardening (accepted; awaiting commit)
+- **تاريخ آخر تحديث:** 2026-08-13
+- **المرحلة الحالية:** المرحلة 12 — Flutter
+- **Current sprint:** Sprint 5A — Flutter Foundation accepted; ready for Student App
 - **نسبة التقدم التقريبية:** 78%
 - **آخر Commit مرجعي معروف:** `06c5e08 Sprint 4.6: add demo data and end-to-end backend acceptance`
 
@@ -185,14 +185,14 @@
 
 # المرحلة 12 — Flutter
 
-**الحالة: ⬜ لم تبدأ**
+**الحالة: 🟡 قيد التنفيذ**
 
-- [ ] Flutter foundation.
-- [ ] Login.
-- [ ] JWT storage.
-- [ ] API client.
-- [ ] Routing.
-- [ ] Role-based home.
+- [x] Flutter foundation.
+- [x] Login.
+- [x] JWT storage.
+- [x] API client.
+- [x] Routing.
+- [x] Role-based placeholder shells.
 - [ ] Teacher app.
 - [ ] Parent app.
 - [ ] Student app.
@@ -321,7 +321,7 @@
 
 ## Sprint 5 — Flutter Foundation
 
-**الحالة: ⬜ لم يبدأ**
+**الحالة: ✅ Sprint 5A مكتملة ومقبولة**
 
 ## Sprint 4.6 — Demo Data + Real E2E Acceptance
 
@@ -497,6 +497,22 @@
 - [ ] Duplicate account merge وSSO وschool-local codes وdual approval لنقل الطالب.
 
 ## Production Readiness
+
+## Sprint 5A — Flutter Foundation, Authentication & Active Context
+
+**Status: accepted; ready for Student App**
+
+- [x] Flutter feature-first foundation in `mobile_app/`.
+- [x] JWT login/logout, secure token storage, and single-flight refresh.
+- [x] Membership-aware Active Context selection and historical read-only mode.
+- [x] Arabic RTL Student/Parent/Teacher placeholder shells.
+- [x] Windows Developer Mode/symlink environment issue resolved.
+- [x] Flutter doctor, pub get, analyze, and 7/7 tests pass.
+- [x] Real Demo API smoke remains accepted: `demo_teacher_multi`, 2 contexts, scoped `auth/me`, `RUNSERVER_COUNT=0`.
+- [x] Dependency versions preserved; available updates are not an acceptance failure.
+
+Decision: **SPRINT 5A FLUTTER FOUNDATION ACCEPTED — READY FOR STUDENT APP**.
+
 
 ### 23. Production Security
 

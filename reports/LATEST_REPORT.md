@@ -1,4 +1,20 @@
-# Final Backend Handover & Acceptance — Progress Report
+# Latest Acceptance Report
+
+## Sprint 5A — Final Acceptance
+
+- Documentation-only acceptance finalization; no production or backend code and no migrations changed.
+- Previous rejection cause: environment-only Windows symlink/Developer Mode issue; now resolved.
+- `flutter doctor`: PASS — no issues found.
+- `flutter pub get`: PASS — got dependencies and exited successfully.
+- `flutter analyze`: PASS — no issues found.
+- `flutter test`: 7/7 PASS.
+- Dependency versions were not updated; available package updates are not an acceptance failure.
+- Real Demo API smoke was not rerun because code has not changed since the accepted smoke. Prior evidence remains PASS: `demo_teacher_multi` login, 2 contexts, `X-School-Membership-ID` scoped `auth/me`, and `RUNSERVER_COUNT=0`.
+- Full backend tests were not run. Student, Parent, and Teacher Apps were not started.
+- `BACKEND_UX_CONTRACT_V1.md` and `BACKEND_UX_CONTRACT_REPORT.md` remain outside this task.
+- No git add, commit, or push was performed.
+
+Decision: **SPRINT 5A FLUTTER FOUNDATION ACCEPTED — READY FOR STUDENT APP**.
 
 ## Sprint 4.7.1 — Timetable Integrity & Grid Hardening
 
@@ -87,3 +103,16 @@
 **BACKEND FREEZE ACCEPTED — READY FOR SPRINT 5**
 
 التقرير الكامل ذو الخمسين بندًا موجود في `BACKEND_FINAL_ACCEPTANCE_REPORT.md`. لم يبدأ Sprint 5 أو Flutter.
+
+## Sprint 5A — Flutter Foundation
+
+- Baseline backend `565f672`; no backend production logic or migration changed.
+- Created `mobile_app/` with Riverpod, Dio, secure storage, GoRouter, typed auth/context models, repositories, and a session state machine.
+- Added Arabic RTL login, context selector, historical read-only banner, unsupported-admin state, and Student/Parent/Teacher placeholder shells.
+- Corrected the Active Context header to `X-School-Membership-ID` and default route to `auth/context/default/` after the first live smoke exposed the mismatch.
+- Dart format PASS; Flutter analyze PASS; Flutter tests 7/7 PASS.
+- Real Demo smoke PASS: login `demo_teacher_multi`, 2 contexts, membership-scoped `auth/me`; temporary server stopped and final `RUNSERVER_COUNT=0`.
+- The former `flutter pub get` failure was environment-only (Windows symlink/Developer Mode); the issue is resolved and the command now passes.
+- No full backend tests or coverage rerun. No git add, commit, or push.
+
+Decision superseded by the final accepted decision at the top of this report.
