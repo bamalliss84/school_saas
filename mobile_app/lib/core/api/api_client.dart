@@ -13,8 +13,7 @@ class ApiClient {
     RefreshCoordinator? coordinator,
     this.onSessionExpired,
     this.onContextRequired,
-  })
-      : _store = store,
+  })  : _store = store,
         _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl)),
         _refreshDio = refreshDio ?? Dio(BaseOptions(baseUrl: baseUrl)),
         _coordinator = coordinator ?? RefreshCoordinator() {

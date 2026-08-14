@@ -24,9 +24,12 @@ class AuthRepository {
       (await _dio.get<Map<String, dynamic>>('auth/me/')).data!);
   Future<void> logout() async {
     final refresh = await _store.readRefreshToken();
-    if (refresh != null) {
-      await _dio.post<void>('auth/logout/', data: {'refresh': refresh});
+    try {
+      if (refresh != null) {
+        await _dio.post<void>('auth/logout/', data: {'refresh': refresh});
+      }
+    } finally {
+      await _store.clear();
     }
-    await _store.clear();
   }
 }

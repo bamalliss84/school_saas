@@ -8,10 +8,11 @@ import '../../features/school_context/data/context_repository.dart';
 import 'app_session.dart';
 
 class SessionController extends StateNotifier<AppSession> {
-  SessionController(this.auth, this.contexts)
+  SessionController(this.auth, this.contexts, this.purgeUserData)
       : super(AppSession.unauthenticated);
   final AuthRepository auth;
   final ContextRepository contexts;
+  final Future<void> Function(String localUserKey) purgeUserData;
   Future<void> login(String username, String password) async {
     state = const AppSession(SessionStatus.authenticating);
     try {
@@ -54,10 +55,20 @@ class SessionController extends StateNotifier<AppSession> {
 
   void requireContext() => state = AppSession(SessionStatus.needsContext,
       user: state.user, contexts: state.contexts);
-  void expire() => state = const AppSession(SessionStatus.sessionExpired,
-      message: 'انتهت الجلسة، سجّل الدخول مجددًا');
+  Future<void> expire() async {
+    final localUserKey = state.user == null ? null : 'user:${state.user!.id}';
+    if (localUserKey != null) await purgeUserData(localUserKey);
+    state = const AppSession(SessionStatus.sessionExpired,
+        message: 'انتهت الجلسة، سجّل الدخول مجددًا');
+  }
+
   Future<void> logout() async {
-    await auth.logout();
-    state = AppSession.unauthenticated;
+    final localUserKey = state.user == null ? null : 'user:${state.user!.id}';
+    try {
+      await auth.logout();
+    } finally {
+      if (localUserKey != null) await purgeUserData(localUserKey);
+      state = AppSession.unauthenticated;
+    }
   }
 }

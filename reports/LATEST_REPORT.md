@@ -1,5 +1,31 @@
 # Latest Acceptance Report
 
+## Sprint 5B.1 — Student Home + Timetable
+
+- Flutter-only Student Home/Today/Week/Current/Next with Drift schema v2 real cache; Backend/migrations unchanged.
+- Nano Student and shared Context visual references received and reviewed; production-quality visual QA PASS.
+- Presentation-only closeout added the year to the context header, differentiated Current/Next emphasis, and made the cached-data banner subtle; API/repository/Drift/offline logic unchanged.
+- Format/analyze PASS; tests 26/26 PASS (including long Arabic names, 150% scaling, and Tajawal/Cairo/Noto Sans Arabic); debug APK PASS after clearing a Windows lock on generated assets.
+- Samsung SM N986U real login/API/Home/Today/Week/Current/Next PASS.
+- Physical offline gate PASS: cached timetable + banner + last updated remained without reverse; fresh refresh restored after reverse.
+- The Samsung device was not visible to ADB during this final visual-reference pass; the already accepted physical Home/Today/Week/offline evidence remains the device record.
+- Backend production changes/migrations: NONE. Backend tests were not rerun. No git add, commit, or push.
+- Decision: **SPRINT 5B.1 STUDENT HOME & TIMETABLE ACCEPTED — READY FOR HOMEWORK**.
+
+## Sprint 5B.0 — Student Design System + Offline Foundation
+
+- Baseline `8c7899d`; Flutter-only implementation and documentation. Backend/migrations unchanged.
+- Cross-platform Android+iOS architecture retained: shared codebase, Drift app-private paths, secure storage, offline fonts, RTL, SafeArea, identical tenant isolation and logout purge.
+- Flutter 3.24.5 / Dart 3.5.4. Pinned compatible stack: drift/drift_dev 2.22.1, drift_flutter 0.2.4, shared_preferences 2.5.3, build_runner 2.4.13.
+- Drift schema v1, user/membership/year/resource scope, atomic cache writes, historical metadata, invalidation/purge, repository fallback, and lightweight real context cache implemented.
+- Design tokens/components, Tajawal/Cairo/Noto Sans Arabic, persistent font setting, and five-tab Student placeholder shell implemented; no Student business feature started.
+- `flutter pub get` PASS; format PASS; analyze PASS; tests 20/20 PASS; debug APK build PASS.
+- Android physical device acceptance PASS on Samsung SM N986U (`R5CN81DGDXJ`): `flutter run` installed/launched successfully; `adb reverse tcp:8000 tcp:8000` enabled the `127.0.0.1` development API URL.
+- Real Demo Student authentication and single School Noor context routing PASS. Foundation remained stable without Backend/network; Drift isolation/purge/font persistence tests remain PASS.
+- Full Student dataset offline acceptance is mandatory in 5B.1 because Student Home/Timetable datasets do not exist in 5B.0.
+- iOS package/architecture review PASS; native simulator/phone/archive gate remains pending macOS/Xcode and is not the rejection reason.
+- Decision: **SPRINT 5B.0 DESIGN & OFFLINE FOUNDATION ACCEPTED — READY FOR STUDENT HOME & TIMETABLE**.
+
 ## Sprint 5A — Final Acceptance
 
 - Documentation-only acceptance finalization; no production or backend code and no migrations changed.

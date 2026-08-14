@@ -4,13 +4,27 @@ import 'package:go_router/go_router.dart';
 
 import '../core/api/api_client.dart';
 import '../core/config/app_environment.dart';
+import '../core/design_system/app_theme.dart';
+import '../core/design_system/components.dart';
+import '../core/local_database/app_database.dart';
+import '../core/local_database/local_data_purge_service.dart';
+import '../core/preferences/font_preferences.dart';
 import '../core/storage/session_store.dart';
 import '../features/authentication/data/auth_repository.dart';
 import '../features/school_context/data/context_repository.dart';
+import '../features/student_shell/student_shell.dart';
 import 'session/app_session.dart';
 import 'session/session_controller.dart';
 
 final storeProvider = Provider<SessionStore>((ref) => SecureSessionStore());
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final database = AppDatabase();
+  ref.onDispose(database.close);
+  return database;
+});
+final purgeUserDataProvider = Provider<Future<void> Function(String)>((ref) =>
+    (localUserKey) => LocalDataPurgeService(ref.read(databaseProvider))
+        .purgeCurrentUserData(localUserKey));
 final apiProvider = Provider<ApiClient>((ref) => ApiClient(
     baseUrl: AppEnvironment.apiBaseUrl, store: ref.read(storeProvider)));
 final sessionProvider =
@@ -19,9 +33,10 @@ final sessionProvider =
   final controller = SessionController(
     AuthRepository(client.dio, ref.read(storeProvider)),
     ContextRepository(client.dio, ref.read(storeProvider)),
+    ref.read(purgeUserDataProvider),
   );
   client.onContextRequired = controller.requireContext;
-  client.onSessionExpired = () async => controller.expire();
+  client.onSessionExpired = controller.expire;
   return controller;
 });
 
@@ -38,6 +53,7 @@ class SchoolSaaSApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
+    final font = ref.watch(fontProvider);
     final router = GoRouter(initialLocation: routeFor(session.status), routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/loading', builder: (_, __) => const LoadingScreen()),
@@ -50,11 +66,7 @@ class SchoolSaaSApp extends ConsumerWidget {
       title: 'مدرستي',
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
-      theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff2855a5)),
-          useMaterial3: true,
-          inputDecorationTheme:
-              const InputDecorationTheme(border: OutlineInputBorder())),
+      theme: buildAppTheme(font),
       builder: (context, child) =>
           Directionality(textDirection: TextDirection.rtl, child: child!),
       routerConfig: router,
@@ -159,12 +171,7 @@ class ContextScreen extends ConsumerWidget {
 class HistoricalBanner extends StatelessWidget {
   const HistoricalBanner({super.key});
   @override
-  Widget build(BuildContext context) => Container(
-      width: double.infinity,
-      color: Colors.amber.shade100,
-      padding: const EdgeInsets.all(12),
-      child:
-          const Text('سياق تاريخي — العرض فقط', textAlign: TextAlign.center));
+  Widget build(BuildContext context) => const HistoricalContextBanner();
 }
 
 class RoleShell extends ConsumerStatefulWidget {
@@ -180,6 +187,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final session = ref.watch(sessionProvider);
     final school = session.context;
     final role = school?.role ?? '';
+    if (role == 'student') {
+      return StudentShell(key: ValueKey(school?.membershipId));
+    }
     final labels = switch (role) {
       'student' => ['الرئيسية', 'الجدول', 'الواجبات', 'النتائج', 'الإشعارات'],
       'parent' => ['الرئيسية', 'الأبناء', 'الجدول', 'الواجبات', 'الإشعارات'],

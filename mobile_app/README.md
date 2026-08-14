@@ -4,11 +4,20 @@ Arabic-first Flutter client foundation for Student, Parent, and Teacher roles.
 
 ## Run
 
+Android emulator:
+
 ```powershell
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1/
 ```
 
-Use `127.0.0.1` for a Windows desktop client. The default Android emulator URL is `10.0.2.2`.
+Physical Android device over USB:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1/
+```
+
+`10.0.2.2` is the Android emulator host alias. A physical Android device using `adb reverse` connects through `127.0.0.1`. Production builds must receive the configured production HTTPS API URL; no development URL is hardcoded in production source.
 
 ## Verification
 

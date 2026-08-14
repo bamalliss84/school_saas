@@ -1,4 +1,4 @@
-# Mobile Architecture — Sprint 5A
+# Mobile Architecture — Sprint 5A + 5B.0
 
 ## Boundaries
 
@@ -7,6 +7,10 @@
 - `features/school_context/`: context loading and explicit default selection.
 - `app/session/`: Riverpod state machine and routing decisions.
 - `app/app.dart`: Arabic RTL shell and role-specific placeholder navigation.
+- `core/local_database/`: one application-scoped Drift database, schema migrations, scoped cache, and purge boundary.
+- `core/offline/`: reusable read policies, coherent data states, and remote/local repository coordination.
+- `core/design_system/`: cross-platform colors, spacing, radius, typography, and reusable components.
+- `features/student_shell/`: Student navigation placeholders and real appearance settings only.
 
 `SchoolMembership` is the authorization identity. The client always sends the selected membership through `X-School-Membership-ID`; legacy user school/role fields are never authorization inputs. Switching context replaces the tenant session state. Future tenant repositories must invalidate their providers/caches on the same transition.
 
@@ -16,6 +20,8 @@ Login stores JWT tokens in secure storage, then loads `/auth/contexts/`. One usa
 
 The Dio interceptor refreshes JWT through a single shared in-flight operation, retries the failed request once, clears credentials on refresh failure, and maps the standard HTTP statuses. A 409 invokes the context-required boundary. Network failures preserve a user-readable retry path and never bypass server authorization.
 
-## Deferred
+## Cross-platform and deferred
 
-No Student, Parent, Teacher, offline cache, notification provider, or production feature logic is part of Sprint 5A. Those belong to subsequent feature sprints.
+Android and iOS continue sharing one Flutter codebase. App-private paths, Drift, secure storage, bundled fonts, RTL, SafeArea, cache isolation, and logout purge have identical semantics. iOS native build verification requires macOS/Xcode.
+
+No Student Home, Timetable, Homework, Results, Attendance, Messaging, Notifications, Parent, or Teacher feature logic is part of 5B.0. Offline write queues, encryption, biometric/PIN, and file-cache cleanup remain deferred.

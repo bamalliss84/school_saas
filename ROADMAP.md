@@ -1,9 +1,9 @@
 # School SaaS Roadmap
 
 - **المشروع:** School SaaS
-- **تاريخ آخر تحديث:** 2026-08-13
+- **تاريخ آخر تحديث:** 2026-08-14
 - **المرحلة الحالية:** المرحلة 12 — Flutter
-- **Current sprint:** Sprint 5A — Flutter Foundation accepted; ready for Student App
+- **Current sprint:** Sprint 5B.0 — Student Design System + Offline Local Data Foundation
 - **نسبة التقدم التقريبية:** 78%
 - **آخر Commit مرجعي معروف:** `06c5e08 Sprint 4.6: add demo data and end-to-end backend acceptance`
 
@@ -323,6 +323,39 @@
 
 **الحالة: ✅ Sprint 5A مكتملة ومقبولة**
 
+### Sprint 5B.0 — Student Design System + Offline Local Foundation
+
+**الحالة: ✅ مكتملة ومقبولة**
+
+- [x] Design tokens، components، RTL، SafeArea، responsive Student shell placeholders.
+- [x] Tajawal/Cairo/Noto Sans Arabic bundled offline مع preference مستمرة.
+- [x] Drift/SQLite schema v1 في app-private storage لنفس قاعدة Android/iOS.
+- [x] عزل cache حسب local user + membership + academic year + resource.
+- [x] Atomic replacement، historical metadata، invalidation، logout/session-expiry purge.
+- [x] Offline read/repository/data-state foundation واختبارات العزل والسياق والrollback.
+- [x] Android debug build + physical Samsung SM N986U launch/login/foundation smoke.
+- [ ] iOS native verification على macOS/Xcode (بوابة مستقلة؛ لا تمنع قبول architecture على Windows).
+
+Final decision: **SPRINT 5B.0 DESIGN & OFFLINE FOUNDATION ACCEPTED — READY FOR STUDENT HOME & TIMETABLE**. أول feature-level offline acceptance (online load → offline cached read → online refresh) إلزامي في Sprint 5B.1 عند توفر Student Home/Timetable data فعلية.
+
+### Sprint 5B.1 — Student Home + Timetable + Real Local Cache
+
+**الحالة: ⛔ التنفيذ والقبول الوظيفي ناجحان؛ Nano visual QA مفقود**
+
+- [x] Student Home وToday/Week/Current/Next typed APIs.
+- [x] Drift schema v2 وreal timetable cache المعزول.
+- [x] Feature-level offline acceptance: online load → offline cached display → online refresh.
+- [x] Samsung physical-device flow و25/25 tests وdebug APK.
+- [ ] إرفاق Nano Banana references وإكمال side-by-side visual QA.
+
+Current decision: **SPRINT 5B.1 STUDENT HOME & TIMETABLE REJECTED — FIXES REQUIRED** بسبب غياب صور المرجع البصري فقط؛ لا يبدأ Homework.
+
+### Student cache sequence
+
+- Sprint 5B.2: Homework/details/attachment metadata/local draft.
+- Sprint 5B.3: Results + Attendance cache.
+- Sprint 5B.4: Notifications + Announcements + Conversations read cache.
+
 ## Sprint 4.6 — Demo Data + Real E2E Acceptance
 
 **الحالة: ✅ مكتملة ومقبولة**
@@ -512,6 +545,30 @@
 - [x] Dependency versions preserved; available updates are not an acceptance failure.
 
 Decision: **SPRINT 5A FLUTTER FOUNDATION ACCEPTED — READY FOR STUDENT APP**.
+
+## iOS Native Acceptance Gate
+
+- [ ] macOS + Xcode.
+- [ ] `flutter doctor`.
+- [ ] Pod/SPM dependency resolution as appropriate for the project's Flutter version.
+- [ ] iPhone Simulator test.
+- [ ] Physical iPhone test.
+- [ ] Offline cache test.
+- [ ] Context switching test.
+- [ ] Secure storage test.
+- [ ] RTL/responsive test, including notch/Dynamic Island/home indicator safe areas.
+- [ ] Release/archive validation.
+
+Android and iOS remain targets of the same Flutter application and shared business/cache codebase. No separate iOS application will be created. Windows-host inability to run Xcode is not an Android-only architecture exception and is not, by itself, a Sprint rejection.
+
+## Deferred mobile offline/privacy work
+
+- [ ] Offline Mutation Outbox, write synchronization, conflict resolution, and idempotency keys — require an explicit Backend idempotency contract first.
+- [ ] Database encryption — deferred pending a maintained Android+iOS stack compatible with the current SDK plus key-lifecycle review; app-private storage, secure token separation, and logout purge apply now.
+- [ ] Biometric/PIN offline privacy enhancement.
+- [ ] Attachment file-cache size/LRU cleanup policy.
+- [ ] Existing Bell/time timetable future items remain deferred.
+- [ ] Android mobile maintenance: align `compileSdk` to 35 before release to remove the `sqlite3_flutter_libs` warning; SDK 35 is installed and the current APK build succeeds on compileSdk 34.
 
 
 ### 23. Production Security

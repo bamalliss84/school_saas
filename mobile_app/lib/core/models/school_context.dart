@@ -21,6 +21,7 @@ class SchoolContext {
       required this.accessMode,
       required this.canWrite,
       this.academicYearName,
+      this.academicYearId,
       this.isDefault = false,
       this.unread = const UnreadCounts()});
   final int membershipId;
@@ -30,6 +31,7 @@ class SchoolContext {
   final String accessMode;
   final bool canWrite;
   final String? academicYearName;
+  final int? academicYearId;
   final bool isDefault;
   final UnreadCounts unread;
   bool get isHistorical => accessMode == 'historical' || !canWrite;
@@ -43,11 +45,23 @@ class SchoolContext {
         accessMode: json['access_mode']?.toString() ?? 'active',
         canWrite: json['can_write'] as bool? ?? false,
         academicYearName: (json['academic_year'] as Map?)?['name']?.toString(),
+        academicYearId: (json['academic_year'] as Map?)?['id'] as int?,
         isDefault: json['is_default'] as bool? ?? false,
         unread: UnreadCounts.fromJson(json['unread_counts'] is Map
             ? Map<String, dynamic>.from(json['unread_counts'] as Map)
             : null),
       );
+
+  Map<String, Object?> toCacheJson() => {
+        'membership_id': membershipId,
+        'school_name': schoolName,
+        'role': role,
+        'status': status,
+        'access_mode': accessMode,
+        'can_write': canWrite,
+        'academic_year_name': academicYearName,
+        'academic_year_id': academicYearId,
+      };
 }
 
 class ContextListResult {
