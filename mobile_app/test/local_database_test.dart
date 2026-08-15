@@ -35,9 +35,9 @@ void main() {
   setUp(() => database = AppDatabase.forTesting(NativeDatabase.memory()));
   tearDown(() => database.close());
 
-  test('database opens with schema version one and migration foundation',
+  test('database opens with current additive schema and migration foundation',
       () async {
-    expect(database.schemaVersion, 2);
+    expect(database.schemaVersion, 3);
     await database.customSelect('SELECT 1').getSingle();
     expect(database.migration.onUpgrade, isA<Function>());
   });
@@ -139,10 +139,25 @@ void main() {
         payload: {'school': 'B'},
         isHistorical: false,
         syncedAt: DateTime.utc(2026));
+    await database.putHomeworkItem(
+        a,
+        {
+          'id': 99,
+          'title': 'Sensitive homework',
+        },
+        DateTime.utc(2026));
+    await database.saveHomeworkDraft(
+      scope: a,
+      homeworkId: 99,
+      answer: 'Sensitive draft',
+      studentNote: 'Private note',
+    );
     final fonts = MemoryFontStore();
     await fonts.write(AppFont.cairo);
     await LocalDataPurgeService(database).purgeCurrentUserData('user:1');
     expect(await database.readContexts(a), isEmpty);
+    expect(await database.readHomeworkItem(a, 99), null);
+    expect(await database.readHomeworkDraft(a, 99), null);
     expect(await database.readContexts(b), hasLength(1));
     expect(await fonts.read(), AppFont.cairo);
   });

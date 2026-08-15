@@ -33,3 +33,11 @@ Android and iOS share this implementation, cache semantics, tenant isolation, an
 ## Timetable implementation — Sprint 5B.1
 
 Schema v2 adds `CachedTimetableDatasets`, keyed by local user, membership, academic year, and dataset (`today`, `week`, `current`, `next`). The repository reads all four cached datasets first, then refreshes the bounded production endpoints and transactionally replaces only fully parsed payloads. Current/Next are never derived locally. Network failure preserves and displays the previous cache with offline/last-updated UI; no cache yields a controlled error.
+
+## Homework implementation — Sprint 5B.2
+
+Schema v3 additively introduces `CachedHomeworkItems` and `LocalHomeworkDrafts`. Both use local user + membership + academic year + homework ID keys, so context/user switches cannot expose another scope. Cached Homework JSON contains server fields, permission hints, submission state, and attachment metadata only; it never contains attachment bytes, credentials, or authorization data.
+
+The Homework repository reads list/detail locally first, attempts the real API, and replaces only parsed scoped records. A Local Draft stores answer text, a device-only personal note, and optional app-private local file references. It survives tab changes, app restart, and network failure, but explicit logout/session purge deletes it. Final submit is online-only: create or reuse the server draft, PATCH the answer, request final submit, refresh remote state, and only then delete the Local Draft. Failure never queues, fakes success, or deletes the draft.
+
+Homework attachments download online to the cross-platform application documents directory through `path_provider`; SQLite stores metadata only. Opening/viewer integration and file-cache size/LRU management remain deferred rather than introducing a large attachment engine.

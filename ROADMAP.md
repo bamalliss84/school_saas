@@ -546,6 +546,22 @@ Current decision: **SPRINT 5B.1 STUDENT HOME & TIMETABLE REJECTED — FIXES REQU
 
 Decision: **SPRINT 5A FLUTTER FOUNDATION ACCEPTED — READY FOR STUDENT APP**.
 
+## Sprint 5B.0–5B.2 — Student Foundation, Timetable & Homework
+
+**Status: accepted; ready for Results & Attendance**
+
+- [x] Cross-platform Student design/offline foundation with bundled Arabic fonts, RTL, SafeArea, and scoped Drift cache.
+- [x] Student Home plus Today/Week/Current/Next with real offline timetable acceptance.
+- [x] Student Homework list/detail and backend-derived completion states/permissions.
+- [x] Drift schema v3 Homework list/detail cache and user/membership/year/homework-scoped Local Draft.
+- [x] Online-only final submit with draft preservation on failure and deletion only after server confirmation.
+- [x] Physical Samsung online/offline/restart/recovery/final-submit E2E.
+- [x] Nano Student Homework visual review and responsive 150% coverage.
+- [ ] Attachment viewer integration and file-cache LRU/retention policy; metadata/download only is accepted in 5B.2.
+- [ ] Native iOS gate remains pending macOS/Xcode.
+
+Decision: **SPRINT 5B.2 STUDENT HOMEWORK ACCEPTED — READY FOR RESULTS & ATTENDANCE**.
+
 ## iOS Native Acceptance Gate
 
 - [ ] macOS + Xcode.

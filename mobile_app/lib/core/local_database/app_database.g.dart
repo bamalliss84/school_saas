@@ -1219,6 +1219,836 @@ class CachedTimetableDatasetsCompanion
   }
 }
 
+class $CachedHomeworkItemsTable extends CachedHomeworkItems
+    with TableInfo<$CachedHomeworkItemsTable, CachedHomeworkItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedHomeworkItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localUserKeyMeta =
+      const VerificationMeta('localUserKey');
+  @override
+  late final GeneratedColumn<String> localUserKey = GeneratedColumn<String>(
+      'local_user_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _membershipIdMeta =
+      const VerificationMeta('membershipId');
+  @override
+  late final GeneratedColumn<int> membershipId = GeneratedColumn<int>(
+      'membership_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _academicYearKeyMeta =
+      const VerificationMeta('academicYearKey');
+  @override
+  late final GeneratedColumn<String> academicYearKey = GeneratedColumn<String>(
+      'academic_year_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _homeworkIdMeta =
+      const VerificationMeta('homeworkId');
+  @override
+  late final GeneratedColumn<int> homeworkId = GeneratedColumn<int>(
+      'homework_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _lastSyncedAtMeta =
+      const VerificationMeta('lastSyncedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+      'last_synced_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        localUserKey,
+        membershipId,
+        academicYearKey,
+        homeworkId,
+        payloadJson,
+        lastSyncedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_homework_items';
+  @override
+  VerificationContext validateIntegrity(Insertable<CachedHomeworkItem> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_user_key')) {
+      context.handle(
+          _localUserKeyMeta,
+          localUserKey.isAcceptableOrUnknown(
+              data['local_user_key']!, _localUserKeyMeta));
+    } else if (isInserting) {
+      context.missing(_localUserKeyMeta);
+    }
+    if (data.containsKey('membership_id')) {
+      context.handle(
+          _membershipIdMeta,
+          membershipId.isAcceptableOrUnknown(
+              data['membership_id']!, _membershipIdMeta));
+    } else if (isInserting) {
+      context.missing(_membershipIdMeta);
+    }
+    if (data.containsKey('academic_year_key')) {
+      context.handle(
+          _academicYearKeyMeta,
+          academicYearKey.isAcceptableOrUnknown(
+              data['academic_year_key']!, _academicYearKeyMeta));
+    } else if (isInserting) {
+      context.missing(_academicYearKeyMeta);
+    }
+    if (data.containsKey('homework_id')) {
+      context.handle(
+          _homeworkIdMeta,
+          homeworkId.isAcceptableOrUnknown(
+              data['homework_id']!, _homeworkIdMeta));
+    } else if (isInserting) {
+      context.missing(_homeworkIdMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+          _lastSyncedAtMeta,
+          lastSyncedAt.isAcceptableOrUnknown(
+              data['last_synced_at']!, _lastSyncedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastSyncedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey =>
+      {localUserKey, membershipId, academicYearKey, homeworkId};
+  @override
+  CachedHomeworkItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedHomeworkItem(
+      localUserKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_user_key'])!,
+      membershipId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}membership_id'])!,
+      academicYearKey: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}academic_year_key'])!,
+      homeworkId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}homework_id'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_synced_at'])!,
+    );
+  }
+
+  @override
+  $CachedHomeworkItemsTable createAlias(String alias) {
+    return $CachedHomeworkItemsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedHomeworkItem extends DataClass
+    implements Insertable<CachedHomeworkItem> {
+  final String localUserKey;
+  final int membershipId;
+  final String academicYearKey;
+  final int homeworkId;
+  final String payloadJson;
+  final DateTime lastSyncedAt;
+  const CachedHomeworkItem(
+      {required this.localUserKey,
+      required this.membershipId,
+      required this.academicYearKey,
+      required this.homeworkId,
+      required this.payloadJson,
+      required this.lastSyncedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_user_key'] = Variable<String>(localUserKey);
+    map['membership_id'] = Variable<int>(membershipId);
+    map['academic_year_key'] = Variable<String>(academicYearKey);
+    map['homework_id'] = Variable<int>(homeworkId);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    return map;
+  }
+
+  CachedHomeworkItemsCompanion toCompanion(bool nullToAbsent) {
+    return CachedHomeworkItemsCompanion(
+      localUserKey: Value(localUserKey),
+      membershipId: Value(membershipId),
+      academicYearKey: Value(academicYearKey),
+      homeworkId: Value(homeworkId),
+      payloadJson: Value(payloadJson),
+      lastSyncedAt: Value(lastSyncedAt),
+    );
+  }
+
+  factory CachedHomeworkItem.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedHomeworkItem(
+      localUserKey: serializer.fromJson<String>(json['localUserKey']),
+      membershipId: serializer.fromJson<int>(json['membershipId']),
+      academicYearKey: serializer.fromJson<String>(json['academicYearKey']),
+      homeworkId: serializer.fromJson<int>(json['homeworkId']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      lastSyncedAt: serializer.fromJson<DateTime>(json['lastSyncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localUserKey': serializer.toJson<String>(localUserKey),
+      'membershipId': serializer.toJson<int>(membershipId),
+      'academicYearKey': serializer.toJson<String>(academicYearKey),
+      'homeworkId': serializer.toJson<int>(homeworkId),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'lastSyncedAt': serializer.toJson<DateTime>(lastSyncedAt),
+    };
+  }
+
+  CachedHomeworkItem copyWith(
+          {String? localUserKey,
+          int? membershipId,
+          String? academicYearKey,
+          int? homeworkId,
+          String? payloadJson,
+          DateTime? lastSyncedAt}) =>
+      CachedHomeworkItem(
+        localUserKey: localUserKey ?? this.localUserKey,
+        membershipId: membershipId ?? this.membershipId,
+        academicYearKey: academicYearKey ?? this.academicYearKey,
+        homeworkId: homeworkId ?? this.homeworkId,
+        payloadJson: payloadJson ?? this.payloadJson,
+        lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      );
+  CachedHomeworkItem copyWithCompanion(CachedHomeworkItemsCompanion data) {
+    return CachedHomeworkItem(
+      localUserKey: data.localUserKey.present
+          ? data.localUserKey.value
+          : this.localUserKey,
+      membershipId: data.membershipId.present
+          ? data.membershipId.value
+          : this.membershipId,
+      academicYearKey: data.academicYearKey.present
+          ? data.academicYearKey.value
+          : this.academicYearKey,
+      homeworkId:
+          data.homeworkId.present ? data.homeworkId.value : this.homeworkId,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedHomeworkItem(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('homeworkId: $homeworkId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(localUserKey, membershipId, academicYearKey,
+      homeworkId, payloadJson, lastSyncedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedHomeworkItem &&
+          other.localUserKey == this.localUserKey &&
+          other.membershipId == this.membershipId &&
+          other.academicYearKey == this.academicYearKey &&
+          other.homeworkId == this.homeworkId &&
+          other.payloadJson == this.payloadJson &&
+          other.lastSyncedAt == this.lastSyncedAt);
+}
+
+class CachedHomeworkItemsCompanion extends UpdateCompanion<CachedHomeworkItem> {
+  final Value<String> localUserKey;
+  final Value<int> membershipId;
+  final Value<String> academicYearKey;
+  final Value<int> homeworkId;
+  final Value<String> payloadJson;
+  final Value<DateTime> lastSyncedAt;
+  final Value<int> rowid;
+  const CachedHomeworkItemsCompanion({
+    this.localUserKey = const Value.absent(),
+    this.membershipId = const Value.absent(),
+    this.academicYearKey = const Value.absent(),
+    this.homeworkId = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedHomeworkItemsCompanion.insert({
+    required String localUserKey,
+    required int membershipId,
+    required String academicYearKey,
+    required int homeworkId,
+    required String payloadJson,
+    required DateTime lastSyncedAt,
+    this.rowid = const Value.absent(),
+  })  : localUserKey = Value(localUserKey),
+        membershipId = Value(membershipId),
+        academicYearKey = Value(academicYearKey),
+        homeworkId = Value(homeworkId),
+        payloadJson = Value(payloadJson),
+        lastSyncedAt = Value(lastSyncedAt);
+  static Insertable<CachedHomeworkItem> custom({
+    Expression<String>? localUserKey,
+    Expression<int>? membershipId,
+    Expression<String>? academicYearKey,
+    Expression<int>? homeworkId,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localUserKey != null) 'local_user_key': localUserKey,
+      if (membershipId != null) 'membership_id': membershipId,
+      if (academicYearKey != null) 'academic_year_key': academicYearKey,
+      if (homeworkId != null) 'homework_id': homeworkId,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedHomeworkItemsCompanion copyWith(
+      {Value<String>? localUserKey,
+      Value<int>? membershipId,
+      Value<String>? academicYearKey,
+      Value<int>? homeworkId,
+      Value<String>? payloadJson,
+      Value<DateTime>? lastSyncedAt,
+      Value<int>? rowid}) {
+    return CachedHomeworkItemsCompanion(
+      localUserKey: localUserKey ?? this.localUserKey,
+      membershipId: membershipId ?? this.membershipId,
+      academicYearKey: academicYearKey ?? this.academicYearKey,
+      homeworkId: homeworkId ?? this.homeworkId,
+      payloadJson: payloadJson ?? this.payloadJson,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localUserKey.present) {
+      map['local_user_key'] = Variable<String>(localUserKey.value);
+    }
+    if (membershipId.present) {
+      map['membership_id'] = Variable<int>(membershipId.value);
+    }
+    if (academicYearKey.present) {
+      map['academic_year_key'] = Variable<String>(academicYearKey.value);
+    }
+    if (homeworkId.present) {
+      map['homework_id'] = Variable<int>(homeworkId.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedHomeworkItemsCompanion(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('homeworkId: $homeworkId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalHomeworkDraftsTable extends LocalHomeworkDrafts
+    with TableInfo<$LocalHomeworkDraftsTable, LocalHomeworkDraft> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalHomeworkDraftsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localUserKeyMeta =
+      const VerificationMeta('localUserKey');
+  @override
+  late final GeneratedColumn<String> localUserKey = GeneratedColumn<String>(
+      'local_user_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _membershipIdMeta =
+      const VerificationMeta('membershipId');
+  @override
+  late final GeneratedColumn<int> membershipId = GeneratedColumn<int>(
+      'membership_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _academicYearKeyMeta =
+      const VerificationMeta('academicYearKey');
+  @override
+  late final GeneratedColumn<String> academicYearKey = GeneratedColumn<String>(
+      'academic_year_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _homeworkIdMeta =
+      const VerificationMeta('homeworkId');
+  @override
+  late final GeneratedColumn<int> homeworkId = GeneratedColumn<int>(
+      'homework_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _answerMeta = const VerificationMeta('answer');
+  @override
+  late final GeneratedColumn<String> answer = GeneratedColumn<String>(
+      'answer', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _studentNoteMeta =
+      const VerificationMeta('studentNote');
+  @override
+  late final GeneratedColumn<String> studentNote = GeneratedColumn<String>(
+      'student_note', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _localFilesJsonMeta =
+      const VerificationMeta('localFilesJson');
+  @override
+  late final GeneratedColumn<String> localFilesJson = GeneratedColumn<String>(
+      'local_files_json', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        localUserKey,
+        membershipId,
+        academicYearKey,
+        homeworkId,
+        answer,
+        studentNote,
+        localFilesJson,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_homework_drafts';
+  @override
+  VerificationContext validateIntegrity(Insertable<LocalHomeworkDraft> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_user_key')) {
+      context.handle(
+          _localUserKeyMeta,
+          localUserKey.isAcceptableOrUnknown(
+              data['local_user_key']!, _localUserKeyMeta));
+    } else if (isInserting) {
+      context.missing(_localUserKeyMeta);
+    }
+    if (data.containsKey('membership_id')) {
+      context.handle(
+          _membershipIdMeta,
+          membershipId.isAcceptableOrUnknown(
+              data['membership_id']!, _membershipIdMeta));
+    } else if (isInserting) {
+      context.missing(_membershipIdMeta);
+    }
+    if (data.containsKey('academic_year_key')) {
+      context.handle(
+          _academicYearKeyMeta,
+          academicYearKey.isAcceptableOrUnknown(
+              data['academic_year_key']!, _academicYearKeyMeta));
+    } else if (isInserting) {
+      context.missing(_academicYearKeyMeta);
+    }
+    if (data.containsKey('homework_id')) {
+      context.handle(
+          _homeworkIdMeta,
+          homeworkId.isAcceptableOrUnknown(
+              data['homework_id']!, _homeworkIdMeta));
+    } else if (isInserting) {
+      context.missing(_homeworkIdMeta);
+    }
+    if (data.containsKey('answer')) {
+      context.handle(_answerMeta,
+          answer.isAcceptableOrUnknown(data['answer']!, _answerMeta));
+    }
+    if (data.containsKey('student_note')) {
+      context.handle(
+          _studentNoteMeta,
+          studentNote.isAcceptableOrUnknown(
+              data['student_note']!, _studentNoteMeta));
+    }
+    if (data.containsKey('local_files_json')) {
+      context.handle(
+          _localFilesJsonMeta,
+          localFilesJson.isAcceptableOrUnknown(
+              data['local_files_json']!, _localFilesJsonMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey =>
+      {localUserKey, membershipId, academicYearKey, homeworkId};
+  @override
+  LocalHomeworkDraft map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalHomeworkDraft(
+      localUserKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_user_key'])!,
+      membershipId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}membership_id'])!,
+      academicYearKey: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}academic_year_key'])!,
+      homeworkId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}homework_id'])!,
+      answer: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}answer'])!,
+      studentNote: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}student_note'])!,
+      localFilesJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}local_files_json'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $LocalHomeworkDraftsTable createAlias(String alias) {
+    return $LocalHomeworkDraftsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalHomeworkDraft extends DataClass
+    implements Insertable<LocalHomeworkDraft> {
+  final String localUserKey;
+  final int membershipId;
+  final String academicYearKey;
+  final int homeworkId;
+  final String answer;
+  final String studentNote;
+  final String localFilesJson;
+  final DateTime updatedAt;
+  const LocalHomeworkDraft(
+      {required this.localUserKey,
+      required this.membershipId,
+      required this.academicYearKey,
+      required this.homeworkId,
+      required this.answer,
+      required this.studentNote,
+      required this.localFilesJson,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_user_key'] = Variable<String>(localUserKey);
+    map['membership_id'] = Variable<int>(membershipId);
+    map['academic_year_key'] = Variable<String>(academicYearKey);
+    map['homework_id'] = Variable<int>(homeworkId);
+    map['answer'] = Variable<String>(answer);
+    map['student_note'] = Variable<String>(studentNote);
+    map['local_files_json'] = Variable<String>(localFilesJson);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LocalHomeworkDraftsCompanion toCompanion(bool nullToAbsent) {
+    return LocalHomeworkDraftsCompanion(
+      localUserKey: Value(localUserKey),
+      membershipId: Value(membershipId),
+      academicYearKey: Value(academicYearKey),
+      homeworkId: Value(homeworkId),
+      answer: Value(answer),
+      studentNote: Value(studentNote),
+      localFilesJson: Value(localFilesJson),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LocalHomeworkDraft.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalHomeworkDraft(
+      localUserKey: serializer.fromJson<String>(json['localUserKey']),
+      membershipId: serializer.fromJson<int>(json['membershipId']),
+      academicYearKey: serializer.fromJson<String>(json['academicYearKey']),
+      homeworkId: serializer.fromJson<int>(json['homeworkId']),
+      answer: serializer.fromJson<String>(json['answer']),
+      studentNote: serializer.fromJson<String>(json['studentNote']),
+      localFilesJson: serializer.fromJson<String>(json['localFilesJson']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localUserKey': serializer.toJson<String>(localUserKey),
+      'membershipId': serializer.toJson<int>(membershipId),
+      'academicYearKey': serializer.toJson<String>(academicYearKey),
+      'homeworkId': serializer.toJson<int>(homeworkId),
+      'answer': serializer.toJson<String>(answer),
+      'studentNote': serializer.toJson<String>(studentNote),
+      'localFilesJson': serializer.toJson<String>(localFilesJson),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  LocalHomeworkDraft copyWith(
+          {String? localUserKey,
+          int? membershipId,
+          String? academicYearKey,
+          int? homeworkId,
+          String? answer,
+          String? studentNote,
+          String? localFilesJson,
+          DateTime? updatedAt}) =>
+      LocalHomeworkDraft(
+        localUserKey: localUserKey ?? this.localUserKey,
+        membershipId: membershipId ?? this.membershipId,
+        academicYearKey: academicYearKey ?? this.academicYearKey,
+        homeworkId: homeworkId ?? this.homeworkId,
+        answer: answer ?? this.answer,
+        studentNote: studentNote ?? this.studentNote,
+        localFilesJson: localFilesJson ?? this.localFilesJson,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  LocalHomeworkDraft copyWithCompanion(LocalHomeworkDraftsCompanion data) {
+    return LocalHomeworkDraft(
+      localUserKey: data.localUserKey.present
+          ? data.localUserKey.value
+          : this.localUserKey,
+      membershipId: data.membershipId.present
+          ? data.membershipId.value
+          : this.membershipId,
+      academicYearKey: data.academicYearKey.present
+          ? data.academicYearKey.value
+          : this.academicYearKey,
+      homeworkId:
+          data.homeworkId.present ? data.homeworkId.value : this.homeworkId,
+      answer: data.answer.present ? data.answer.value : this.answer,
+      studentNote:
+          data.studentNote.present ? data.studentNote.value : this.studentNote,
+      localFilesJson: data.localFilesJson.present
+          ? data.localFilesJson.value
+          : this.localFilesJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalHomeworkDraft(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('homeworkId: $homeworkId, ')
+          ..write('answer: $answer, ')
+          ..write('studentNote: $studentNote, ')
+          ..write('localFilesJson: $localFilesJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(localUserKey, membershipId, academicYearKey,
+      homeworkId, answer, studentNote, localFilesJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalHomeworkDraft &&
+          other.localUserKey == this.localUserKey &&
+          other.membershipId == this.membershipId &&
+          other.academicYearKey == this.academicYearKey &&
+          other.homeworkId == this.homeworkId &&
+          other.answer == this.answer &&
+          other.studentNote == this.studentNote &&
+          other.localFilesJson == this.localFilesJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LocalHomeworkDraftsCompanion extends UpdateCompanion<LocalHomeworkDraft> {
+  final Value<String> localUserKey;
+  final Value<int> membershipId;
+  final Value<String> academicYearKey;
+  final Value<int> homeworkId;
+  final Value<String> answer;
+  final Value<String> studentNote;
+  final Value<String> localFilesJson;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const LocalHomeworkDraftsCompanion({
+    this.localUserKey = const Value.absent(),
+    this.membershipId = const Value.absent(),
+    this.academicYearKey = const Value.absent(),
+    this.homeworkId = const Value.absent(),
+    this.answer = const Value.absent(),
+    this.studentNote = const Value.absent(),
+    this.localFilesJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalHomeworkDraftsCompanion.insert({
+    required String localUserKey,
+    required int membershipId,
+    required String academicYearKey,
+    required int homeworkId,
+    this.answer = const Value.absent(),
+    this.studentNote = const Value.absent(),
+    this.localFilesJson = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : localUserKey = Value(localUserKey),
+        membershipId = Value(membershipId),
+        academicYearKey = Value(academicYearKey),
+        homeworkId = Value(homeworkId),
+        updatedAt = Value(updatedAt);
+  static Insertable<LocalHomeworkDraft> custom({
+    Expression<String>? localUserKey,
+    Expression<int>? membershipId,
+    Expression<String>? academicYearKey,
+    Expression<int>? homeworkId,
+    Expression<String>? answer,
+    Expression<String>? studentNote,
+    Expression<String>? localFilesJson,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localUserKey != null) 'local_user_key': localUserKey,
+      if (membershipId != null) 'membership_id': membershipId,
+      if (academicYearKey != null) 'academic_year_key': academicYearKey,
+      if (homeworkId != null) 'homework_id': homeworkId,
+      if (answer != null) 'answer': answer,
+      if (studentNote != null) 'student_note': studentNote,
+      if (localFilesJson != null) 'local_files_json': localFilesJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalHomeworkDraftsCompanion copyWith(
+      {Value<String>? localUserKey,
+      Value<int>? membershipId,
+      Value<String>? academicYearKey,
+      Value<int>? homeworkId,
+      Value<String>? answer,
+      Value<String>? studentNote,
+      Value<String>? localFilesJson,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return LocalHomeworkDraftsCompanion(
+      localUserKey: localUserKey ?? this.localUserKey,
+      membershipId: membershipId ?? this.membershipId,
+      academicYearKey: academicYearKey ?? this.academicYearKey,
+      homeworkId: homeworkId ?? this.homeworkId,
+      answer: answer ?? this.answer,
+      studentNote: studentNote ?? this.studentNote,
+      localFilesJson: localFilesJson ?? this.localFilesJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localUserKey.present) {
+      map['local_user_key'] = Variable<String>(localUserKey.value);
+    }
+    if (membershipId.present) {
+      map['membership_id'] = Variable<int>(membershipId.value);
+    }
+    if (academicYearKey.present) {
+      map['academic_year_key'] = Variable<String>(academicYearKey.value);
+    }
+    if (homeworkId.present) {
+      map['homework_id'] = Variable<int>(homeworkId.value);
+    }
+    if (answer.present) {
+      map['answer'] = Variable<String>(answer.value);
+    }
+    if (studentNote.present) {
+      map['student_note'] = Variable<String>(studentNote.value);
+    }
+    if (localFilesJson.present) {
+      map['local_files_json'] = Variable<String>(localFilesJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalHomeworkDraftsCompanion(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('homeworkId: $homeworkId, ')
+          ..write('answer: $answer, ')
+          ..write('studentNote: $studentNote, ')
+          ..write('localFilesJson: $localFilesJson, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1226,12 +2056,21 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CacheMetadataTable cacheMetadata = $CacheMetadataTable(this);
   late final $CachedTimetableDatasetsTable cachedTimetableDatasets =
       $CachedTimetableDatasetsTable(this);
+  late final $CachedHomeworkItemsTable cachedHomeworkItems =
+      $CachedHomeworkItemsTable(this);
+  late final $LocalHomeworkDraftsTable localHomeworkDrafts =
+      $LocalHomeworkDraftsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [cachedContexts, cacheMetadata, cachedTimetableDatasets];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        cachedContexts,
+        cacheMetadata,
+        cachedTimetableDatasets,
+        cachedHomeworkItems,
+        localHomeworkDrafts
+      ];
 }
 
 typedef $$CachedContextsTableCreateCompanionBuilder = CachedContextsCompanion
@@ -1853,6 +2692,433 @@ typedef $$CachedTimetableDatasetsTableProcessedTableManager
         ),
         CachedTimetableDataset,
         PrefetchHooks Function()>;
+typedef $$CachedHomeworkItemsTableCreateCompanionBuilder
+    = CachedHomeworkItemsCompanion Function({
+  required String localUserKey,
+  required int membershipId,
+  required String academicYearKey,
+  required int homeworkId,
+  required String payloadJson,
+  required DateTime lastSyncedAt,
+  Value<int> rowid,
+});
+typedef $$CachedHomeworkItemsTableUpdateCompanionBuilder
+    = CachedHomeworkItemsCompanion Function({
+  Value<String> localUserKey,
+  Value<int> membershipId,
+  Value<String> academicYearKey,
+  Value<int> homeworkId,
+  Value<String> payloadJson,
+  Value<DateTime> lastSyncedAt,
+  Value<int> rowid,
+});
+
+class $$CachedHomeworkItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedHomeworkItemsTable> {
+  $$CachedHomeworkItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$CachedHomeworkItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedHomeworkItemsTable> {
+  $$CachedHomeworkItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get membershipId => $composableBuilder(
+      column: $table.membershipId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$CachedHomeworkItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedHomeworkItemsTable> {
+  $$CachedHomeworkItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => column);
+
+  GeneratedColumn<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => column);
+
+  GeneratedColumn<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey, builder: (column) => column);
+
+  GeneratedColumn<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => column);
+}
+
+class $$CachedHomeworkItemsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $CachedHomeworkItemsTable,
+    CachedHomeworkItem,
+    $$CachedHomeworkItemsTableFilterComposer,
+    $$CachedHomeworkItemsTableOrderingComposer,
+    $$CachedHomeworkItemsTableAnnotationComposer,
+    $$CachedHomeworkItemsTableCreateCompanionBuilder,
+    $$CachedHomeworkItemsTableUpdateCompanionBuilder,
+    (
+      CachedHomeworkItem,
+      BaseReferences<_$AppDatabase, $CachedHomeworkItemsTable,
+          CachedHomeworkItem>
+    ),
+    CachedHomeworkItem,
+    PrefetchHooks Function()> {
+  $$CachedHomeworkItemsTableTableManager(
+      _$AppDatabase db, $CachedHomeworkItemsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedHomeworkItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedHomeworkItemsTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedHomeworkItemsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> localUserKey = const Value.absent(),
+            Value<int> membershipId = const Value.absent(),
+            Value<String> academicYearKey = const Value.absent(),
+            Value<int> homeworkId = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<DateTime> lastSyncedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CachedHomeworkItemsCompanion(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            homeworkId: homeworkId,
+            payloadJson: payloadJson,
+            lastSyncedAt: lastSyncedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String localUserKey,
+            required int membershipId,
+            required String academicYearKey,
+            required int homeworkId,
+            required String payloadJson,
+            required DateTime lastSyncedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CachedHomeworkItemsCompanion.insert(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            homeworkId: homeworkId,
+            payloadJson: payloadJson,
+            lastSyncedAt: lastSyncedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CachedHomeworkItemsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $CachedHomeworkItemsTable,
+    CachedHomeworkItem,
+    $$CachedHomeworkItemsTableFilterComposer,
+    $$CachedHomeworkItemsTableOrderingComposer,
+    $$CachedHomeworkItemsTableAnnotationComposer,
+    $$CachedHomeworkItemsTableCreateCompanionBuilder,
+    $$CachedHomeworkItemsTableUpdateCompanionBuilder,
+    (
+      CachedHomeworkItem,
+      BaseReferences<_$AppDatabase, $CachedHomeworkItemsTable,
+          CachedHomeworkItem>
+    ),
+    CachedHomeworkItem,
+    PrefetchHooks Function()>;
+typedef $$LocalHomeworkDraftsTableCreateCompanionBuilder
+    = LocalHomeworkDraftsCompanion Function({
+  required String localUserKey,
+  required int membershipId,
+  required String academicYearKey,
+  required int homeworkId,
+  Value<String> answer,
+  Value<String> studentNote,
+  Value<String> localFilesJson,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$LocalHomeworkDraftsTableUpdateCompanionBuilder
+    = LocalHomeworkDraftsCompanion Function({
+  Value<String> localUserKey,
+  Value<int> membershipId,
+  Value<String> academicYearKey,
+  Value<int> homeworkId,
+  Value<String> answer,
+  Value<String> studentNote,
+  Value<String> localFilesJson,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$LocalHomeworkDraftsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalHomeworkDraftsTable> {
+  $$LocalHomeworkDraftsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get answer => $composableBuilder(
+      column: $table.answer, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get studentNote => $composableBuilder(
+      column: $table.studentNote, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localFilesJson => $composableBuilder(
+      column: $table.localFilesJson,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$LocalHomeworkDraftsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalHomeworkDraftsTable> {
+  $$LocalHomeworkDraftsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get membershipId => $composableBuilder(
+      column: $table.membershipId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get answer => $composableBuilder(
+      column: $table.answer, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get studentNote => $composableBuilder(
+      column: $table.studentNote, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localFilesJson => $composableBuilder(
+      column: $table.localFilesJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$LocalHomeworkDraftsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalHomeworkDraftsTable> {
+  $$LocalHomeworkDraftsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => column);
+
+  GeneratedColumn<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => column);
+
+  GeneratedColumn<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey, builder: (column) => column);
+
+  GeneratedColumn<int> get homeworkId => $composableBuilder(
+      column: $table.homeworkId, builder: (column) => column);
+
+  GeneratedColumn<String> get answer =>
+      $composableBuilder(column: $table.answer, builder: (column) => column);
+
+  GeneratedColumn<String> get studentNote => $composableBuilder(
+      column: $table.studentNote, builder: (column) => column);
+
+  GeneratedColumn<String> get localFilesJson => $composableBuilder(
+      column: $table.localFilesJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LocalHomeworkDraftsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LocalHomeworkDraftsTable,
+    LocalHomeworkDraft,
+    $$LocalHomeworkDraftsTableFilterComposer,
+    $$LocalHomeworkDraftsTableOrderingComposer,
+    $$LocalHomeworkDraftsTableAnnotationComposer,
+    $$LocalHomeworkDraftsTableCreateCompanionBuilder,
+    $$LocalHomeworkDraftsTableUpdateCompanionBuilder,
+    (
+      LocalHomeworkDraft,
+      BaseReferences<_$AppDatabase, $LocalHomeworkDraftsTable,
+          LocalHomeworkDraft>
+    ),
+    LocalHomeworkDraft,
+    PrefetchHooks Function()> {
+  $$LocalHomeworkDraftsTableTableManager(
+      _$AppDatabase db, $LocalHomeworkDraftsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalHomeworkDraftsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalHomeworkDraftsTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalHomeworkDraftsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> localUserKey = const Value.absent(),
+            Value<int> membershipId = const Value.absent(),
+            Value<String> academicYearKey = const Value.absent(),
+            Value<int> homeworkId = const Value.absent(),
+            Value<String> answer = const Value.absent(),
+            Value<String> studentNote = const Value.absent(),
+            Value<String> localFilesJson = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalHomeworkDraftsCompanion(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            homeworkId: homeworkId,
+            answer: answer,
+            studentNote: studentNote,
+            localFilesJson: localFilesJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String localUserKey,
+            required int membershipId,
+            required String academicYearKey,
+            required int homeworkId,
+            Value<String> answer = const Value.absent(),
+            Value<String> studentNote = const Value.absent(),
+            Value<String> localFilesJson = const Value.absent(),
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LocalHomeworkDraftsCompanion.insert(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            homeworkId: homeworkId,
+            answer: answer,
+            studentNote: studentNote,
+            localFilesJson: localFilesJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$LocalHomeworkDraftsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $LocalHomeworkDraftsTable,
+    LocalHomeworkDraft,
+    $$LocalHomeworkDraftsTableFilterComposer,
+    $$LocalHomeworkDraftsTableOrderingComposer,
+    $$LocalHomeworkDraftsTableAnnotationComposer,
+    $$LocalHomeworkDraftsTableCreateCompanionBuilder,
+    $$LocalHomeworkDraftsTableUpdateCompanionBuilder,
+    (
+      LocalHomeworkDraft,
+      BaseReferences<_$AppDatabase, $LocalHomeworkDraftsTable,
+          LocalHomeworkDraft>
+    ),
+    LocalHomeworkDraft,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1864,4 +3130,8 @@ class $AppDatabaseManager {
   $$CachedTimetableDatasetsTableTableManager get cachedTimetableDatasets =>
       $$CachedTimetableDatasetsTableTableManager(
           _db, _db.cachedTimetableDatasets);
+  $$CachedHomeworkItemsTableTableManager get cachedHomeworkItems =>
+      $$CachedHomeworkItemsTableTableManager(_db, _db.cachedHomeworkItems);
+  $$LocalHomeworkDraftsTableTableManager get localHomeworkDrafts =>
+      $$LocalHomeworkDraftsTableTableManager(_db, _db.localHomeworkDrafts);
 }

@@ -10,6 +10,11 @@ import '../../core/preferences/font_preferences.dart';
 import '../student/timetable/data/timetable_repository.dart';
 import '../student/timetable/presentation/timetable_controller.dart';
 import '../student/timetable/presentation/timetable_screens.dart';
+import '../student/homework/data/homework_local_data_source.dart';
+import '../student/homework/data/homework_remote_data_source.dart';
+import '../student/homework/data/homework_repository.dart';
+import '../student/homework/presentation/homework_controller.dart';
+import '../student/homework/presentation/homework_screens.dart';
 
 final studentTimetableProvider = StateNotifierProvider.autoDispose
     .family<TimetableController, TimetableState, CacheScope>((ref, scope) {
@@ -17,6 +22,19 @@ final studentTimetableProvider = StateNotifierProvider.autoDispose
       StudentTimetableRepository(
           ref.read(apiProvider).dio, ref.read(databaseProvider)),
       scope);
+  Future<void>.microtask(controller.load);
+  return controller;
+});
+
+final studentHomeworkProvider = StateNotifierProvider.autoDispose
+    .family<HomeworkController, HomeworkState, CacheScope>((ref, scope) {
+  final controller = HomeworkController(
+    StudentHomeworkRepository(
+      DioHomeworkRemoteDataSource(ref.read(apiProvider).dio),
+      HomeworkLocalDataSource(ref.read(databaseProvider)),
+    ),
+    scope,
+  );
   Future<void>.microtask(controller.load);
   return controller;
 });
@@ -66,6 +84,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           '',
     );
     final timetable = ref.watch(studentTimetableProvider(scope));
+    final homework = ref.watch(studentHomeworkProvider(scope));
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -75,9 +94,11 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               academicYear: session.context?.academicYearName),
           if (session.status == SessionStatus.historical)
             HistoricalContextBanner(context: session.context),
-          if (timetable is TimetableReady && timetable.offline)
+          if (selectedIndex == 0 &&
+              timetable is TimetableReady &&
+              timetable.offline)
             const OfflineCacheBanner(),
-          if (timetable is TimetableReady)
+          if (selectedIndex == 0 && timetable is TimetableReady)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
               child: Align(
@@ -90,13 +111,15 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                   ? const AppearanceSettings()
                   : selectedIndex == 0
                       ? _studentFeature(timetable, session, scope)
-                      : Center(
-                          child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.x6),
-                          child: Text(
-                              '${labels[selectedIndex]}\nواجهة تمهيدية — لا توجد ميزة بيانات في Sprint 5B.0',
-                              textAlign: TextAlign.center),
-                        ))),
+                      : selectedIndex == 1
+                          ? _homeworkFeature(homework, session, scope)
+                          : Center(
+                              child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.x6),
+                              child: Text(
+                                  '${labels[selectedIndex]}\nواجهة تمهيدية — لا توجد ميزة بيانات في Sprint 5B.0',
+                                  textAlign: TextAlign.center),
+                            ))),
         ]),
       ),
       bottomNavigationBar: SafeArea(
@@ -106,6 +129,60 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             onSelected: (value) => setState(() => selectedIndex = value)),
       ),
     );
+  }
+
+  Widget _homeworkFeature(
+      HomeworkState state, AppSession session, CacheScope scope) {
+    if (state is HomeworkLoading) return const AppSkeletonCard();
+    if (state is HomeworkFailure) {
+      return AppErrorState(message: state.message);
+    }
+    final ready = state as HomeworkReady;
+    final controller = ref.read(studentHomeworkProvider(scope).notifier);
+    final detail = ready.detail;
+    if (detail is HomeworkDetailLoading) return const AppSkeletonCard();
+    if (detail is HomeworkDetailFailure) {
+      return Column(children: [
+        Expanded(child: AppErrorState(message: detail.message)),
+        TextButton(
+            onPressed: controller.closeDetail,
+            child: const Text('العودة إلى الواجبات')),
+      ]);
+    }
+    if (detail is HomeworkDetailReady) {
+      return Column(children: [
+        if (detail.data.offline) const OfflineCacheBanner(),
+        Expanded(
+          child: StudentHomeworkDetailScreen(
+            data: detail.data,
+            historical: session.status == SessionStatus.historical,
+            submitting: detail.submitting,
+            onBack: controller.closeDetail,
+            onSave: controller.saveDraft,
+            onSubmit: controller.submit,
+            onDownload: controller.download,
+          ),
+        ),
+      ]);
+    }
+    return Column(children: [
+      if (ready.list.offline) const OfflineCacheBanner(),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: LastUpdatedLabel(value: ready.list.lastUpdated.toLocal()),
+        ),
+      ),
+      Expanded(
+        child: StudentHomeworkListScreen(
+          state: ready,
+          onFilter: controller.selectFilter,
+          onOpen: controller.open,
+          onRefresh: controller.refresh,
+        ),
+      ),
+    ]);
   }
 
   Widget _studentFeature(
@@ -158,6 +235,12 @@ class AppearanceSettings extends ConsumerWidget {
                           },
                         ))
                     .toList())),
+        const SizedBox(height: AppSpacing.x6),
+        TextButton.icon(
+          onPressed: () => ref.read(sessionProvider.notifier).logout(),
+          icon: const Icon(Icons.logout),
+          label: const Text('تسجيل الخروج'),
+        ),
       ],
     );
   }

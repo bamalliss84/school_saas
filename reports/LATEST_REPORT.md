@@ -1,5 +1,19 @@
 # Latest Acceptance Report
 
+## Sprint 5B.2 — Student Homework
+
+- Baseline `56cf542`; Flutter-only Student Homework implementation. Backend production files and migrations unchanged.
+- Nano Homework visual reference received/readable/reviewed; production-quality RTL list/detail/status/action treatment PASS.
+- Real API list/detail/submission draft/update/final-submit integrated through remote/local/repository/controller boundaries.
+- Drift schema v3 additive scoped Homework cache + Local Draft; logout purge covers both while font preference remains.
+- Local Draft survives tab, restart, and offline; submit is online-only and clears the draft only after server confirmation.
+- Attachment metadata cached in Drift; online bytes download to app-private cross-platform documents storage. Viewer/LRU engine deferred.
+- Format PASS; analyze PASS; 36/36 tests PASS; Debug APK PASS. Existing compileSdk maintenance warning remains non-blocking.
+- Samsung SM N986U real `demo_student_a_02` flow PASS: login, list/detail, draft, restart, offline cache/banner/block, recovery, final submit, `submitted` state.
+- iOS shared architecture/package review retained; native macOS/Xcode gate pending and non-blocking on Windows.
+- No Backend tests rerun. No git add, commit, or push.
+- Decision: **SPRINT 5B.2 STUDENT HOMEWORK ACCEPTED — READY FOR RESULTS & ATTENDANCE**.
+
 ## Sprint 5B.1 — Student Home + Timetable
 
 - Flutter-only Student Home/Today/Week/Current/Next with Drift schema v2 real cache; Backend/migrations unchanged.

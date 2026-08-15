@@ -1,0 +1,283 @@
+import 'package:dio/dio.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:school_saas_mobile/core/local_database/app_database.dart';
+import 'package:school_saas_mobile/features/student/homework/data/homework_local_data_source.dart';
+import 'package:school_saas_mobile/features/student/homework/data/homework_remote_data_source.dart';
+import 'package:school_saas_mobile/features/student/homework/data/homework_repository.dart';
+import 'package:school_saas_mobile/features/student/homework/domain/homework_models.dart';
+import 'package:school_saas_mobile/features/student/homework/presentation/homework_controller.dart';
+import 'package:school_saas_mobile/features/student/homework/presentation/homework_screens.dart';
+
+Map<String, dynamic> homeworkJson({
+  int id = 11,
+  String completion = 'not_started',
+  bool canCreate = true,
+  bool canSubmit = true,
+  String teacherNote = '',
+  String? grade,
+}) =>
+    {
+      'id': id,
+      'title': 'تمارين المعادلات والجبر',
+      'description': 'حل الأسئلة المطلوبة مع توضيح خطوات الحل.',
+      'subject_name': 'الرياضيات',
+      'classroom_id': 6,
+      'section_id': 1,
+      'teacher': 'معلم الرياضيات',
+      'due_date': '2026-08-20T09:00:00Z',
+      'completion_status': completion,
+      'can_create_draft': canCreate,
+      'can_final_submit': canSubmit,
+      'max_grade': '10',
+      'grade': grade,
+      'teacher_note': teacherNote,
+      'attachments': [
+        {
+          'id': 2,
+          'file': 'http://example.test/question.pdf',
+          'original_name': 'questions.pdf',
+          'content_type': 'application/pdf',
+          'file_size': 1024,
+        }
+      ],
+    };
+
+Map<String, dynamic> submissionJson({
+  int id = 21,
+  String status = 'draft',
+  String answer = 'إجابتي',
+  bool canEdit = true,
+  bool canSubmit = true,
+}) =>
+    {
+      'id': id,
+      'answer': answer,
+      'status': status,
+      'can_edit': canEdit,
+      'can_submit': canSubmit,
+      'teacher_note': status == 'returned' ? 'راجع السؤال الرابع' : '',
+      'grade': status == 'graded' ? '9' : null,
+    };
+
+class FakeHomeworkRemote implements HomeworkRemoteDataSource {
+  FakeHomeworkRemote({this.fail = false, this.submissionRow});
+  bool fail;
+  Map<String, dynamic>? submissionRow;
+  bool finalSubmitted = false;
+
+  void check() {
+    if (fail) throw DioException(requestOptions: RequestOptions());
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> list() async {
+    check();
+    return [homeworkJson()];
+  }
+
+  @override
+  Future<Map<String, dynamic>> detail(int homeworkId) async {
+    check();
+    return homeworkJson(id: homeworkId);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> submission(int homeworkId) async {
+    check();
+    return submissionRow;
+  }
+
+  @override
+  Future<Map<String, dynamic>> createSubmission(int homeworkId) async {
+    check();
+    submissionRow = submissionJson();
+    return submissionRow!;
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateAnswer(
+      int submissionId, String answer) async {
+    check();
+    submissionRow = submissionJson(id: submissionId, answer: answer);
+    return submissionRow!;
+  }
+
+  @override
+  Future<Map<String, dynamic>> finalSubmit(int submissionId) async {
+    check();
+    finalSubmitted = true;
+    submissionRow = submissionJson(
+        id: submissionId,
+        status: 'submitted',
+        canEdit: false,
+        canSubmit: false);
+    return submissionRow!;
+  }
+
+  @override
+  Future<String> downloadAttachment(String url, String fileName) async {
+    check();
+    return '/app/$fileName';
+  }
+}
+
+const scopeA = CacheScope(
+    localUserKey: 'user:1', membershipId: 10, academicYearKey: '2026');
+const scopeB = CacheScope(
+    localUserKey: 'user:1', membershipId: 20, academicYearKey: '2026');
+const scopeOtherUser = CacheScope(
+    localUserKey: 'user:2', membershipId: 10, academicYearKey: '2026');
+
+void main() {
+  test('homework and submission parsing preserves backend lifecycle', () {
+    final returned = StudentHomework.fromJson(
+        homeworkJson(completion: 'returned', teacherNote: 'راجع الحل'));
+    final graded = HomeworkSubmissionModel.fromJson(
+        submissionJson(status: 'graded', canEdit: false, canSubmit: false));
+    expect(returned.completionStatus, 'returned');
+    expect(returned.teacherNote, 'راجع الحل');
+    expect(returned.attachments.single.name, 'questions.pdf');
+    expect(graded.status, 'graded');
+    expect(graded.grade, 9);
+    expect(graded.canEdit, isFalse);
+  });
+
+  test('list and detail cache are isolated by membership and user', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final local = HomeworkLocalDataSource(db);
+    final repo = StudentHomeworkRepository(FakeHomeworkRemote(), local);
+    await repo.refreshList(scopeA);
+    await repo.loadDetail(scopeA, 11);
+    expect((await repo.readList(scopeA))!.items.single.id, 11);
+    expect(await repo.readList(scopeB), isNull);
+    expect(await repo.readList(scopeOtherUser), isNull);
+    expect(await db.readHomeworkItem(scopeB, 11), isNull);
+  });
+
+  test('local draft persists and remains isolated', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final local = HomeworkLocalDataSource(db);
+    const draft =
+        HomeworkLocalDraft(answer: 'حل محفوظ', studentNote: 'ملاحظة شخصية');
+    await local.saveDraft(scopeA, 11, draft);
+    expect((await local.readDraft(scopeA, 11)).answer, 'حل محفوظ');
+    expect((await local.readDraft(scopeB, 11)).answer, isEmpty);
+    expect((await local.readDraft(scopeOtherUser, 11)).studentNote, isEmpty);
+  });
+
+  test('offline detail falls back to cache and keeps local draft', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final local = HomeworkLocalDataSource(db);
+    final repo = StudentHomeworkRepository(remote, local);
+    await repo.loadDetail(scopeA, 11);
+    await repo.saveDraft(
+        scopeA, 11, const HomeworkLocalDraft(answer: 'offline answer'));
+    remote.fail = true;
+    final cached = await repo.loadDetail(scopeA, 11);
+    expect(cached.offline, isTrue);
+    expect(cached.homework.title, isNotEmpty);
+    expect(cached.draft.answer, 'offline answer');
+  });
+
+  test('offline without cache reports failure', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = StudentHomeworkRepository(
+        FakeHomeworkRemote(fail: true), HomeworkLocalDataSource(db));
+    expect(() => repo.loadDetail(scopeA, 999), throwsA(isA<DioException>()));
+  });
+
+  test('failed final submit preserves local draft', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final local = HomeworkLocalDataSource(db);
+    final repo = StudentHomeworkRepository(remote, local);
+    await repo.saveDraft(
+        scopeA, 11, const HomeworkLocalDraft(answer: 'keep me'));
+    final detail = await repo.loadDetail(scopeA, 11);
+    remote.fail = true;
+    expect(() => repo.submit(scopeA, detail), throwsA(isA<DioException>()));
+    expect((await local.readDraft(scopeA, 11)).answer, 'keep me');
+  });
+
+  test('successful final submit clears draft only after confirmation',
+      () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final local = HomeworkLocalDataSource(db);
+    final repo = StudentHomeworkRepository(remote, local);
+    await repo.saveDraft(
+        scopeA, 11, const HomeworkLocalDraft(answer: 'submit me'));
+    final detail = await repo.loadDetail(scopeA, 11);
+    await repo.submit(scopeA, detail);
+    expect(remote.finalSubmitted, isTrue);
+    expect((await local.readDraft(scopeA, 11)).answer, isEmpty);
+  });
+
+  test('controller blocks final submit from offline cached detail', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final repo = StudentHomeworkRepository(remote, HomeworkLocalDataSource(db));
+    await repo.refreshList(scopeA);
+    await repo.loadDetail(scopeA, 11);
+    remote.fail = true;
+    final controller = HomeworkController(repo, scopeA);
+    await controller.load();
+    await controller.open(11);
+    expect(
+        (controller.state as HomeworkReady).detail, isA<HomeworkDetailReady>());
+    expect(await controller.submit(), isFalse);
+    expect(remote.finalSubmitted, isFalse);
+  });
+
+  testWidgets('historical detail is read only', (tester) async {
+    final item = StudentHomework.fromJson(homeworkJson());
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StudentHomeworkDetailScreen(
+          data: HomeworkDetailData(
+              item, const HomeworkLocalDraft(), DateTime(2026)),
+          historical: true,
+          submitting: false,
+          onBack: () {},
+          onSave: (_) async {},
+          onSubmit: () async => false,
+          onDownload: (_) async => '',
+        ),
+      ),
+    ));
+    expect(find.text('السجل الدراسي السابق — للعرض فقط'), findsOneWidget);
+    expect(find.text('إرسال الواجب'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('long Arabic homework tolerates 150 percent text scale',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final item = StudentHomework.fromJson({
+      ...homeworkJson(),
+      'title': 'واجب اللغة العربية الطويل جدًا في القراءة والتحليل والنحو',
+      'teacher': 'المعلم صاحب الاسم العربي الطويل للاختبار',
+    });
+    await tester.pumpWidget(MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(body: HomeworkCard(homework: item, onTap: () {})),
+        ),
+      ),
+    ));
+    expect(tester.takeException(), isNull);
+  });
+}
