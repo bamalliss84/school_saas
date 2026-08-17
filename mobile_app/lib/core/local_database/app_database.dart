@@ -59,6 +59,19 @@ class CachedHomeworkItems extends Table {
       {localUserKey, membershipId, academicYearKey, homeworkId};
 }
 
+class CachedStudentResults extends Table {
+  TextColumn get localUserKey => text()();
+  IntColumn get membershipId => integer()();
+  TextColumn get academicYearKey => text()();
+  IntColumn get resultId => integer()();
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get lastSyncedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey =>
+      {localUserKey, membershipId, academicYearKey, resultId};
+}
+
 class LocalHomeworkDrafts extends Table {
   TextColumn get localUserKey => text()();
   IntColumn get membershipId => integer()();
@@ -100,6 +113,7 @@ class CacheScope {
   CacheMetadata,
   CachedTimetableDatasets,
   CachedHomeworkItems,
+  CachedStudentResults,
   LocalHomeworkDrafts,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -107,7 +121,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -118,6 +132,7 @@ class AppDatabase extends _$AppDatabase {
             await migrator.createTable(cachedHomeworkItems);
             await migrator.createTable(localHomeworkDrafts);
           }
+          if (from < 4) await migrator.createTable(cachedStudentResults);
         },
       );
 
@@ -303,6 +318,39 @@ class AppDatabase extends _$AppDatabase {
                 row.homeworkId.equals(homeworkId)))
           .go();
 
+  Future<List<CachedStudentResult>> readStudentResults(CacheScope scope) =>
+      (select(cachedStudentResults)
+            ..where((row) =>
+                row.localUserKey.equals(scope.localUserKey) &
+                row.membershipId.equals(scope.membershipId) &
+                row.academicYearKey.equals(scope.academicYearKey))
+            ..orderBy([(row) => OrderingTerm.desc(row.lastSyncedAt)]))
+          .get();
+
+  Future<void> replaceStudentResults(CacheScope scope,
+          List<Map<String, Object?>> payloads, DateTime syncedAt) =>
+      transaction(() async {
+        await (delete(cachedStudentResults)
+              ..where((row) =>
+                  row.localUserKey.equals(scope.localUserKey) &
+                  row.membershipId.equals(scope.membershipId) &
+                  row.academicYearKey.equals(scope.academicYearKey)))
+            .go();
+        await batch((batch) => batch.insertAll(
+              cachedStudentResults,
+              payloads
+                  .map((payload) => CachedStudentResultsCompanion.insert(
+                        localUserKey: scope.localUserKey,
+                        membershipId: scope.membershipId,
+                        academicYearKey: scope.academicYearKey,
+                        resultId: payload['id']! as int,
+                        payloadJson: jsonEncode(payload),
+                        lastSyncedAt: syncedAt,
+                      ))
+                  .toList(),
+            ));
+      });
+
   Future<void> purgeUser(String localUserKey) => transaction(() async {
         await (delete(cachedContexts)
               ..where((row) => row.localUserKey.equals(localUserKey)))
@@ -314,6 +362,9 @@ class AppDatabase extends _$AppDatabase {
               ..where((row) => row.localUserKey.equals(localUserKey)))
             .go();
         await (delete(cachedHomeworkItems)
+              ..where((row) => row.localUserKey.equals(localUserKey)))
+            .go();
+        await (delete(cachedStudentResults)
               ..where((row) => row.localUserKey.equals(localUserKey)))
             .go();
         await (delete(localHomeworkDrafts)

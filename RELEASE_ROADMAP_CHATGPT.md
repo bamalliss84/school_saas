@@ -35,15 +35,18 @@ Baseline: `bc18562` — Sprint 5B.2 accepted before Phase 0.
 
 ## Phase 1 — Student Results
 
-الحالة: ⬜ التالي بعد قبول Phase 0.
+الحالة: 🟡 منفذة برمجيًا — Phase 0 ما زالت معلقة وتُقبل معها في جولة Samsung القادمة.
 
-- تثبيت Student Result API contract: score / total / percentage / dates / feedback.
-- تقييد current view بالسنة الدراسية النشطة.
-- Published results only.
-- Flutter list/detail مطابق Nano.
-- Drift read cache + offline states.
-- Historical read-only.
-- Tests + Samsung acceptance.
+- [x] تثبيت Student Result API contract: score / total / percentage / dates / feedback.
+- [x] تقييد current view بالسنة الدراسية النشطة.
+- [x] Published results only عبر Backend scope + دفاع Flutter.
+- [x] Flutter list/detail + term/subject filters مطابق لمفهوم Nano بدون إعادة تصميم.
+- [x] Drift read cache + offline cached/empty/error states.
+- [x] Historical context read-only.
+- [x] Regression/model tests مضافة.
+- [ ] Flutter analyze/test على بيئة Flutter.
+- [ ] Samsung acceptance للـResults Online/Offline/Empty/Error/Detail/Feedback.
+- [ ] Phase 0 Samsung acceptance ما زالت معلقة وتنفذ في نفس الجولة.
 
 ## Phase 2 — Student Attendance
 

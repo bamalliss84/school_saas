@@ -123,12 +123,26 @@ class ExamResultSerializer(serializers.ModelSerializer):
     student_code = serializers.CharField(source='student_enrollment.student.student_code', read_only=True)
     exam_title = serializers.CharField(source='exam.title', read_only=True)
     subject_name = serializers.CharField(source='exam.teacher_assignment.subject.name', read_only=True)
+    exam_date = serializers.DateField(source='exam.exam_date', read_only=True)
+    total_marks = serializers.DecimalField(
+        source='exam.total_marks', max_digits=6, decimal_places=2, read_only=True,
+    )
+    academic_term_id = serializers.IntegerField(source='exam.academic_term_id', read_only=True)
+    academic_term_name = serializers.CharField(source='exam.academic_term.name', read_only=True)
+    percentage = serializers.SerializerMethodField()
+
+    def get_percentage(self, obj):
+        if obj.score is None or not obj.exam.total_marks:
+            return None
+        return round(obj.score * 100 / obj.exam.total_marks, 2)
 
     class Meta:
         model = ExamResult
         fields = (
             'id', 'exam', 'exam_title', 'student_enrollment', 'student_name',
-            'student_code', 'subject_name', 'score', 'status', 'remarks',
+            'student_code', 'subject_name', 'exam_date', 'total_marks',
+            'percentage', 'academic_term_id', 'academic_term_name',
+            'score', 'status', 'remarks',
             'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
             'approved_by', 'approved_at', 'is_published', 'published_at',
             'published_by', 'created_at',

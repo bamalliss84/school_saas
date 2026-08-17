@@ -360,6 +360,19 @@ class RoleResultsAPIView(generics.ListAPIView):
 class StudentOwnResultsAPIView(RoleResultsAPIView):
     permission_classes = [IsActiveSchoolUser, IsStudent]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        academic_year = getattr(self.request, 'active_academic_year', None)
+        if academic_year is not None:
+            queryset = queryset.filter(exam__academic_year_id=academic_year.id)
+        term_id = self.request.query_params.get('academic_term_id')
+        if term_id:
+            queryset = queryset.filter(exam__academic_term_id=term_id)
+        subject_id = self.request.query_params.get('subject_id')
+        if subject_id:
+            queryset = queryset.filter(exam__teacher_assignment__subject_id=subject_id)
+        return queryset
+
 
 class ParentOwnResultsAPIView(RoleResultsAPIView):
     permission_classes = [IsActiveSchoolUser, IsParent]

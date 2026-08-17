@@ -15,6 +15,9 @@ import '../student/homework/data/homework_remote_data_source.dart';
 import '../student/homework/data/homework_repository.dart';
 import '../student/homework/presentation/homework_controller.dart';
 import '../student/homework/presentation/homework_screens.dart';
+import '../student/results/data/results_repository.dart';
+import '../student/results/presentation/results_controller.dart';
+import '../student/results/presentation/results_screens.dart';
 
 final studentTimetableProvider = StateNotifierProvider.autoDispose
     .family<TimetableController, TimetableState, CacheScope>((ref, scope) {
@@ -33,6 +36,16 @@ final studentHomeworkProvider = StateNotifierProvider.autoDispose
       DioHomeworkRemoteDataSource(ref.read(apiProvider).dio),
       HomeworkLocalDataSource(ref.read(databaseProvider)),
     ),
+    scope,
+  );
+  Future<void>.microtask(controller.load);
+  return controller;
+});
+
+final studentResultsProvider = StateNotifierProvider.autoDispose
+    .family<ResultsController, ResultsState, CacheScope>((ref, scope) {
+  final controller = ResultsController(
+    StudentResultsRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
     scope,
   );
   Future<void>.microtask(controller.load);
@@ -85,6 +98,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     );
     final timetable = ref.watch(studentTimetableProvider(scope));
     final homework = ref.watch(studentHomeworkProvider(scope));
+    final results = ref.watch(studentResultsProvider(scope));
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -113,13 +127,15 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                       ? _studentFeature(timetable, session, scope)
                       : selectedIndex == 1
                           ? _homeworkFeature(homework, session, scope)
-                          : Center(
-                              child: Padding(
-                              padding: const EdgeInsets.all(AppSpacing.x6),
-                              child: Text(
-                                  '${labels[selectedIndex]}\nواجهة تمهيدية — لا توجد ميزة بيانات في Sprint 5B.0',
-                                  textAlign: TextAlign.center),
-                            ))),
+                          : selectedIndex == 2
+                              ? _resultsFeature(results, session, scope)
+                              : Center(
+                                  child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.x6),
+                                  child: Text(
+                                      '${labels[selectedIndex]}\nواجهة تمهيدية — ستكتمل في المرحلة المخصصة لها',
+                                      textAlign: TextAlign.center),
+                                ))),
         ]),
       ),
       bottomNavigationBar: SafeArea(
@@ -131,6 +147,29 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                   showTimetable = false;
                 })),
       ),
+    );
+  }
+
+  Widget _resultsFeature(
+      ResultsState state, AppSession session, CacheScope scope) {
+    if (state is ResultsLoading) return const AppSkeletonCard();
+    if (state is ResultsFailure) return AppErrorState(message: state.message);
+    final ready = state as ResultsReady;
+    final controller = ref.read(studentResultsProvider(scope).notifier);
+    if (ready.selected != null) {
+      return ResultDetailScreen(
+        result: ready.selected!,
+        historical: session.status == SessionStatus.historical,
+        onBack: controller.close,
+      );
+    }
+    return StudentResultsScreen(
+      state: ready,
+      historical: session.status == SessionStatus.historical,
+      onTerm: controller.selectTerm,
+      onSubject: controller.selectSubject,
+      onOpen: controller.open,
+      onRefresh: controller.refresh,
     );
   }
 
