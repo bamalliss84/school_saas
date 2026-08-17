@@ -62,12 +62,21 @@ Map<String, dynamic> submissionJson({
     };
 
 class FakeHomeworkRemote implements HomeworkRemoteDataSource {
-  FakeHomeworkRemote({this.fail = false, this.submissionRow});
+  FakeHomeworkRemote({this.fail = false, this.httpStatus, this.submissionRow});
   bool fail;
+  int? httpStatus;
   Map<String, dynamic>? submissionRow;
   bool finalSubmitted = false;
 
   void check() {
+    if (httpStatus != null) {
+      final request = RequestOptions(path: '/homework');
+      throw DioException(
+        requestOptions: request,
+        response: Response(requestOptions: request, statusCode: httpStatus),
+        type: DioExceptionType.badResponse,
+      );
+    }
     if (fail) throw DioException(requestOptions: RequestOptions());
   }
 
@@ -183,6 +192,17 @@ void main() {
     expect(cached.offline, isTrue);
     expect(cached.homework.title, isNotEmpty);
     expect(cached.draft.answer, 'offline answer');
+  });
+
+  test('HTTP authorization failure never falls back to cached homework', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final local = HomeworkLocalDataSource(db);
+    final repo = StudentHomeworkRepository(remote, local);
+    await repo.loadDetail(scopeA, 11);
+    remote.httpStatus = 403;
+    expect(() => repo.loadDetail(scopeA, 11), throwsA(isA<DioException>()));
   });
 
   test('offline without cache reports failure', () async {

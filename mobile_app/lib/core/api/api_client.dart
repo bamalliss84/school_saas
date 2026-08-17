@@ -38,7 +38,7 @@ class ApiClient {
     if (access != null) {
       options.headers['Authorization'] = 'Bearer $access';
     }
-    if (membership != null) {
+    if (membership != null && !_isContextIndependentAuthPath(options.path)) {
       options.headers['X-School-Membership-ID'] = membership;
     }
     handler.next(options);
@@ -63,15 +63,18 @@ class ApiClient {
         await onSessionExpired?.call();
       }
     }
+    final failure = error.response == null && _isNetworkFailure(error.type)
+        ? const AppFailure(FailureKind.network, 'تعذر الاتصال بالخادم')
+        : AppFailure.fromResponse(
+            error.response?.statusCode,
+            error.response?.data,
+          );
     handler.reject(
       DioException(
         requestOptions: error.requestOptions,
         response: error.response,
         type: error.type,
-        error: AppFailure.fromResponse(
-          error.response?.statusCode,
-          error.response?.data,
-        ),
+        error: failure,
       ),
     );
   }
@@ -93,3 +96,20 @@ class ApiClient {
     return access;
   }
 }
+
+
+bool _isContextIndependentAuthPath(String path) =>
+    path.contains('auth/login') ||
+    path.contains('auth/refresh') ||
+    path.contains('auth/logout') ||
+    path.contains('auth/contexts') ||
+    path.contains('auth/context/default');
+
+bool _isNetworkFailure(DioExceptionType type) => switch (type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.connectionError ||
+      DioExceptionType.unknown => true,
+      _ => false,
+    };

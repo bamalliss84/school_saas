@@ -37,6 +37,7 @@ final sessionProvider =
   );
   client.onContextRequired = controller.requireContext;
   client.onSessionExpired = controller.expire;
+  Future<void>.microtask(controller.bootstrap);
   return controller;
 });
 

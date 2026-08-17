@@ -9,10 +9,61 @@ import 'app_session.dart';
 
 class SessionController extends StateNotifier<AppSession> {
   SessionController(this.auth, this.contexts, this.purgeUserData)
-      : super(AppSession.unauthenticated);
+      : super(const AppSession(SessionStatus.authenticating));
   final AuthRepository auth;
   final ContextRepository contexts;
   final Future<void> Function(String localUserKey) purgeUserData;
+
+  Future<void> bootstrap() async {
+    try {
+      final refresh = await auth.storedRefreshToken();
+      final access = await auth.storedAccessToken();
+      if (refresh == null && access == null) {
+        state = AppSession.unauthenticated;
+        return;
+      }
+
+      // Context discovery is intentionally first: this endpoint is independent
+      // from a possibly stale membership header and lets us recover safely.
+      final result = await contexts.list();
+      final usable = result.contexts
+          .where((c) => c.status == 'active' || c.isHistorical)
+          .toList();
+      final storedMembershipId = await contexts.storedMembershipId();
+      SchoolContext? selected;
+      if (storedMembershipId != null) {
+        for (final item in usable) {
+          if (item.membershipId == storedMembershipId) {
+            selected = item;
+            break;
+          }
+        }
+        if (selected == null) await contexts.clearStoredMembership();
+      }
+      selected ??= result.current ?? (usable.length == 1 ? usable.single : null);
+      if (selected == null) {
+        state = AppSession(
+          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          contexts: usable,
+        );
+        return;
+      }
+      await selectContext(selected, available: usable);
+    } on DioException catch (error) {
+      final failure = error.error;
+      if (failure is AppFailure && failure.kind == FailureKind.network) {
+        state = const AppSession(SessionStatus.unauthenticated,
+            message: 'تعذر استعادة الجلسة. تحقق من الاتصال ثم حاول مجددًا');
+        return;
+      }
+      await auth.clearLocalSession();
+      state = const AppSession(SessionStatus.unauthenticated);
+    } catch (_) {
+      await auth.clearLocalSession();
+      state = const AppSession(SessionStatus.unauthenticated);
+    }
+  }
+
   Future<void> login(String username, String password) async {
     state = const AppSession(SessionStatus.authenticating);
     try {
@@ -47,8 +98,9 @@ class SessionController extends StateNotifier<AppSession> {
   Future<void> selectContext(SchoolContext context,
       {AuthenticatedUser? user, List<SchoolContext>? available}) async {
     await contexts.select(context);
+    final resolvedUser = user ?? state.user ?? await auth.me();
     state = AppSession(statusForContext(context),
-        user: user ?? state.user,
+        user: resolvedUser,
         context: context,
         contexts: available ?? state.contexts);
   }

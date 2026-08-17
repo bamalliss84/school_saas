@@ -83,7 +83,7 @@ def apply_membership_context(request, user, membership):
     user._active_membership = membership
 
 
-def resolve_membership_context(request, user, *, optional=False):
+def resolve_membership_context(request, user, *, optional=False, ignore_header=False):
     if not user.is_active or not user.is_active_school_user:
         raise PermissionDenied('This account is not available.')
     memberships = get_user_memberships(user, include_ended=True)
@@ -91,7 +91,7 @@ def resolve_membership_context(request, user, *, optional=False):
         ensure_legacy_membership(user)
         memberships = get_user_memberships(user, include_ended=True)
 
-    header = request.headers.get('X-School-Membership-ID')
+    header = None if ignore_header else request.headers.get('X-School-Membership-ID')
     membership = None
     if header:
         try:
@@ -174,12 +174,17 @@ class MembershipJWTAuthentication(JWTAuthentication):
         if authenticated is None:
             return None
         user, token = authenticated
+        context_control_path = any(
+            request.path.endswith(path) for path in self.optional_context_paths
+        )
         optional = (
-            any(request.path.endswith(path) for path in self.optional_context_paths)
+            context_control_path
             or request.path.endswith('/students/me/schools/')
             or request.path.endswith('/students/me/academic-history/')
             or ('/parents/me/children/' in request.path and request.path.endswith('/schools/'))
             or ('/parents/me/children/' in request.path and request.path.endswith('/academic-history/'))
         )
-        resolve_membership_context(request, user, optional=optional)
+        resolve_membership_context(
+            request, user, optional=optional, ignore_header=context_control_path,
+        )
         return user, token

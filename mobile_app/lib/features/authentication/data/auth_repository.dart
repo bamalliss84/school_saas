@@ -7,6 +7,8 @@ class AuthRepository {
   final Dio _dio;
   final SessionStore _store;
   Future<LoginResult> login(String username, String password) async {
+    // A previous account/context must never contaminate a fresh login.
+    await _store.clear();
     final response = await _dio.post<Map<String, dynamic>>('auth/login/',
         data: {'username': username.trim(), 'password': password});
     final data = response.data!;
@@ -19,6 +21,10 @@ class AuthRepository {
         user: AuthenticatedUser.fromJson(
             Map<String, dynamic>.from(data['user'] as Map)));
   }
+
+  Future<String?> storedAccessToken() => _store.readAccessToken();
+  Future<String?> storedRefreshToken() => _store.readRefreshToken();
+  Future<void> clearLocalSession() => _store.clear();
 
   Future<AuthenticatedUser> me() async => AuthenticatedUser.fromJson(
       (await _dio.get<Map<String, dynamic>>('auth/me/')).data!);

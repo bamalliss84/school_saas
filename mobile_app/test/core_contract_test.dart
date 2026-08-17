@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_saas_mobile/app/app.dart';
 import 'package:school_saas_mobile/app/session/app_session.dart';
 import 'package:school_saas_mobile/core/api/refresh_coordinator.dart';
 import 'package:school_saas_mobile/core/errors/app_failure.dart';
 import 'package:school_saas_mobile/core/models/school_context.dart';
+import 'package:school_saas_mobile/core/offline/offline_error_policy.dart';
 
 void main() {
   test('maps documented HTTP errors', () {
@@ -15,6 +18,26 @@ void main() {
     expect(AppFailure.fromResponse(404, {}).kind, FailureKind.notFound);
     expect(AppFailure.fromResponse(409, {}).kind, FailureKind.contextRequired);
     expect(AppFailure.fromResponse(503, {}).kind, FailureKind.server);
+  });
+
+  test('offline fallback accepts transport errors but rejects HTTP errors', () {
+    final request = RequestOptions(path: '/student/data');
+    expect(
+      isOfflineEligibleError(DioException(
+        requestOptions: request,
+        type: DioExceptionType.connectionError,
+      )),
+      isTrue,
+    );
+    expect(
+      isOfflineEligibleError(DioException(
+        requestOptions: request,
+        response: Response(requestOptions: request, statusCode: 403),
+        type: DioExceptionType.badResponse,
+        error: const AppFailure(FailureKind.forbidden, 'ممنوع', statusCode: 403),
+      )),
+      isFalse,
+    );
   });
 
   test('historical context is read-only', () {

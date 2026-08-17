@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/local_database/app_database.dart';
+import '../../../../core/offline/offline_error_policy.dart';
 import '../data/timetable_repository.dart';
 
 sealed class TimetableState {
@@ -35,12 +36,12 @@ class TimetableController extends StateNotifier<TimetableState> {
     }
     try {
       state = TimetableReady(await repository.refresh(scope));
-    } catch (_) {
-      if (cached != null) {
+    } catch (error) {
+      if (cached != null && isOfflineEligibleError(error)) {
         state = TimetableReady(cached, offline: true);
       } else {
-        state = const TimetableFailure(
-            'تعذر تحميل الجدول. تحقق من الاتصال وحاول مجددًا.');
+        state = TimetableFailure(failureMessage(
+            error, 'تعذر تحميل الجدول. تحقق من الاتصال وحاول مجددًا.'));
       }
     }
   }

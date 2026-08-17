@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/local_database/app_database.dart';
+import '../../../../core/offline/offline_error_policy.dart';
 import '../data/homework_repository.dart';
 import '../domain/homework_models.dart';
 
@@ -80,10 +81,12 @@ class HomeworkController extends StateNotifier<HomeworkState> {
       state = current is HomeworkReady
           ? current.copyWith(list: fresh)
           : HomeworkReady(fresh);
-    } catch (_) {
-      if (cached == null) {
-        state =
-            const HomeworkFailure('تعذر تحميل الواجبات ولا توجد بيانات محفوظة');
+    } catch (error) {
+      if (cached != null && isOfflineEligibleError(error)) {
+        state = HomeworkReady(cached);
+      } else {
+        state = HomeworkFailure(failureMessage(
+            error, 'تعذر تحميل الواجبات ولا توجد بيانات محفوظة'));
       }
     }
   }
@@ -107,10 +110,10 @@ class HomeworkController extends StateNotifier<HomeworkState> {
       final detail = await repository.loadDetail(scope, homeworkId);
       state = (state as HomeworkReady)
           .copyWith(detail: HomeworkDetailReady(detail));
-    } catch (_) {
+    } catch (error) {
       state = (state as HomeworkReady).copyWith(
-          detail: const HomeworkDetailFailure(
-              'تعذر فتح الواجب ولا توجد نسخة محفوظة'));
+          detail: HomeworkDetailFailure(failureMessage(
+              error, 'تعذر فتح الواجب ولا توجد نسخة محفوظة')));
     }
   }
 

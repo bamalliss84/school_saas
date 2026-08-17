@@ -1,4 +1,5 @@
 import '../../../../core/local_database/app_database.dart';
+import '../../../../core/offline/offline_error_policy.dart';
 import '../domain/homework_models.dart';
 import 'homework_local_data_source.dart';
 import 'homework_remote_data_source.dart';
@@ -55,7 +56,8 @@ class StudentHomeworkRepository {
       row['_mobile_last_synced_at'] = now.toIso8601String();
       await local.putDetail(scope, row, now);
       return HomeworkDetailData(_parse(row), draft, now);
-    } catch (_) {
+    } catch (error) {
+      if (!isOfflineEligibleError(error)) rethrow;
       final row = await local.detail(scope, homeworkId);
       if (row == null) rethrow;
       return HomeworkDetailData(_parse(row), draft, _latest([row]),

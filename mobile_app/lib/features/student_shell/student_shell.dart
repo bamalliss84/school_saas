@@ -126,7 +126,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         top: false,
         child: StudentBottomNavigation(
             selectedIndex: selectedIndex,
-            onSelected: (value) => setState(() => selectedIndex = value)),
+            onSelected: (value) => setState(() {
+                  selectedIndex = value;
+                  showTimetable = false;
+                })),
       ),
     );
   }

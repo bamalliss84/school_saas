@@ -1,5 +1,6 @@
 from django.test import TestCase
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import SchoolMembership
 from .test_sprint4d_memberships import Sprint4DFixtureMixin
@@ -59,6 +60,21 @@ class MembershipContextAPITests(Sprint4DFixtureMixin, TestCase):
     def test_context_list_includes_both_active_memberships(self):
         self.auth(membership=self.membership_a); response=self.client.get('/api/v1/auth/contexts/')
         self.assertEqual(len(response.data['contexts']), 2)
+
+    def test_context_control_endpoints_ignore_stale_membership_header(self):
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f'Bearer {RefreshToken.for_user(self.user).access_token}',
+            HTTP_X_SCHOOL_MEMBERSHIP_ID='999999',
+        )
+        contexts = self.client.get('/api/v1/auth/contexts/')
+        self.assertEqual(contexts.status_code, 200)
+        self.assertEqual(len(contexts.data['contexts']), 2)
+        changed = self.client.post(
+            '/api/v1/auth/context/default/',
+            {'membership_id': self.membership_b.pk},
+            format='json',
+        )
+        self.assertEqual(changed.status_code, 200)
 
     def test_default_context_can_be_changed(self):
         self.auth(membership=self.membership_a)
