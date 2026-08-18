@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.schoolsaas.school_saas_mobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

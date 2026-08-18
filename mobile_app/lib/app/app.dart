@@ -10,6 +10,7 @@ import '../core/local_database/app_database.dart';
 import '../core/local_database/local_data_purge_service.dart';
 import '../core/preferences/font_preferences.dart';
 import '../core/storage/session_store.dart';
+import '../core/storage/session_snapshot_store.dart';
 import '../features/authentication/data/auth_repository.dart';
 import '../features/school_context/data/context_repository.dart';
 import '../features/student_shell/student_shell.dart';
@@ -17,6 +18,8 @@ import 'session/app_session.dart';
 import 'session/session_controller.dart';
 
 final storeProvider = Provider<SessionStore>((ref) => SecureSessionStore());
+final sessionSnapshotStoreProvider = Provider<SessionSnapshotStore>(
+    (ref) => SharedPreferencesSessionSnapshotStore());
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
   ref.onDispose(database.close);
@@ -33,10 +36,14 @@ final sessionProvider =
   final controller = SessionController(
     AuthRepository(client.dio, ref.read(storeProvider)),
     ContextRepository(client.dio, ref.read(storeProvider)),
+    ref.read(sessionSnapshotStoreProvider),
     ref.read(purgeUserDataProvider),
   );
   client.onContextRequired = controller.requireContext;
   client.onSessionExpired = controller.expire;
+  client.onForbidden = controller.revalidateCurrentContext;
+  client.onNetworkUnavailable = controller.markOffline;
+  client.onConnectionRestored = controller.markOnline;
   Future<void>.microtask(controller.bootstrap);
   return controller;
 });
@@ -53,9 +60,8 @@ class SchoolSaaSApp extends ConsumerWidget {
   const SchoolSaaSApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    final font = ref.watch(fontProvider);
-    final router = GoRouter(initialLocation: routeFor(session.status), routes: [
+    final status = ref.watch(sessionProvider.select((session) => session.status));
+    final router = GoRouter(initialLocation: routeFor(status), routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/loading', builder: (_, __) => const LoadingScreen()),
       GoRoute(path: '/contexts', builder: (_, __) => const ContextScreen()),
@@ -63,6 +69,16 @@ class SchoolSaaSApp extends ConsumerWidget {
       GoRoute(
           path: '/unavailable', builder: (_, __) => const UnavailableScreen()),
     ]);
+    return _AppThemeHost(router: router);
+  }
+}
+
+class _AppThemeHost extends ConsumerWidget {
+  const _AppThemeHost({required this.router});
+  final GoRouter router;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final font = ref.watch(fontProvider);
     return MaterialApp.router(
       title: 'مدرستي',
       debugShowCheckedModeBanner: false,
@@ -225,18 +241,31 @@ class _RoleShellState extends ConsumerState<RoleShell> {
 class UnavailableScreen extends ConsumerWidget {
   const UnavailableScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    return Scaffold(
       body: Center(
-          child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.mobile_off, size: 64),
-                const SizedBox(height: 16),
-                const Text('هذا الدور غير مدعوم في تطبيق الجوال حاليًا',
-                    textAlign: TextAlign.center),
-                TextButton(
-                    onPressed: () =>
-                        ref.read(sessionProvider.notifier).logout(),
-                    child: const Text('تسجيل الخروج'))
-              ]))));
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.mobile_off, size: 64),
+            const SizedBox(height: 16),
+            Text(
+              session.message ?? 'هذا الحساب المدرسي غير متاح حالياً',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => ref.read(sessionProvider.notifier).bootstrap(),
+              child: const Text('إعادة المحاولة'),
+            ),
+            TextButton(
+              onPressed: () => ref.read(sessionProvider.notifier).logout(),
+              child: const Text('تسجيل الخروج'),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }

@@ -52,6 +52,30 @@ class SchoolContext {
             : null),
       );
 
+  Map<String, Object?> toLocalJson() => {
+        'membership_id': membershipId,
+        'school_name': schoolName,
+        'role': role,
+        'status': status,
+        'access_mode': accessMode,
+        'can_write': canWrite,
+        'academic_year_name': academicYearName,
+        'academic_year_id': academicYearId,
+        'is_default': isDefault,
+      };
+
+  factory SchoolContext.fromLocalJson(Map<String, dynamic> json) => SchoolContext(
+        membershipId: json['membership_id'] as int,
+        schoolName: json['school_name']?.toString() ?? '',
+        role: json['role']?.toString() ?? '',
+        status: json['status']?.toString() ?? '',
+        accessMode: json['access_mode']?.toString() ?? 'active',
+        canWrite: json['can_write'] as bool? ?? false,
+        academicYearName: json['academic_year_name']?.toString(),
+        academicYearId: json['academic_year_id'] as int?,
+        isDefault: json['is_default'] as bool? ?? false,
+      );
+
   Map<String, Object?> toCacheJson() => {
         'membership_id': membershipId,
         'school_name': schoolName,

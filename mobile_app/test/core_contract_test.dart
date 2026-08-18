@@ -8,6 +8,8 @@ import 'package:school_saas_mobile/app/session/app_session.dart';
 import 'package:school_saas_mobile/core/api/refresh_coordinator.dart';
 import 'package:school_saas_mobile/core/errors/app_failure.dart';
 import 'package:school_saas_mobile/core/models/school_context.dart';
+import 'package:school_saas_mobile/core/models/auth_models.dart';
+import 'package:school_saas_mobile/core/storage/session_snapshot_store.dart';
 import 'package:school_saas_mobile/core/offline/offline_error_policy.dart';
 
 void main() {
@@ -38,6 +40,36 @@ void main() {
       )),
       isFalse,
     );
+  });
+
+
+  test('HTTP access errors use safe Arabic messages', () {
+    expect(AppFailure.fromResponse(403, {'detail': 'You do not have permission'}).message,
+        'ليس لديك صلاحية للوصول إلى هذه البيانات');
+    expect(AppFailure.fromResponse(404, {'detail': 'Not found'}).message,
+        'تعذر العثور على البيانات المطلوبة');
+  });
+
+  test('local session snapshot round-trips user and context safely', () {
+    const snapshot = LocalSessionSnapshot(
+      user: AuthenticatedUser(
+          id: 9, username: 'student', fullName: 'طالب', role: 'student'),
+      context: SchoolContext(
+        membershipId: 42,
+        schoolName: 'مدرسة',
+        role: 'student',
+        status: 'active',
+        accessMode: 'active',
+        canWrite: true,
+        academicYearName: '2026',
+        academicYearId: 3,
+      ),
+    );
+    final restored = LocalSessionSnapshot.fromJson(
+        Map<String, dynamic>.from(snapshot.toJson()));
+    expect(restored.user.id, 9);
+    expect(restored.context.membershipId, 42);
+    expect(restored.context.academicYearId, 3);
   });
 
   test('historical context is read-only', () {

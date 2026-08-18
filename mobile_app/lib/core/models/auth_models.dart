@@ -22,6 +22,13 @@ class AuthenticatedUser {
         fullName: json['full_name']?.toString() ?? '',
         role: json['role']?.toString() ?? '',
       );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'username': username,
+        'full_name': fullName,
+        'role': role,
+      };
 }
 
 class LoginResult {

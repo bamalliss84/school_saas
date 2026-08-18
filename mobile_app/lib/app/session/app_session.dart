@@ -13,12 +13,17 @@ enum SessionStatus {
 
 class AppSession {
   const AppSession(this.status,
-      {this.user, this.context, this.contexts = const [], this.message});
+      {this.user,
+      this.context,
+      this.contexts = const [],
+      this.message,
+      this.offline = false});
   final SessionStatus status;
   final AuthenticatedUser? user;
   final SchoolContext? context;
   final List<SchoolContext> contexts;
   final String? message;
+  final bool offline;
   static const unauthenticated = AppSession(SessionStatus.unauthenticated);
   bool get canWrite =>
       status == SessionStatus.authenticated && (context?.canWrite ?? false);

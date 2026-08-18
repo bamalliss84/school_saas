@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 
 import '../errors/app_failure.dart';
@@ -13,12 +15,22 @@ class ApiClient {
     RefreshCoordinator? coordinator,
     this.onSessionExpired,
     this.onContextRequired,
+    this.onForbidden,
+    this.onNetworkUnavailable,
+    this.onConnectionRestored,
   })  : _store = store,
         _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl)),
         _refreshDio = refreshDio ?? Dio(BaseOptions(baseUrl: baseUrl)),
         _coordinator = coordinator ?? RefreshCoordinator() {
     _dio.interceptors.add(
-      InterceptorsWrapper(onRequest: _onRequest, onError: _onError),
+      InterceptorsWrapper(
+        onRequest: _onRequest,
+        onResponse: (response, handler) {
+          onConnectionRestored?.call();
+          handler.next(response);
+        },
+        onError: _onError,
+      ),
     );
   }
   final Dio _dio;
@@ -27,6 +39,9 @@ class ApiClient {
   final RefreshCoordinator _coordinator;
   Future<void> Function()? onSessionExpired;
   void Function()? onContextRequired;
+  Future<void> Function()? onForbidden;
+  void Function()? onNetworkUnavailable;
+  void Function()? onConnectionRestored;
   Dio get dio => _dio;
 
   Future<void> _onRequest(
@@ -49,6 +64,9 @@ class ApiClient {
     ErrorInterceptorHandler handler,
   ) async {
     if (error.response?.statusCode == 409) onContextRequired?.call();
+    if (error.response?.statusCode == 403 && onForbidden != null) {
+      unawaited(onForbidden!());
+    }
     if (error.response?.statusCode == 401 &&
         error.requestOptions.extra['retried'] != true &&
         !error.requestOptions.path.contains('auth/login')) {
@@ -63,7 +81,9 @@ class ApiClient {
         await onSessionExpired?.call();
       }
     }
-    final failure = error.response == null && _isNetworkFailure(error.type)
+    final isNetwork = error.response == null && _isNetworkFailure(error.type);
+    if (isNetwork) onNetworkUnavailable?.call();
+    final failure = isNetwork
         ? const AppFailure(FailureKind.network, 'تعذر الاتصال بالخادم')
         : AppFailure.fromResponse(
             error.response?.statusCode,

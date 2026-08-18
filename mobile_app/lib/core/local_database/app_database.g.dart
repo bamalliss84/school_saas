@@ -1598,6 +1598,385 @@ class CachedHomeworkItemsCompanion extends UpdateCompanion<CachedHomeworkItem> {
   }
 }
 
+class $CachedStudentResultsTable extends CachedStudentResults
+    with TableInfo<$CachedStudentResultsTable, CachedStudentResult> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedStudentResultsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _localUserKeyMeta =
+      const VerificationMeta('localUserKey');
+  @override
+  late final GeneratedColumn<String> localUserKey = GeneratedColumn<String>(
+      'local_user_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _membershipIdMeta =
+      const VerificationMeta('membershipId');
+  @override
+  late final GeneratedColumn<int> membershipId = GeneratedColumn<int>(
+      'membership_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _academicYearKeyMeta =
+      const VerificationMeta('academicYearKey');
+  @override
+  late final GeneratedColumn<String> academicYearKey = GeneratedColumn<String>(
+      'academic_year_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _resultIdMeta =
+      const VerificationMeta('resultId');
+  @override
+  late final GeneratedColumn<int> resultId = GeneratedColumn<int>(
+      'result_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _lastSyncedAtMeta =
+      const VerificationMeta('lastSyncedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+      'last_synced_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        localUserKey,
+        membershipId,
+        academicYearKey,
+        resultId,
+        payloadJson,
+        lastSyncedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_student_results';
+  @override
+  VerificationContext validateIntegrity(Insertable<CachedStudentResult> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('local_user_key')) {
+      context.handle(
+          _localUserKeyMeta,
+          localUserKey.isAcceptableOrUnknown(
+              data['local_user_key']!, _localUserKeyMeta));
+    } else if (isInserting) {
+      context.missing(_localUserKeyMeta);
+    }
+    if (data.containsKey('membership_id')) {
+      context.handle(
+          _membershipIdMeta,
+          membershipId.isAcceptableOrUnknown(
+              data['membership_id']!, _membershipIdMeta));
+    } else if (isInserting) {
+      context.missing(_membershipIdMeta);
+    }
+    if (data.containsKey('academic_year_key')) {
+      context.handle(
+          _academicYearKeyMeta,
+          academicYearKey.isAcceptableOrUnknown(
+              data['academic_year_key']!, _academicYearKeyMeta));
+    } else if (isInserting) {
+      context.missing(_academicYearKeyMeta);
+    }
+    if (data.containsKey('result_id')) {
+      context.handle(
+          _resultIdMeta,
+          resultId.isAcceptableOrUnknown(
+              data['result_id']!, _resultIdMeta));
+    } else if (isInserting) {
+      context.missing(_resultIdMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+          _lastSyncedAtMeta,
+          lastSyncedAt.isAcceptableOrUnknown(
+              data['last_synced_at']!, _lastSyncedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastSyncedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey =>
+      {localUserKey, membershipId, academicYearKey, resultId};
+  @override
+  CachedStudentResult map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedStudentResult(
+      localUserKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_user_key'])!,
+      membershipId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}membership_id'])!,
+      academicYearKey: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}academic_year_key'])!,
+      resultId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}result_id'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_synced_at'])!,
+    );
+  }
+
+  @override
+  $CachedStudentResultsTable createAlias(String alias) {
+    return $CachedStudentResultsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedStudentResult extends DataClass
+    implements Insertable<CachedStudentResult> {
+  final String localUserKey;
+  final int membershipId;
+  final String academicYearKey;
+  final int resultId;
+  final String payloadJson;
+  final DateTime lastSyncedAt;
+  const CachedStudentResult(
+      {required this.localUserKey,
+      required this.membershipId,
+      required this.academicYearKey,
+      required this.resultId,
+      required this.payloadJson,
+      required this.lastSyncedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['local_user_key'] = Variable<String>(localUserKey);
+    map['membership_id'] = Variable<int>(membershipId);
+    map['academic_year_key'] = Variable<String>(academicYearKey);
+    map['result_id'] = Variable<int>(resultId);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    return map;
+  }
+
+  CachedStudentResultsCompanion toCompanion(bool nullToAbsent) {
+    return CachedStudentResultsCompanion(
+      localUserKey: Value(localUserKey),
+      membershipId: Value(membershipId),
+      academicYearKey: Value(academicYearKey),
+      resultId: Value(resultId),
+      payloadJson: Value(payloadJson),
+      lastSyncedAt: Value(lastSyncedAt),
+    );
+  }
+
+  factory CachedStudentResult.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedStudentResult(
+      localUserKey: serializer.fromJson<String>(json['localUserKey']),
+      membershipId: serializer.fromJson<int>(json['membershipId']),
+      academicYearKey: serializer.fromJson<String>(json['academicYearKey']),
+      resultId: serializer.fromJson<int>(json['resultId']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      lastSyncedAt: serializer.fromJson<DateTime>(json['lastSyncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'localUserKey': serializer.toJson<String>(localUserKey),
+      'membershipId': serializer.toJson<int>(membershipId),
+      'academicYearKey': serializer.toJson<String>(academicYearKey),
+      'resultId': serializer.toJson<int>(resultId),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'lastSyncedAt': serializer.toJson<DateTime>(lastSyncedAt),
+    };
+  }
+
+  CachedStudentResult copyWith(
+          {String? localUserKey,
+          int? membershipId,
+          String? academicYearKey,
+          int? resultId,
+          String? payloadJson,
+          DateTime? lastSyncedAt}) =>
+      CachedStudentResult(
+        localUserKey: localUserKey ?? this.localUserKey,
+        membershipId: membershipId ?? this.membershipId,
+        academicYearKey: academicYearKey ?? this.academicYearKey,
+        resultId: resultId ?? this.resultId,
+        payloadJson: payloadJson ?? this.payloadJson,
+        lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      );
+  CachedStudentResult copyWithCompanion(CachedStudentResultsCompanion data) {
+    return CachedStudentResult(
+      localUserKey: data.localUserKey.present
+          ? data.localUserKey.value
+          : this.localUserKey,
+      membershipId: data.membershipId.present
+          ? data.membershipId.value
+          : this.membershipId,
+      academicYearKey: data.academicYearKey.present
+          ? data.academicYearKey.value
+          : this.academicYearKey,
+      resultId:
+          data.resultId.present ? data.resultId.value : this.resultId,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedStudentResult(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('resultId: $resultId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(localUserKey, membershipId, academicYearKey,
+      resultId, payloadJson, lastSyncedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedStudentResult &&
+          other.localUserKey == this.localUserKey &&
+          other.membershipId == this.membershipId &&
+          other.academicYearKey == this.academicYearKey &&
+          other.resultId == this.resultId &&
+          other.payloadJson == this.payloadJson &&
+          other.lastSyncedAt == this.lastSyncedAt);
+}
+
+class CachedStudentResultsCompanion extends UpdateCompanion<CachedStudentResult> {
+  final Value<String> localUserKey;
+  final Value<int> membershipId;
+  final Value<String> academicYearKey;
+  final Value<int> resultId;
+  final Value<String> payloadJson;
+  final Value<DateTime> lastSyncedAt;
+  final Value<int> rowid;
+  const CachedStudentResultsCompanion({
+    this.localUserKey = const Value.absent(),
+    this.membershipId = const Value.absent(),
+    this.academicYearKey = const Value.absent(),
+    this.resultId = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedStudentResultsCompanion.insert({
+    required String localUserKey,
+    required int membershipId,
+    required String academicYearKey,
+    required int resultId,
+    required String payloadJson,
+    required DateTime lastSyncedAt,
+    this.rowid = const Value.absent(),
+  })  : localUserKey = Value(localUserKey),
+        membershipId = Value(membershipId),
+        academicYearKey = Value(academicYearKey),
+        resultId = Value(resultId),
+        payloadJson = Value(payloadJson),
+        lastSyncedAt = Value(lastSyncedAt);
+  static Insertable<CachedStudentResult> custom({
+    Expression<String>? localUserKey,
+    Expression<int>? membershipId,
+    Expression<String>? academicYearKey,
+    Expression<int>? resultId,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (localUserKey != null) 'local_user_key': localUserKey,
+      if (membershipId != null) 'membership_id': membershipId,
+      if (academicYearKey != null) 'academic_year_key': academicYearKey,
+      if (resultId != null) 'result_id': resultId,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedStudentResultsCompanion copyWith(
+      {Value<String>? localUserKey,
+      Value<int>? membershipId,
+      Value<String>? academicYearKey,
+      Value<int>? resultId,
+      Value<String>? payloadJson,
+      Value<DateTime>? lastSyncedAt,
+      Value<int>? rowid}) {
+    return CachedStudentResultsCompanion(
+      localUserKey: localUserKey ?? this.localUserKey,
+      membershipId: membershipId ?? this.membershipId,
+      academicYearKey: academicYearKey ?? this.academicYearKey,
+      resultId: resultId ?? this.resultId,
+      payloadJson: payloadJson ?? this.payloadJson,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (localUserKey.present) {
+      map['local_user_key'] = Variable<String>(localUserKey.value);
+    }
+    if (membershipId.present) {
+      map['membership_id'] = Variable<int>(membershipId.value);
+    }
+    if (academicYearKey.present) {
+      map['academic_year_key'] = Variable<String>(academicYearKey.value);
+    }
+    if (resultId.present) {
+      map['result_id'] = Variable<int>(resultId.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedStudentResultsCompanion(')
+          ..write('localUserKey: $localUserKey, ')
+          ..write('membershipId: $membershipId, ')
+          ..write('academicYearKey: $academicYearKey, ')
+          ..write('resultId: $resultId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $LocalHomeworkDraftsTable extends LocalHomeworkDrafts
     with TableInfo<$LocalHomeworkDraftsTable, LocalHomeworkDraft> {
   @override
@@ -2058,6 +2437,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CachedTimetableDatasetsTable(this);
   late final $CachedHomeworkItemsTable cachedHomeworkItems =
       $CachedHomeworkItemsTable(this);
+  late final $CachedStudentResultsTable cachedStudentResults =
+      $CachedStudentResultsTable(this);
   late final $LocalHomeworkDraftsTable localHomeworkDrafts =
       $LocalHomeworkDraftsTable(this);
   @override
@@ -2069,6 +2450,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         cacheMetadata,
         cachedTimetableDatasets,
         cachedHomeworkItems,
+        cachedStudentResults,
         localHomeworkDrafts
       ];
 }
@@ -2890,6 +3272,204 @@ typedef $$CachedHomeworkItemsTableProcessedTableManager = ProcessedTableManager<
     ),
     CachedHomeworkItem,
     PrefetchHooks Function()>;
+typedef $$CachedStudentResultsTableCreateCompanionBuilder
+    = CachedStudentResultsCompanion Function({
+  required String localUserKey,
+  required int membershipId,
+  required String academicYearKey,
+  required int resultId,
+  required String payloadJson,
+  required DateTime lastSyncedAt,
+  Value<int> rowid,
+});
+typedef $$CachedStudentResultsTableUpdateCompanionBuilder
+    = CachedStudentResultsCompanion Function({
+  Value<String> localUserKey,
+  Value<int> membershipId,
+  Value<String> academicYearKey,
+  Value<int> resultId,
+  Value<String> payloadJson,
+  Value<DateTime> lastSyncedAt,
+  Value<int> rowid,
+});
+
+class $$CachedStudentResultsTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedStudentResultsTable> {
+  $$CachedStudentResultsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get resultId => $composableBuilder(
+      column: $table.resultId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$CachedStudentResultsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedStudentResultsTable> {
+  $$CachedStudentResultsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get membershipId => $composableBuilder(
+      column: $table.membershipId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get resultId => $composableBuilder(
+      column: $table.resultId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$CachedStudentResultsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedStudentResultsTable> {
+  $$CachedStudentResultsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get localUserKey => $composableBuilder(
+      column: $table.localUserKey, builder: (column) => column);
+
+  GeneratedColumn<int> get membershipId => $composableBuilder(
+      column: $table.membershipId, builder: (column) => column);
+
+  GeneratedColumn<String> get academicYearKey => $composableBuilder(
+      column: $table.academicYearKey, builder: (column) => column);
+
+  GeneratedColumn<int> get resultId => $composableBuilder(
+      column: $table.resultId, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => column);
+}
+
+class $$CachedStudentResultsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $CachedStudentResultsTable,
+    CachedStudentResult,
+    $$CachedStudentResultsTableFilterComposer,
+    $$CachedStudentResultsTableOrderingComposer,
+    $$CachedStudentResultsTableAnnotationComposer,
+    $$CachedStudentResultsTableCreateCompanionBuilder,
+    $$CachedStudentResultsTableUpdateCompanionBuilder,
+    (
+      CachedStudentResult,
+      BaseReferences<_$AppDatabase, $CachedStudentResultsTable,
+          CachedStudentResult>
+    ),
+    CachedStudentResult,
+    PrefetchHooks Function()> {
+  $$CachedStudentResultsTableTableManager(
+      _$AppDatabase db, $CachedStudentResultsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedStudentResultsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedStudentResultsTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedStudentResultsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> localUserKey = const Value.absent(),
+            Value<int> membershipId = const Value.absent(),
+            Value<String> academicYearKey = const Value.absent(),
+            Value<int> resultId = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<DateTime> lastSyncedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CachedStudentResultsCompanion(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            resultId: resultId,
+            payloadJson: payloadJson,
+            lastSyncedAt: lastSyncedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String localUserKey,
+            required int membershipId,
+            required String academicYearKey,
+            required int resultId,
+            required String payloadJson,
+            required DateTime lastSyncedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CachedStudentResultsCompanion.insert(
+            localUserKey: localUserKey,
+            membershipId: membershipId,
+            academicYearKey: academicYearKey,
+            resultId: resultId,
+            payloadJson: payloadJson,
+            lastSyncedAt: lastSyncedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CachedStudentResultsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $CachedStudentResultsTable,
+    CachedStudentResult,
+    $$CachedStudentResultsTableFilterComposer,
+    $$CachedStudentResultsTableOrderingComposer,
+    $$CachedStudentResultsTableAnnotationComposer,
+    $$CachedStudentResultsTableCreateCompanionBuilder,
+    $$CachedStudentResultsTableUpdateCompanionBuilder,
+    (
+      CachedStudentResult,
+      BaseReferences<_$AppDatabase, $CachedStudentResultsTable,
+          CachedStudentResult>
+    ),
+    CachedStudentResult,
+    PrefetchHooks Function()>;
 typedef $$LocalHomeworkDraftsTableCreateCompanionBuilder
     = LocalHomeworkDraftsCompanion Function({
   required String localUserKey,
@@ -3132,6 +3712,8 @@ class $AppDatabaseManager {
           _db, _db.cachedTimetableDatasets);
   $$CachedHomeworkItemsTableTableManager get cachedHomeworkItems =>
       $$CachedHomeworkItemsTableTableManager(_db, _db.cachedHomeworkItems);
+  $$CachedStudentResultsTableTableManager get cachedStudentResults =>
+      $$CachedStudentResultsTableTableManager(_db, _db.cachedStudentResults);
   $$LocalHomeworkDraftsTableTableManager get localHomeworkDrafts =>
       $$LocalHomeworkDraftsTableTableManager(_db, _db.localHomeworkDrafts);
 }

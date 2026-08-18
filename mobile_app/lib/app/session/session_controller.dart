@@ -4,14 +4,17 @@ import '../../core/errors/app_failure.dart';
 import '../../core/models/auth_models.dart';
 import '../../core/models/school_context.dart';
 import '../../features/authentication/data/auth_repository.dart';
+import '../../core/storage/session_snapshot_store.dart';
 import '../../features/school_context/data/context_repository.dart';
 import 'app_session.dart';
 
 class SessionController extends StateNotifier<AppSession> {
-  SessionController(this.auth, this.contexts, this.purgeUserData)
+  SessionController(
+      this.auth, this.contexts, this.snapshotStore, this.purgeUserData)
       : super(const AppSession(SessionStatus.authenticating));
   final AuthRepository auth;
   final ContextRepository contexts;
+  final SessionSnapshotStore snapshotStore;
   final Future<void> Function(String localUserKey) purgeUserData;
 
   Future<void> bootstrap() async {
@@ -52,19 +55,33 @@ class SessionController extends StateNotifier<AppSession> {
     } on DioException catch (error) {
       final failure = error.error;
       if (failure is AppFailure && failure.kind == FailureKind.network) {
+        final snapshot = await snapshotStore.read();
+        if (snapshot != null) {
+          state = AppSession(
+            statusForContext(snapshot.context),
+            user: snapshot.user,
+            context: snapshot.context,
+            contexts: [snapshot.context],
+            offline: true,
+          );
+          return;
+        }
         state = const AppSession(SessionStatus.unauthenticated,
             message: 'تعذر استعادة الجلسة. تحقق من الاتصال ثم حاول مجددًا');
         return;
       }
       await auth.clearLocalSession();
+      await snapshotStore.clear();
       state = const AppSession(SessionStatus.unauthenticated);
     } catch (_) {
       await auth.clearLocalSession();
+      await snapshotStore.clear();
       state = const AppSession(SessionStatus.unauthenticated);
     }
   }
 
   Future<void> login(String username, String password) async {
+    await snapshotStore.clear();
     state = const AppSession(SessionStatus.authenticating);
     try {
       final login = await auth.login(username, password);
@@ -99,10 +116,77 @@ class SessionController extends StateNotifier<AppSession> {
       {AuthenticatedUser? user, List<SchoolContext>? available}) async {
     await contexts.select(context);
     final resolvedUser = user ?? state.user ?? await auth.me();
+    await snapshotStore.write(
+        LocalSessionSnapshot(user: resolvedUser, context: context));
     state = AppSession(statusForContext(context),
         user: resolvedUser,
         context: context,
         contexts: available ?? state.contexts);
+  }
+
+  Future<void> revalidateCurrentContext() async {
+    final currentMembershipId = state.context?.membershipId;
+    if (currentMembershipId == null) return;
+    try {
+      final result = await contexts.list();
+      final usable = result.contexts
+          .where((c) => c.status == 'active' || c.isHistorical)
+          .toList();
+      SchoolContext? current;
+      for (final item in usable) {
+        if (item.membershipId == currentMembershipId) {
+          current = item;
+          break;
+        }
+      }
+      if (current != null) {
+        if (state.user != null) {
+          await snapshotStore.write(
+              LocalSessionSnapshot(user: state.user!, context: current));
+        }
+        return;
+      }
+      await contexts.clearStoredMembership();
+      await snapshotStore.clear();
+      final next = result.current ?? (usable.length == 1 ? usable.single : null);
+      if (next != null) {
+        await selectContext(next, available: usable);
+      } else {
+        state = AppSession(
+          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          user: state.user,
+          contexts: usable,
+          message: usable.isEmpty
+              ? 'هذا الحساب المدرسي غير متاح حالياً'
+              : 'اختر حساباً مدرسياً متاحاً للمتابعة',
+        );
+      }
+    } on DioException catch (_) {
+      // Keep the current state when revalidation itself cannot reach the server.
+    }
+  }
+
+  void markOffline() {
+    if (state.status == SessionStatus.authenticated ||
+        state.status == SessionStatus.historical) {
+      state = AppSession(state.status,
+          user: state.user,
+          context: state.context,
+          contexts: state.contexts,
+          message: state.message,
+          offline: true);
+    }
+  }
+
+  void markOnline() {
+    if (state.offline) {
+      state = AppSession(state.status,
+          user: state.user,
+          context: state.context,
+          contexts: state.contexts,
+          message: state.message,
+          offline: false);
+    }
   }
 
   void requireContext() => state = AppSession(SessionStatus.needsContext,
@@ -110,6 +194,7 @@ class SessionController extends StateNotifier<AppSession> {
   Future<void> expire() async {
     final localUserKey = state.user == null ? null : 'user:${state.user!.id}';
     if (localUserKey != null) await purgeUserData(localUserKey);
+    await snapshotStore.clear();
     state = const AppSession(SessionStatus.sessionExpired,
         message: 'انتهت الجلسة، سجّل الدخول مجددًا');
   }
@@ -120,6 +205,7 @@ class SessionController extends StateNotifier<AppSession> {
       await auth.logout();
     } finally {
       if (localUserKey != null) await purgeUserData(localUserKey);
+      await snapshotStore.clear();
       state = AppSession.unauthenticated;
     }
   }

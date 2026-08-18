@@ -108,7 +108,9 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               academicYear: session.context?.academicYearName),
           if (session.status == SessionStatus.historical)
             HistoricalContextBanner(context: session.context),
-          if (selectedIndex == 0 &&
+          if (session.offline) const OfflineCacheBanner(),
+          if (!session.offline &&
+              selectedIndex == 0 &&
               timetable is TimetableReady &&
               timetable.offline)
             const OfflineCacheBanner(),
@@ -142,10 +144,26 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         top: false,
         child: StudentBottomNavigation(
             selectedIndex: selectedIndex,
-            onSelected: (value) => setState(() {
-                  selectedIndex = value;
-                  showTimetable = false;
-                })),
+            onSelected: (value) {
+              if (value == 1) {
+                ref.read(studentHomeworkProvider(scope).notifier).closeDetail();
+              } else if (value == 2) {
+                ref.read(studentResultsProvider(scope).notifier).close();
+              }
+              setState(() {
+                selectedIndex = value;
+                showTimetable = false;
+              });
+              Future<void>.microtask(() {
+                if (value == 0) {
+                  ref.read(studentTimetableProvider(scope).notifier).refresh();
+                } else if (value == 1) {
+                  ref.read(studentHomeworkProvider(scope).notifier).refresh();
+                } else if (value == 2) {
+                  ref.read(studentResultsProvider(scope).notifier).refresh();
+                }
+              });
+            }),
       ),
     );
   }
@@ -193,7 +211,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     }
     if (detail is HomeworkDetailReady) {
       return Column(children: [
-        if (detail.data.offline) const OfflineCacheBanner(),
+        if (detail.data.offline && !session.offline)
+          const OfflineCacheBanner(),
         Expanded(
           child: StudentHomeworkDetailScreen(
             data: detail.data,
@@ -208,7 +227,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       ]);
     }
     return Column(children: [
-      if (ready.list.offline) const OfflineCacheBanner(),
+      if (ready.list.offline && !session.offline)
+        const OfflineCacheBanner(),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
         child: Align(

@@ -14,7 +14,7 @@ Baseline: `bc18562` — Sprint 5B.2 accepted before Phase 0.
 
 ## Phase 0 — Mobile Foundation Hardening
 
-الحالة: 🟡 منفذة برمجيًا — بانتظار Flutter/Samsung acceptance.
+الحالة: 🟡 Acceptance جارية — Fix Pack A منفذ بعد نتائج المحاكي، بانتظار إعادة الفحص.
 
 النطاق:
 - [x] منع stale membership من تلويث login/context-control requests.
@@ -26,12 +26,21 @@ Baseline: `bc18562` — Sprint 5B.2 accepted before Phase 0.
 - [x] منع cached homework/timetable من إخفاء رفض صلاحية/سياق من السيرفر.
 - [x] Reset لحالة Timetable عند استخدام Bottom Navigation.
 - [x] Regression tests للـstale context والـoffline policy.
-- [ ] Flutter analyze/test على بيئة Flutter.
-- [ ] Samsung acceptance: restart/session restore.
-- [ ] Samsung acceptance: user A logout → user B login.
-- [ ] Samsung acceptance: stale/changed membership.
-- [ ] Samsung acceptance: online/offline/online.
-- [ ] Samsung acceptance: expired access token refresh.
+- [x] Flutter analyze/test قبل Fix Pack A: `No issues found` + `40/40 passed` على بيئة المستخدم.
+- [x] Emulator acceptance: restart/session restore.
+- [x] Emulator acceptance: user A logout → user B login بدون تسريب.
+- [x] Emulator acceptance: online/offline/online recovery.
+- [x] Emulator acceptance: timetable navigation.
+- [x] Emulator discovery: 403 لا يتحول إلى Offline cache.
+- [x] Fix Pack A: Offline cold start من snapshot محلي غير حساس + cache.
+- [x] Fix Pack A: Offline indicator موحد عند فشل الشبكة.
+- [x] Fix Pack A: stale membership revalidation + تنظيف context + UX عربي آمن.
+- [x] Fix Pack A: Bottom Navigation يعيد الواجبات/النتائج إلى root بدل stale details.
+- [x] Fix Pack A: تغيير الخط لا يعيد إنشاء Router ولا يقفز للرئيسية.
+- [x] Fix Pack A: compileSdk=35 لمتطلب sqlite3_flutter_libs.
+- [ ] إعادة `build_runner / flutter analyze / flutter test` بعد Fix Pack A.
+- [ ] إعادة Emulator acceptance للإصلاحات الخمسة.
+- [ ] expired access token refresh (مؤجل بطلب المستخدم).
 
 ## Phase 1 — Student Results
 
