@@ -37,7 +37,7 @@ void main() {
 
   test('database opens with current additive schema and migration foundation',
       () async {
-    expect(database.schemaVersion, 3);
+    expect(database.schemaVersion, 4);
     await database.customSelect('SELECT 1').getSingle();
     expect(database.migration.onUpgrade, isA<Function>());
   });
