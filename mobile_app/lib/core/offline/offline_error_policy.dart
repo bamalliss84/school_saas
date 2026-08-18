@@ -13,6 +13,7 @@ bool isOfflineEligibleError(Object error) {
     DioExceptionType.connectionTimeout ||
     DioExceptionType.sendTimeout ||
     DioExceptionType.receiveTimeout ||
+    DioExceptionType.transformTimeout ||
     DioExceptionType.connectionError ||
     DioExceptionType.unknown => true,
     DioExceptionType.badCertificate ||
