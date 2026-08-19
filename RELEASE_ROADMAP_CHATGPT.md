@@ -42,6 +42,21 @@ Baseline: `bc18562` — Sprint 5B.2 accepted before Phase 0.
 - [ ] إعادة Emulator acceptance للإصلاحات الخمسة.
 - [ ] expired access token refresh (مؤجل بطلب المستخدم).
 
+## Phase 0 — Acceptance Fix Pack B
+
+الحالة: 🟡 منفذ برمجيًا — بانتظار Flutter/emulator acceptance.
+
+- [x] إصلاح تطبيق الخط على جميع TextTheme styles بدل أجزاء من الواجهة فقط.
+- [x] تغيير الخط عبر Theme داخلي بدون إعادة بناء MaterialApp/Router أو القفز للرئيسية.
+- [x] توحيد Offline banner بمصدر session واحد وإزالة banner المحلي من Results/Homework/Timetable.
+- [x] انتظار revalidation عند 403 قبل عرض الخطأ، والتمييز بين stale membership وfeature permission.
+- [x] رسالة stale membership: `هذا الحساب المدرسي غير متاح حالياً`.
+- [x] الحفاظ على Offline cache وفق آخر membership تم التحقق منها؛ تغير حالة العضوية على السيرفر لا يمكن اكتشافه أثناء انقطاع الشبكة حتى عودة الاتصال.
+- [ ] Flutter analyze/test على بيئة Flutter.
+- [ ] Emulator acceptance: font stays on More and changes all text.
+- [ ] Emulator acceptance: exactly one offline banner.
+- [ ] Emulator acceptance: online suspended membership invalidates current context without stale cache.
+
 ## Phase 1 — Student Results
 
 الحالة: 🟡 منفذة برمجيًا — Phase 0 ما زالت معلقة وتُقبل معها في جولة Samsung القادمة.

@@ -109,11 +109,6 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           if (session.status == SessionStatus.historical)
             HistoricalContextBanner(context: session.context),
           if (session.offline) const OfflineCacheBanner(),
-          if (!session.offline &&
-              selectedIndex == 0 &&
-              timetable is TimetableReady &&
-              timetable.offline)
-            const OfflineCacheBanner(),
           if (selectedIndex == 0 && timetable is TimetableReady)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
@@ -211,8 +206,6 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     }
     if (detail is HomeworkDetailReady) {
       return Column(children: [
-        if (detail.data.offline && !session.offline)
-          const OfflineCacheBanner(),
         Expanded(
           child: StudentHomeworkDetailScreen(
             data: detail.data,
@@ -227,8 +220,6 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       ]);
     }
     return Column(children: [
-      if (ready.list.offline && !session.offline)
-        const OfflineCacheBanner(),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
         child: Align(

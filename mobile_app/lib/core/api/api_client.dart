@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 
 import '../errors/app_failure.dart';
@@ -39,7 +37,7 @@ class ApiClient {
   final RefreshCoordinator _coordinator;
   Future<void> Function()? onSessionExpired;
   void Function()? onContextRequired;
-  Future<void> Function()? onForbidden;
+  Future<bool> Function()? onForbidden;
   void Function()? onNetworkUnavailable;
   void Function()? onConnectionRestored;
   Dio get dio => _dio;
@@ -64,8 +62,9 @@ class ApiClient {
     ErrorInterceptorHandler handler,
   ) async {
     if (error.response?.statusCode == 409) onContextRequired?.call();
+    var invalidSchoolContext = false;
     if (error.response?.statusCode == 403 && onForbidden != null) {
-      unawaited(onForbidden!());
+      invalidSchoolContext = await onForbidden!();
     }
     if (error.response?.statusCode == 401 &&
         error.requestOptions.extra['retried'] != true &&
@@ -85,10 +84,16 @@ class ApiClient {
     if (isNetwork) onNetworkUnavailable?.call();
     final failure = isNetwork
         ? const AppFailure(FailureKind.network, 'تعذر الاتصال بالخادم')
-        : AppFailure.fromResponse(
-            error.response?.statusCode,
-            error.response?.data,
-          );
+        : invalidSchoolContext
+            ? const AppFailure(
+                FailureKind.forbidden,
+                'هذا الحساب المدرسي غير متاح حالياً',
+                statusCode: 403,
+              )
+            : AppFailure.fromResponse(
+                error.response?.statusCode,
+                error.response?.data,
+              );
     handler.reject(
       DioException(
         requestOptions: error.requestOptions,

@@ -33,10 +33,6 @@ class StudentResultsScreen extends StatelessWidget {
           Text(historical ? 'السجل الدراسي السابق' : 'النتائج',
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: AppSpacing.x3),
-          if (state.data.offline) ...[
-            const OfflineCacheBanner(),
-            const SizedBox(height: AppSpacing.x2),
-          ],
           Row(children: [
             Expanded(child: _filter(
               value: state.term, hint: 'الفصل الدراسي',

@@ -124,9 +124,13 @@ class SessionController extends StateNotifier<AppSession> {
         contexts: available ?? state.contexts);
   }
 
-  Future<void> revalidateCurrentContext() async {
+  /// Revalidates the current membership after an authenticated 403.
+  /// Returns true only when the current school context became unavailable
+  /// or was replaced, so callers can distinguish stale membership from an
+  /// ordinary feature-level permission denial.
+  Future<bool> revalidateCurrentContext() async {
     final currentMembershipId = state.context?.membershipId;
-    if (currentMembershipId == null) return;
+    if (currentMembershipId == null) return false;
     try {
       final result = await contexts.list();
       final usable = result.contexts
@@ -144,8 +148,9 @@ class SessionController extends StateNotifier<AppSession> {
           await snapshotStore.write(
               LocalSessionSnapshot(user: state.user!, context: current));
         }
-        return;
+        return false;
       }
+
       await contexts.clearStoredMembership();
       await snapshotStore.clear();
       final next = result.current ?? (usable.length == 1 ? usable.single : null);
@@ -161,8 +166,16 @@ class SessionController extends StateNotifier<AppSession> {
               : 'اختر حساباً مدرسياً متاحاً للمتابعة',
         );
       }
-    } on DioException catch (_) {
-      // Keep the current state when revalidation itself cannot reach the server.
+      return true;
+    } on DioException catch (error) {
+      final failure = error.error;
+      if (failure is AppFailure && failure.kind == FailureKind.network) {
+        markOffline();
+      }
+      // If revalidation itself cannot reach the server, keep the last locally
+      // validated context. Offline mode cannot discover a server-side status
+      // change until connectivity returns.
+      return false;
     }
   }
 

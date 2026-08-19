@@ -73,20 +73,29 @@ class SchoolSaaSApp extends ConsumerWidget {
   }
 }
 
-class _AppThemeHost extends ConsumerWidget {
+class _AppThemeHost extends StatelessWidget {
   const _AppThemeHost({required this.router});
   final GoRouter router;
   @override
+  Widget build(BuildContext context) => MaterialApp.router(
+        title: 'مدرستي',
+        debugShowCheckedModeBanner: false,
+        locale: const Locale('ar'),
+        builder: (context, child) => _DynamicAppTheme(child: child!),
+        routerConfig: router,
+      );
+}
+
+class _DynamicAppTheme extends ConsumerWidget {
+  const _DynamicAppTheme({required this.child});
+  final Widget child;
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final font = ref.watch(fontProvider);
-    return MaterialApp.router(
-      title: 'مدرستي',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('ar'),
-      theme: buildAppTheme(font),
-      builder: (context, child) =>
-          Directionality(textDirection: TextDirection.rtl, child: child!),
-      routerConfig: router,
+    return Theme(
+      data: buildAppTheme(font),
+      child: Directionality(textDirection: TextDirection.rtl, child: child),
     );
   }
 }
