@@ -59,6 +59,15 @@ Map<String, dynamic> submissionJson({
       'can_submit': canSubmit,
       'teacher_note': status == 'returned' ? 'راجع السؤال الرابع' : '',
       'grade': status == 'graded' ? '9' : null,
+      'attachments': [
+        {
+          'id': 7,
+          'file': 'http://example.test/answer.pdf',
+          'original_name': 'answer.pdf',
+          'content_type': 'application/pdf',
+          'file_size': 2048,
+        }
+      ],
     };
 
 class FakeHomeworkRemote implements HomeworkRemoteDataSource {
@@ -126,6 +135,27 @@ class FakeHomeworkRemote implements HomeworkRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> uploadSubmissionAttachments(
+      int submissionId, List<String> paths) async {
+    check();
+    return [
+      {
+        'id': 8,
+        'file': 'http://example.test/upload.pdf',
+        'original_name': 'upload.pdf',
+        'content_type': 'application/pdf',
+        'file_size': 100,
+      }
+    ];
+  }
+
+  @override
+  Future<void> deleteSubmissionAttachment(
+      int submissionId, int attachmentId) async {
+    check();
+  }
+
+  @override
   Future<String> downloadAttachment(String url, String fileName) async {
     check();
     return '/app/$fileName';
@@ -150,6 +180,7 @@ void main() {
     expect(returned.attachments.single.name, 'questions.pdf');
     expect(graded.status, 'graded');
     expect(graded.grade, 9);
+    expect(graded.attachments.single.name, 'answer.pdf');
     expect(graded.canEdit, isFalse);
   });
 
@@ -259,6 +290,32 @@ void main() {
     expect(remote.finalSubmitted, isFalse);
   });
 
+  testWidgets('homework detail labels instructions and teacher attachments',
+      (tester) async {
+    final item = StudentHomework.fromJson(homeworkJson());
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StudentHomeworkDetailScreen(
+          data: HomeworkDetailData(
+              item, const HomeworkLocalDraft(), DateTime(2026)),
+          historical: false,
+          submitting: false,
+          onBack: () {},
+          onSave: (_) async {},
+          onSubmit: () async => false,
+          onUploadAttachments: (_) async => false,
+          onDeleteAttachment: (_) async => false,
+          onDownload: (_) async => '',
+        ),
+      ),
+    ));
+    expect(find.text('المطلوب'), findsOneWidget);
+    expect(find.text('حل الأسئلة المطلوبة مع توضيح خطوات الحل.'), findsOneWidget);
+    expect(find.text('مرفقات المعلم'), findsOneWidget);
+    expect(find.text('questions.pdf'), findsOneWidget);
+    expect(find.text('إرفاق صورة أو PDF'), findsOneWidget);
+  });
+
   testWidgets('historical detail is read only', (tester) async {
     final item = StudentHomework.fromJson(homeworkJson());
     await tester.pumpWidget(MaterialApp(
@@ -271,6 +328,8 @@ void main() {
           onBack: () {},
           onSave: (_) async {},
           onSubmit: () async => false,
+          onUploadAttachments: (_) async => false,
+          onDeleteAttachment: (_) async => false,
           onDownload: (_) async => '',
         ),
       ),

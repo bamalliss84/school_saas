@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design_system/components.dart';
@@ -147,6 +148,8 @@ class StudentHomeworkDetailScreen extends StatefulWidget {
     required this.onBack,
     required this.onSave,
     required this.onSubmit,
+    required this.onUploadAttachments,
+    required this.onDeleteAttachment,
     required this.onDownload,
   });
 
@@ -156,6 +159,8 @@ class StudentHomeworkDetailScreen extends StatefulWidget {
   final VoidCallback onBack;
   final Future<void> Function(HomeworkLocalDraft) onSave;
   final Future<bool> Function() onSubmit;
+  final Future<bool> Function(List<String>) onUploadAttachments;
+  final Future<bool> Function(HomeworkAttachment) onDeleteAttachment;
   final Future<String> Function(HomeworkAttachment) onDownload;
 
   @override
@@ -188,6 +193,33 @@ class _StudentHomeworkDetailScreenState
         localFiles: widget.data.draft.localFiles,
       );
 
+  Future<void> _pickAndUpload() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+    );
+    if (result == null || !mounted) return;
+    final paths = result.files
+        .map((file) => file.path)
+        .whereType<String>()
+        .where((path) => path.isNotEmpty)
+        .toList();
+    if (paths.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('تعذر قراءة الملف المحدد')),
+      );
+      return;
+    }
+    final success = await widget.onUploadAttachments(paths);
+    if (mounted) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(success ? 'تم إرفاق الملف' : 'تعذر إرفاق الملف'),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.data.homework;
@@ -214,7 +246,11 @@ class _StudentHomeworkDetailScreenState
             Text('الصف ${item.classroomId} • الشعبة ${item.sectionId}',
                 style: Theme.of(context).textTheme.bodySmall),
             const Divider(height: AppSpacing.x6),
-            Text(item.description.isEmpty ? 'لا يوجد وصف' : item.description),
+            Text('المطلوب', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.x2),
+            Text(item.description.isEmpty
+                ? 'لم يضف المعلم تعليمات لهذا الواجب.'
+                : item.description),
             const SizedBox(height: AppSpacing.x3),
             Text('موعد التسليم: ${_date(item.dueDate)}'),
             if (item.maxGrade != null) Text('الدرجة القصوى: ${item.maxGrade}'),
@@ -222,7 +258,7 @@ class _StudentHomeworkDetailScreenState
         ),
         if (item.attachments.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.x4),
-          Text('المرفقات', style: Theme.of(context).textTheme.titleLarge),
+          Text('مرفقات المعلم', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.x2),
           ...item.attachments.map((attachment) => AppCard(
                 child: ListTile(
@@ -230,6 +266,32 @@ class _StudentHomeworkDetailScreenState
                   leading: const Icon(Icons.attach_file),
                   title: Text(attachment.name),
                   subtitle: Text(attachment.contentType),
+                  trailing: IconButton(
+                    tooltip: 'تنزيل',
+                    icon: const Icon(Icons.download_outlined),
+                    onPressed: widget.data.offline
+                        ? null
+                        : () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final path = await widget.onDownload(attachment);
+                            if (mounted) {
+                              messenger.showSnackBar(
+                                  SnackBar(content: Text('تم التنزيل: $path')));
+                            }
+                          },
+                  ),
+                ),
+              )),
+        ],
+        if (!editable && item.submission?.attachments.isNotEmpty == true) ...[
+          const SizedBox(height: AppSpacing.x4),
+          Text('مرفقات إجابتي', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.x2),
+          ...item.submission!.attachments.map((attachment) => AppCard(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.attach_file),
+                  title: Text(attachment.name),
                   trailing: IconButton(
                     tooltip: 'تنزيل',
                     icon: const Icon(Icons.download_outlined),
@@ -259,7 +321,7 @@ class _StudentHomeworkDetailScreenState
                       : 'تم التصحيح',
                   style: Theme.of(context).textTheme.titleLarge),
               if (item.grade != null)
-                Text('الدرجة: ${item.grade} / ${item.maxGrade ?? '-'}'),
+                Text('الدرجة: ${item.grade} من ${item.maxGrade ?? '-'}'),
               if (item.teacherNote.isNotEmpty) Text(item.teacherNote),
             ]),
           ),
@@ -274,6 +336,41 @@ class _StudentHomeworkDetailScreenState
             maxLines: 10,
             decoration: const InputDecoration(hintText: 'اكتب إجابتك...'),
           ),
+          const SizedBox(height: AppSpacing.x3),
+          AppSecondaryButton(
+            label: 'إرفاق صورة أو PDF',
+            onPressed: widget.submitting || widget.data.offline
+                ? null
+                : _pickAndUpload,
+          ),
+          if (item.submission?.attachments.isNotEmpty == true) ...[
+            const SizedBox(height: AppSpacing.x3),
+            Text('مرفقات إجابتي',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.x2),
+            ...item.submission!.attachments.map((attachment) => AppCard(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.attach_file),
+                    title: Text(attachment.name),
+                    trailing: IconButton(
+                      tooltip: 'حذف المرفق',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: widget.submitting || widget.data.offline
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final success =
+                                  await widget.onDeleteAttachment(attachment);
+                              if (mounted && !success) {
+                                messenger.showSnackBar(const SnackBar(
+                                    content: Text('تعذر حذف المرفق')));
+                              }
+                            },
+                    ),
+                  ),
+                )),
+          ],
           const SizedBox(height: AppSpacing.x3),
           TextField(
             controller: note,

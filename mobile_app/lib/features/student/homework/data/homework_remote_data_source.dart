@@ -8,6 +8,9 @@ abstract interface class HomeworkRemoteDataSource {
   Future<Map<String, dynamic>> createSubmission(int homeworkId);
   Future<Map<String, dynamic>> updateAnswer(int submissionId, String answer);
   Future<Map<String, dynamic>> finalSubmit(int submissionId);
+  Future<List<Map<String, dynamic>>> uploadSubmissionAttachments(
+      int submissionId, List<String> paths);
+  Future<void> deleteSubmissionAttachment(int submissionId, int attachmentId);
   Future<String> downloadAttachment(String url, String fileName);
 }
 
@@ -62,6 +65,30 @@ class DioHomeworkRemoteDataSource implements HomeworkRemoteDataSource {
         'homework-submissions/$submissionId/final-submit/',
       ))
           .data!);
+
+  @override
+  Future<List<Map<String, dynamic>>> uploadSubmissionAttachments(
+      int submissionId, List<String> paths) async {
+    final form = FormData();
+    for (final path in paths) {
+      form.files.add(MapEntry('files', await MultipartFile.fromFile(path)));
+    }
+    final response = await _dio.post<List<dynamic>>(
+      'homework-submissions/$submissionId/attachments/',
+      data: form,
+    );
+    return (response.data ?? const [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  @override
+  Future<void> deleteSubmissionAttachment(
+      int submissionId, int attachmentId) async {
+    await _dio.delete<void>(
+      'homework-submissions/$submissionId/attachments/$attachmentId/',
+    );
+  }
 
   @override
   Future<String> downloadAttachment(String url, String fileName) async {

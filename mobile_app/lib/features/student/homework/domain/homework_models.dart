@@ -35,6 +35,7 @@ class HomeworkSubmissionModel {
     this.submittedAt,
     this.gradedAt,
     this.returnedAt,
+    this.attachments = const [],
   });
 
   final int id;
@@ -47,6 +48,7 @@ class HomeworkSubmissionModel {
   final DateTime? submittedAt;
   final DateTime? gradedAt;
   final DateTime? returnedAt;
+  final List<HomeworkAttachment> attachments;
 
   factory HomeworkSubmissionModel.fromJson(Map<String, dynamic> json) =>
       HomeworkSubmissionModel(
@@ -60,6 +62,10 @@ class HomeworkSubmissionModel {
         submittedAt: _date(json['submitted_at']),
         gradedAt: _date(json['graded_at']),
         returnedAt: _date(json['returned_at']),
+        attachments: (json['attachments'] as List? ?? const [])
+            .map((item) => HomeworkAttachment.fromJson(
+                Map<String, dynamic>.from(item as Map)))
+            .toList(),
       );
 }
 

@@ -69,6 +69,26 @@ class StudentHomeworkRepository {
           CacheScope scope, int homeworkId, HomeworkLocalDraft draft) =>
       local.saveDraft(scope, homeworkId, draft);
 
+  Future<HomeworkDetailData> uploadSubmissionAttachments(
+      CacheScope scope, HomeworkDetailData current, List<String> paths) async {
+    if (paths.isEmpty) return current;
+    var submission = current.homework.submission;
+    submission ??= HomeworkSubmissionModel.fromJson(
+        await remote.createSubmission(current.homework.id));
+    await remote.uploadSubmissionAttachments(submission.id, paths);
+    return loadDetail(scope, current.homework.id);
+  }
+
+  Future<HomeworkDetailData> deleteSubmissionAttachment(
+      CacheScope scope,
+      HomeworkDetailData current,
+      HomeworkAttachment attachment) async {
+    final submission = current.homework.submission;
+    if (submission == null) return current;
+    await remote.deleteSubmissionAttachment(submission.id, attachment.id);
+    return loadDetail(scope, current.homework.id);
+  }
+
   Future<HomeworkDetailData> submit(
       CacheScope scope, HomeworkDetailData current) async {
     var submission = current.homework.submission;

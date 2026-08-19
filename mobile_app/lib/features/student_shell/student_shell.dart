@@ -214,6 +214,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
             onBack: controller.closeDetail,
             onSave: controller.saveDraft,
             onSubmit: controller.submit,
+            onUploadAttachments: controller.uploadAttachments,
+            onDeleteAttachment: controller.deleteAttachment,
             onDownload: controller.download,
           ),
         ),

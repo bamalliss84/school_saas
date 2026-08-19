@@ -169,6 +169,49 @@ class HomeworkController extends StateNotifier<HomeworkState> {
     }
   }
 
+  Future<bool> uploadAttachments(List<String> paths) async {
+    final current = state;
+    if (current is! HomeworkReady ||
+        current.detail is! HomeworkDetailReady ||
+        paths.isEmpty) {
+      return false;
+    }
+    final ready = current.detail as HomeworkDetailReady;
+    if (ready.data.offline || !ready.data.homework.canEditDraft) return false;
+    state = current.copyWith(
+        detail: HomeworkDetailReady(ready.data, submitting: true));
+    try {
+      final updated = await repository.uploadSubmissionAttachments(
+          scope, ready.data, paths);
+      state = (state as HomeworkReady)
+          .copyWith(detail: HomeworkDetailReady(updated));
+      return true;
+    } catch (_) {
+      state = (state as HomeworkReady)
+          .copyWith(detail: HomeworkDetailReady(ready.data));
+      return false;
+    }
+  }
+
+  Future<bool> deleteAttachment(HomeworkAttachment attachment) async {
+    final current = state;
+    if (current is! HomeworkReady ||
+        current.detail is! HomeworkDetailReady) {
+      return false;
+    }
+    final ready = current.detail as HomeworkDetailReady;
+    if (ready.data.offline || !ready.data.homework.canEditDraft) return false;
+    try {
+      final updated = await repository.deleteSubmissionAttachment(
+          scope, ready.data, attachment);
+      state = (state as HomeworkReady)
+          .copyWith(detail: HomeworkDetailReady(updated));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<String> download(HomeworkAttachment attachment) =>
       repository.downloadAttachment(attachment);
 }
