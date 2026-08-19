@@ -84,13 +84,15 @@ void main() {
       DateTime(2026, 8, 19, 10),
       offline: true,
     ));
-    await tester.pumpWidget(rtl(StudentResultsScreen(
-      state: state,
-      historical: false,
-      onTerm: (_) {},
-      onSubject: (_) {},
-      onOpen: (_) {},
-      onRefresh: () async {},
+    await tester.pumpWidget(rtl(Scaffold(
+      body: StudentResultsScreen(
+        state: state,
+        historical: false,
+        onTerm: (_) {},
+        onSubject: (_) {},
+        onOpen: (_) {},
+        onRefresh: () async {},
+      ),
     )));
     expect(find.byType(OfflineCacheBanner), findsNothing);
     expect(find.text('لا توجد نتائج منشورة'), findsOneWidget);
