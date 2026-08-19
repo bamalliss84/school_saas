@@ -11,5 +11,10 @@ The backend already supports a school-configurable `ExamType` (`name`, `code`, `
 - Preserved score / total / percentage, term/subject filters, publication rules, active academic-year scope, historical read-only and scoped Drift cache.
 - Added parser regression coverage for exam type metadata.
 
+## Results acceptance demo dataset
+`seed_demo_school` now creates deterministic Results V1 acceptance scenarios for `demo_student_a_01`: short quiz, monthly, midterm, term and final published results across Mathematics/Science/Arabic, including teacher feedback. It also creates one approved-but-unpublished result that must remain hidden. `demo_student_transferred` has a published historical result in its real historical School A context.
+
+The seeder remains idempotent and its regression snapshot now includes exams/results so duplicate result creation is detected.
+
 ## Acceptance pending
-Short emulator smoke only: list, detail, filters, offline cache, historical context if demo data is available.
+Short emulator smoke: run the demo seed, verify the five published current results and filters, confirm the unpublished result is absent, then verify the transferred student's historical result and Offline cache.

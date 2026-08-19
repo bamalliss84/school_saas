@@ -5,7 +5,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from .models import (
-    Attendance, School, SchoolMembership, Student, StudentEnrollment, Teacher, User,
+    Attendance, Exam, ExamResult, School, SchoolMembership, Student, StudentEnrollment, Teacher, User,
 )
 
 
@@ -23,6 +23,8 @@ class Sprint46DemoSeedTests(TestCase):
             'students': Student.objects.filter(user__username__startswith='demo_').count(),
             'memberships': SchoolMembership.objects.filter(user__username__startswith='demo_').count(),
             'attendance': Attendance.objects.filter(note='DEMO attendance').count(),
+            'exams': Exam.objects.filter(school__code__startswith='DEMO_').count(),
+            'results': ExamResult.objects.filter(exam__school__code__startswith='DEMO_').count(),
         }
 
     def test_seed_is_idempotent_and_has_expected_scale(self):
@@ -41,6 +43,60 @@ class Sprint46DemoSeedTests(TestCase):
         self.run_seed('--reset-demo')
         self.assertEqual(self.snapshot(), first)
         self.assertTrue(School.objects.filter(pk=real_school.pk).exists())
+
+    def test_student_results_acceptance_dataset_has_published_types_and_hidden_result(self):
+        self.run_seed()
+        enrollment = StudentEnrollment.objects.get(
+            student__user__username='demo_student_a_01',
+            academic_year__is_active=True,
+        )
+        results = ExamResult.objects.filter(student_enrollment=enrollment)
+        published = results.filter(workflow_status='approved', is_published=True)
+        self.assertEqual(published.count(), 5)
+        self.assertSetEqual(
+            set(published.values_list('exam__exam_type__code', flat=True)),
+            {'DEMO_QUIZ', 'DEMO_MONTHLY', 'DEMO_MID', 'DEMO_TERM', 'DEMO_FINAL'},
+        )
+        self.assertTrue(
+            published.filter(
+                exam__title='DEMO Monthly Mathematics', score='18.00',
+                exam__total_marks='20.00',
+            ).exists()
+        )
+        self.assertTrue(
+            published.filter(
+                exam__title='DEMO Midterm Science', score='42.00',
+                exam__total_marks='50.00',
+                remarks__startswith='فهم جيد',
+            ).exists()
+        )
+        self.assertEqual(
+            published.values('exam__academic_term__term_type').distinct().count(), 2,
+        )
+        self.assertTrue(
+            published.filter(
+                exam__title='DEMO Final Mathematics',
+                exam__academic_term__term_type='term_2',
+            ).exists()
+        )
+        hidden = results.get(exam__title='DEMO Unpublished Mathematics Result')
+        self.assertEqual(hidden.workflow_status, 'approved')
+        self.assertFalse(hidden.is_published)
+        self.assertIsNone(hidden.published_at)
+        self.assertIsNone(hidden.published_by)
+
+    def test_transferred_student_has_historical_published_result(self):
+        self.run_seed()
+        historical = ExamResult.objects.get(
+            student_enrollment__student__user__username='demo_student_transferred',
+            exam__title='DEMO Historical Mathematics Quiz',
+        )
+        self.assertEqual(historical.student_enrollment.school.code, 'DEMO_NOOR')
+        self.assertFalse(historical.student_enrollment.is_current)
+        self.assertEqual(historical.workflow_status, 'approved')
+        self.assertTrue(historical.is_published)
+        self.assertEqual(historical.score, 14)
+        self.assertEqual(historical.exam.total_marks, 20)
 
     def test_transferred_student_has_historical_and_current_contexts(self):
         self.run_seed()

@@ -44,7 +44,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             'Demo dataset ready: '
             f"{summary['schools']} schools, {summary['students']} students, "
-            f"{summary['attendance']} attendance rows.",
+            f"{summary['attendance']} attendance rows, "
+            f"{summary['published_results']} published result rows.",
         ))
 
     def _reset_demo(self):
@@ -118,6 +119,16 @@ class Command(BaseCommand):
                     'is_active': key == 'current',
                 },
             )
+        current_year = years['current']
+        terms['current_2'], _ = AcademicTerm.objects.update_or_create(
+            school=school, academic_year=current_year, term_type='term_2',
+            defaults={
+                'name': 'DEMO Term 2 current',
+                'start_date': max(current_year.start_date, date(2026, 1, 1)),
+                'end_date': min(current_year.end_date, date(2026, 4, 30)),
+                'is_active': False,
+            },
+        )
         classrooms, sections = {}, {}
         for year_key, year in years.items():
             for grade in (6, 7):
@@ -150,7 +161,11 @@ class Command(BaseCommand):
                     defaults={'weekly_periods': 4},
                 )
         for code_suffix, label, maximum, weight in (
-            ('QUIZ', 'Quiz', 20, 20), ('MID', 'Midterm', 50, 30), ('FINAL', 'Final', 100, 50),
+            ('QUIZ', 'اختبار قصير', 20, 10),
+            ('MONTHLY', 'اختبار شهري', 20, 10),
+            ('MID', 'اختبار منتصف الفصل', 50, 25),
+            ('TERM', 'اختبار فصلي', 30, 25),
+            ('FINAL', 'اختبار نهائي', 100, 30),
         ):
             ExamType.objects.update_or_create(
                 school=school, code=f'DEMO_{code_suffix}',
@@ -206,6 +221,8 @@ class Command(BaseCommand):
         )
         assignment_specs = (
             ('a_math', teacher_a, a, 6, 'A', 'MATH'),
+            ('a_arabic_g6', teacher_a, a, 6, 'A', 'AR'),
+            ('a_science_g6', teacher_a, a, 6, 'A', 'SCI'),
             ('a_science', teacher_multi, a, 7, 'A', 'SCI'),
             ('b_math', teacher_multi, b, 6, 'B', 'MATH'),
             ('b_english', teacher_b, b, 7, 'A', 'EN'),
@@ -421,24 +438,98 @@ class Command(BaseCommand):
                 },
             )
 
-        exam_type = ExamType.objects.get(school=school_a, code='DEMO_QUIZ')
-        exam, _ = Exam.objects.update_or_create(
-            academic_term=a['terms']['current'], teacher_assignment=assignments['a_math'],
-            exam_type=exam_type, title='DEMO Published Quiz',
+        # Results acceptance dataset. Keep all records deterministic and update-or-create so
+        # repeated demo seeding never duplicates them. The first Grade 6/A School A
+        # enrollment is demo_student_a_01.
+        if eligible_a:
+            result_student = StudentEnrollment.objects.get(
+                student__user__username='demo_student_a_01', academic_year=year_a,
+            )
+            result_specs = (
+                # title, exam type, assignment, term, date, max marks, score, remarks, published
+                (
+                    'DEMO Published Quiz', 'DEMO_QUIZ', assignments['a_math'],
+                    a['terms']['current'], date(2025, 10, 15), '20', '18',
+                    'DEMO quiz feedback: بداية ممتازة.', True,
+                ),
+                (
+                    'DEMO Monthly Mathematics', 'DEMO_MONTHLY', assignments['a_math'],
+                    a['terms']['current'], date(2025, 10, 22), '20', '18',
+                    'استمر على هذا المستوى في الاختبارات الشهرية.', True,
+                ),
+                (
+                    'DEMO Midterm Science', 'DEMO_MID', assignments['a_science_g6'],
+                    a['terms']['current'], date(2025, 11, 5), '50', '42',
+                    'فهم جيد للمفاهيم العلمية، راجع الأسئلة التطبيقية.', True,
+                ),
+                (
+                    'DEMO Term Arabic', 'DEMO_TERM', assignments['a_arabic_g6'],
+                    a['terms']['current'], date(2025, 11, 19), '30', '27',
+                    'أداء متميز في القراءة والقواعد.', True,
+                ),
+                (
+                    'DEMO Final Mathematics', 'DEMO_FINAL', assignments['a_math'],
+                    a['terms']['current_2'], date(2026, 3, 15), '100', '86',
+                    'نتيجة نهائية قوية مع فرصة لتحسين مسائل الهندسة.', True,
+                ),
+                (
+                    'DEMO Unpublished Mathematics Result', 'DEMO_QUIZ', assignments['a_math'],
+                    a['terms']['current_2'], date(2026, 3, 22), '20', '17',
+                    'هذه النتيجة للاختبار فقط ويجب ألا تظهر للطالب.', False,
+                ),
+            )
+            for (
+                title, type_code, assignment, academic_term, exam_date, total, score, remarks, published
+            ) in result_specs:
+                exam_type = ExamType.objects.get(school=school_a, code=type_code)
+                result_exam, _ = Exam.objects.update_or_create(
+                    academic_term=academic_term,
+                    teacher_assignment=assignment,
+                    exam_type=exam_type,
+                    title=title,
+                    defaults={
+                        'school': school_a, 'academic_year': year_a,
+                        'created_by': teacher_a_user, 'exam_date': exam_date,
+                        'total_marks': Decimal(total), 'status': 'published',
+                    },
+                )
+                ExamResult.objects.update_or_create(
+                    exam=result_exam, student_enrollment=result_student,
+                    defaults={
+                        'score': Decimal(score), 'status': 'present',
+                        'workflow_status': 'approved', 'remarks': remarks,
+                        'graded_by': teacher_a_user, 'approved_by': admin_a,
+                        'is_published': published,
+                        'published_at': timezone.now() if published else None,
+                        'published_by': admin_a if published else None,
+                    },
+                )
+
+        # Historical results acceptance uses the transferred demo student because it has
+        # a real historical School A membership and a separate current School B context.
+        historical_exam_type = ExamType.objects.get(school=school_a, code='DEMO_QUIZ')
+        historical_exam, _ = Exam.objects.update_or_create(
+            academic_term=a['terms']['previous'],
+            teacher_assignment=assignments['a_math_previous'],
+            exam_type=historical_exam_type,
+            title='DEMO Historical Mathematics Quiz',
             defaults={
-                'school': school_a, 'academic_year': year_a, 'created_by': teacher_a_user,
-                'exam_date': date(2025, 10, 15), 'total_marks': Decimal('20'), 'status': 'published',
+                'school': school_a, 'academic_year': a['years']['previous'],
+                'created_by': teacher_a_user, 'exam_date': date(2024, 10, 20),
+                'total_marks': Decimal('20'), 'status': 'published',
             },
         )
-        if eligible_a:
-            ExamResult.objects.update_or_create(
-                exam=exam, student_enrollment=eligible_a[0],
-                defaults={
-                    'score': Decimal('18'), 'status': 'present', 'workflow_status': 'approved',
-                    'graded_by': teacher_a_user, 'approved_by': admin_a,
-                    'is_published': True, 'published_at': timezone.now(), 'published_by': admin_a,
-                },
-            )
+        ExamResult.objects.update_or_create(
+            exam=historical_exam, student_enrollment=old_enrollment,
+            defaults={
+                'score': Decimal('14'), 'status': 'present',
+                'workflow_status': 'approved',
+                'remarks': 'نتيجة تاريخية تجريبية للعرض فقط.',
+                'graded_by': teacher_a_user, 'approved_by': admin_a,
+                'is_published': True, 'published_at': timezone.now(),
+                'published_by': admin_a,
+            },
+        )
 
         announcement, _ = Announcement.objects.update_or_create(
             school=school_a, title='DEMO School Announcement',
@@ -510,5 +601,8 @@ class Command(BaseCommand):
             'schools': School.objects.filter(code__in=DEMO_SCHOOL_CODES).count(),
             'students': Student.objects.filter(user__username__startswith='demo_').count(),
             'attendance': Attendance.objects.filter(note='DEMO attendance').count(),
+            'published_results': ExamResult.objects.filter(
+                exam__school__code__in=DEMO_SCHOOL_CODES, is_published=True,
+            ).count(),
             'super_admin': super_admin.pk, 'multi_membership': multi_a.pk,
         }
