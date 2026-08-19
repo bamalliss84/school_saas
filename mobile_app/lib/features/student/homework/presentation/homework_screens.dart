@@ -195,7 +195,7 @@ class _StudentHomeworkDetailScreenState
 
   Future<void> _pickAndUpload() async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
