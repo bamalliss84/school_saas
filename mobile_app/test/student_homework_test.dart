@@ -313,6 +313,11 @@ void main() {
     expect(find.text('حل الأسئلة المطلوبة مع توضيح خطوات الحل.'), findsOneWidget);
     expect(find.text('مرفقات المعلم'), findsOneWidget);
     expect(find.text('questions.pdf'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('إرفاق صورة أو PDF'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('إرفاق صورة أو PDF'), findsOneWidget);
   });
 
