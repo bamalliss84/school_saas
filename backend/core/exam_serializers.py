@@ -124,6 +124,9 @@ class ExamResultSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source='exam.title', read_only=True)
     subject_name = serializers.CharField(source='exam.teacher_assignment.subject.name', read_only=True)
     exam_date = serializers.DateField(source='exam.exam_date', read_only=True)
+    exam_type_id = serializers.IntegerField(source='exam.exam_type_id', read_only=True)
+    exam_type_name = serializers.CharField(source='exam.exam_type.name', read_only=True)
+    exam_type_code = serializers.CharField(source='exam.exam_type.code', read_only=True)
     total_marks = serializers.DecimalField(
         source='exam.total_marks', max_digits=6, decimal_places=2, read_only=True,
     )
@@ -140,8 +143,9 @@ class ExamResultSerializer(serializers.ModelSerializer):
         model = ExamResult
         fields = (
             'id', 'exam', 'exam_title', 'student_enrollment', 'student_name',
-            'student_code', 'subject_name', 'exam_date', 'total_marks',
-            'percentage', 'academic_term_id', 'academic_term_name',
+            'student_code', 'subject_name', 'exam_date', 'exam_type_id',
+            'exam_type_name', 'exam_type_code', 'total_marks', 'percentage',
+            'academic_term_id', 'academic_term_name',
             'score', 'status', 'remarks',
             'workflow_status', 'approval_reason', 'graded_by', 'graded_at',
             'approved_by', 'approved_at', 'is_published', 'published_at',

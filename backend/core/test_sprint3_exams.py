@@ -436,7 +436,14 @@ class SprintThreeExamPlatformTests(APITestCase):
         self.result.published_by = self.admin_user
         self.result.published_at = timezone.now()
         self.result.save()
-        self.assertEqual(self.client.get('/api/v1/students/me/results/').data['count'], 1)
+        response = self.client.get('/api/v1/students/me/results/')
+        self.assertEqual(response.data['count'], 1)
+        payload = response.data['results'][0]
+        self.assertEqual(payload['exam_type_id'], self.exam_type.id)
+        self.assertEqual(payload['exam_type_name'], 'Midterm')
+        self.assertEqual(payload['exam_type_code'], 'MID')
+        self.assertEqual(str(payload['total_marks']), '100.00')
+        self.assertEqual(float(payload['percentage']), 80.0)
 
     def test_31_teacher_sees_only_own_assignment_results(self):
         self.auth()

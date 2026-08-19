@@ -5,6 +5,9 @@ class StudentResult {
     required this.examTitle,
     required this.subject,
     required this.examDate,
+    required this.examTypeId,
+    required this.examTypeName,
+    required this.examTypeCode,
     required this.totalMarks,
     required this.status,
     required this.academicTermId,
@@ -21,6 +24,9 @@ class StudentResult {
   final String examTitle;
   final String subject;
   final DateTime examDate;
+  final int examTypeId;
+  final String examTypeName;
+  final String examTypeCode;
   final double totalMarks;
   final double? score;
   final double? percentage;
@@ -43,6 +49,9 @@ class StudentResult {
         examTitle: json['exam_title']?.toString() ?? '',
         subject: json['subject_name']?.toString() ?? '',
         examDate: DateTime.parse(json['exam_date'].toString()),
+        examTypeId: (json['exam_type_id'] as num?)?.toInt() ?? 0,
+        examTypeName: json['exam_type_name']?.toString() ?? '',
+        examTypeCode: json['exam_type_code']?.toString() ?? '',
         totalMarks: double.tryParse(json['total_marks']?.toString() ?? '') ?? 0,
         score: double.tryParse(json['score']?.toString() ?? ''),
         percentage: double.tryParse(json['percentage']?.toString() ?? ''),

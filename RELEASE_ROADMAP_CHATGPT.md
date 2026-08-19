@@ -117,3 +117,21 @@ Teacher Today → Attendance bulk entry → Homework lifecycle → Results/grade
 ## Deferred until first pilots
 
 Web dashboard تجاري جديد، Billing/Plans، HR/Payroll، buses، LMS متقدم، online exams، AI، والتقارير الثقيلة. لا تدخل قبل إثبات الاستخدام مع المدارس.
+
+
+## Student V1 Closure — Phase 1 Results
+
+الحالة: 🟡 منفذة ومراجعة برمجيًا — بانتظار Smoke قصير على المحاكي لإعلان ACCEPTED.
+
+- [x] Published + approved results only.
+- [x] Active/historical academic-year scoping via active context.
+- [x] Term + subject filters.
+- [x] score / total_marks / percentage.
+- [x] Exam date + publish date + teacher remarks.
+- [x] Dynamic ExamType exposed and displayed (شهري/منتصف/نهائي حسب إعداد المدرسة، بدون hard-code).
+- [x] Historical read-only.
+- [x] Scoped Drift offline cache.
+- [x] No invented grade label: backend has no official grade-scale contract yet.
+- [ ] User-device smoke: list/detail/filter/offline/historical.
+
+قرار النطاق: لا يتم اشتقاق ممتاز/جيد جداً من النسبة حتى يوجد Grade Scale رسمي قابل للتهيئة في Backend.

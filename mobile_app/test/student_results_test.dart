@@ -9,6 +9,9 @@ void main() {
       'exam_title': 'اختبار منتصف الفصل',
       'subject_name': 'الرياضيات',
       'exam_date': '2026-08-19',
+      'exam_type_id': 5,
+      'exam_type_name': 'اختبار منتصف الفصل',
+      'exam_type_code': 'MIDTERM',
       'total_marks': '20.00',
       'score': '18.00',
       'percentage': '90.00',
@@ -22,6 +25,8 @@ void main() {
 
     expect(result.scoreLabel, '18 / 20');
     expect(result.percentageLabel, '90%');
+    expect(result.examTypeName, 'اختبار منتصف الفصل');
+    expect(result.examTypeCode, 'MIDTERM');
     expect(result.remarks, 'أداء ممتاز');
     expect(result.isPublished, isTrue);
   });
@@ -33,6 +38,9 @@ void main() {
       'exam_title': 'اختبار قصير',
       'subject_name': 'العلوم',
       'exam_date': '2026-08-20',
+      'exam_type_id': 6,
+      'exam_type_name': 'اختبار قصير',
+      'exam_type_code': 'QUIZ',
       'total_marks': '10.00',
       'score': null,
       'percentage': null,

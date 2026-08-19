@@ -91,6 +91,11 @@ class ResultCard extends StatelessWidget {
             Text(result.subject, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.x1),
             Text(result.examTitle, style: Theme.of(context).textTheme.bodyMedium),
+            if (result.examTypeName.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.x1),
+              Text(result.examTypeName,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
             const SizedBox(height: AppSpacing.x1),
             Row(children: [
               Text(result.scoreLabel, style: Theme.of(context).textTheme.titleMedium),
@@ -131,6 +136,10 @@ class ResultDetailScreen extends StatelessWidget {
         Text(result.subject, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: AppSpacing.x1),
         Text(result.examTitle),
+        if (result.examTypeName.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.x1),
+          Chip(label: Text(result.examTypeName)),
+        ],
         const SizedBox(height: AppSpacing.x3),
         Row(children: [
           Text(result.scoreLabel, style: Theme.of(context).textTheme.headlineMedium),
