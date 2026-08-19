@@ -23,7 +23,7 @@ void main() {
       'published_at': '2026-08-22T08:00:00Z',
     });
 
-    expect(result.scoreLabel, '18 / 20');
+    expect(result.scoreLabel, '18 من 20');
     expect(result.percentageLabel, '90%');
     expect(result.examTypeName, 'اختبار منتصف الفصل');
     expect(result.examTypeCode, 'MIDTERM');

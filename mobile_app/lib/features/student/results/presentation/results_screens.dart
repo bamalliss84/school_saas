@@ -9,13 +9,14 @@ import 'results_controller.dart';
 class StudentResultsScreen extends StatelessWidget {
   const StudentResultsScreen({
     super.key, required this.state, required this.historical,
-    required this.onTerm, required this.onSubject, required this.onOpen,
+    required this.onTerm, required this.onSubject, required this.onExamType, required this.onOpen,
     required this.onRefresh,
   });
   final ResultsReady state;
   final bool historical;
   final ValueChanged<String?> onTerm;
   final ValueChanged<String?> onSubject;
+  final ValueChanged<int?> onExamType;
   final ValueChanged<StudentResult> onOpen;
   final Future<void> Function() onRefresh;
 
@@ -42,6 +43,21 @@ class StudentResultsScreen extends StatelessWidget {
               value: state.subject, hint: 'المادة',
               values: state.data.subjects, onChanged: onSubject)),
           ]),
+          if (_examTypes(state).isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.x3),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _typeChip(context, label: 'الكل', value: null),
+                  ..._examTypes(state).map((type) => Padding(
+                    padding: const EdgeInsetsDirectional.only(start: AppSpacing.x2),
+                    child: _typeChip(context, label: type.label, value: type.id),
+                  )),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.x3),
           if (state.visible.isEmpty)
             const AppEmptyState(message: 'لا توجد نتائج منشورة')
@@ -65,13 +81,55 @@ class StudentResultsScreen extends StatelessWidget {
         value: value,
         isExpanded: true,
         decoration: InputDecoration(labelText: hint, border: const OutlineInputBorder()),
+        selectedItemBuilder: (context) => [
+          const Text('الكل', maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
+          ...values.map((v) => Text(v, maxLines: 1,
+              overflow: TextOverflow.fade, softWrap: false)),
+        ],
         items: [
           DropdownMenuItem<String>(value: null, child: Text('$hint: الكل')),
-          ...values.map((v) => DropdownMenuItem(value: v, child: Text(v,
-              overflow: TextOverflow.ellipsis))),
+          ...values.map((v) => DropdownMenuItem(value: v, child: Text(v))),
         ],
         onChanged: onChanged,
       );
+
+  List<_ExamTypeOption> _examTypes(ResultsReady state) {
+    final byId = <int, _ExamTypeOption>{};
+    for (final item in state.data.items) {
+      if (item.examTypeId <= 0 || item.examTypeName.trim().isEmpty) continue;
+      byId[item.examTypeId] = _ExamTypeOption(
+          item.examTypeId, item.examTypeName.trim(), item.examTypeCode.trim());
+    }
+    final values = byId.values.toList();
+    values.sort((a, b) {
+      final byRank = a.rank.compareTo(b.rank);
+      return byRank != 0 ? byRank : a.id.compareTo(b.id);
+    });
+    return values;
+  }
+
+  Widget _typeChip(BuildContext context, {required String label, required int? value}) =>
+      ChoiceChip(
+        label: Text(label),
+        selected: state.examTypeId == value,
+        onSelected: (_) => onExamType(value),
+      );
+}
+
+class _ExamTypeOption {
+  const _ExamTypeOption(this.id, this.label, this.code);
+  final int id;
+  final String label;
+  final String code;
+
+  int get rank => switch (code.toUpperCase()) {
+        'QUIZ' => 10,
+        'MONTHLY' => 20,
+        'MIDTERM' => 30,
+        'TERM' || 'TERM_EXAM' => 40,
+        'FINAL' => 50,
+        _ => 100,
+      };
 }
 
 class ResultCard extends StatelessWidget {
@@ -93,8 +151,13 @@ class ResultCard extends StatelessWidget {
             Text(result.examTitle, style: Theme.of(context).textTheme.bodyMedium),
             if (result.examTypeName.trim().isNotEmpty) ...[
               const SizedBox(height: AppSpacing.x1),
-              Text(result.examTypeName,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(result.examTypeName),
+                ),
+              ),
             ],
             const SizedBox(height: AppSpacing.x1),
             Row(children: [

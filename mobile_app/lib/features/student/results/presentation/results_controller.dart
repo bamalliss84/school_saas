@@ -14,22 +14,25 @@ class ResultsFailure extends ResultsState {
   final String message;
 }
 class ResultsReady extends ResultsState {
-  const ResultsReady(this.data, {this.term, this.subject, this.selected});
+  const ResultsReady(this.data, {this.term, this.subject, this.examTypeId, this.selected});
   final StudentResultsData data;
   final String? term;
   final String? subject;
+  final int? examTypeId;
   final StudentResult? selected;
 
   List<StudentResult> get visible => data.items.where((item) =>
       (term == null || item.academicTermName == term) &&
-      (subject == null || item.subject == subject)).toList();
+      (subject == null || item.subject == subject) &&
+      (examTypeId == null || item.examTypeId == examTypeId)).toList();
 
   ResultsReady copyWith({StudentResultsData? data, String? term, String? subject,
-      StudentResult? selected, bool clearTerm=false, bool clearSubject=false,
-      bool clearSelected=false}) => ResultsReady(
+      int? examTypeId, StudentResult? selected, bool clearTerm=false, bool clearSubject=false,
+      bool clearExamType=false, bool clearSelected=false}) => ResultsReady(
         data ?? this.data,
         term: clearTerm ? null : term ?? this.term,
         subject: clearSubject ? null : subject ?? this.subject,
+        examTypeId: clearExamType ? null : examTypeId ?? this.examTypeId,
         selected: clearSelected ? null : selected ?? this.selected,
       );
 }
@@ -61,6 +64,9 @@ class ResultsController extends StateNotifier<ResultsState> {
   }
   void selectSubject(String? value) {
     final s=state; if (s is ResultsReady) state=s.copyWith(subject:value, clearSubject:value==null, clearSelected:true);
+  }
+  void selectExamType(int? value) {
+    final s=state; if (s is ResultsReady) state=s.copyWith(examTypeId:value, clearExamType:value==null, clearSelected:true);
   }
   void open(StudentResult value) {
     final s=state; if (s is ResultsReady) state=s.copyWith(selected:value);

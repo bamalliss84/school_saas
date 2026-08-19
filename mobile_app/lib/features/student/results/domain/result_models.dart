@@ -39,7 +39,7 @@ class StudentResult {
 
   bool get hasScore => status == 'present' && score != null;
   String get scoreLabel =>
-      hasScore ? '${_number(score!)} / ${_number(totalMarks)}' : _statusLabel(status);
+      hasScore ? '${_number(score!)} من ${_number(totalMarks)}' : _statusLabel(status);
   String get percentageLabel =>
       percentage == null ? '' : '${_number(percentage!)}%';
 

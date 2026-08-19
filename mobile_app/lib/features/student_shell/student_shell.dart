@@ -181,6 +181,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       historical: session.status == SessionStatus.historical,
       onTerm: controller.selectTerm,
       onSubject: controller.selectSubject,
+      onExamType: controller.selectExamType,
       onOpen: controller.open,
       onRefresh: controller.refresh,
     );

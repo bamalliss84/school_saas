@@ -90,6 +90,7 @@ void main() {
         historical: false,
         onTerm: (_) {},
         onSubject: (_) {},
+        onExamType: (_) {},
         onOpen: (_) {},
         onRefresh: () async {},
       ),
