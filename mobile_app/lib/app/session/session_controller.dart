@@ -43,7 +43,8 @@ class SessionController extends StateNotifier<AppSession> {
         }
         if (selected == null) await contexts.clearStoredMembership();
       }
-      selected ??= result.current ?? (usable.length == 1 ? usable.single : null);
+      selected ??= _usableCurrent(result, usable) ??
+          (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
           usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
@@ -89,8 +90,8 @@ class SessionController extends StateNotifier<AppSession> {
       final usable = result.contexts
           .where((c) => c.status == 'active' || c.isHistorical)
           .toList();
-      final selected =
-          result.current ?? (usable.length == 1 ? usable.single : null);
+      final selected = _usableCurrent(result, usable) ??
+          (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
             usable.isEmpty
@@ -153,7 +154,8 @@ class SessionController extends StateNotifier<AppSession> {
 
       await contexts.clearStoredMembership();
       await snapshotStore.clear();
-      final next = result.current ?? (usable.length == 1 ? usable.single : null);
+      final next = _usableCurrent(result, usable) ??
+          (usable.length == 1 ? usable.single : null);
       if (next != null) {
         await selectContext(next, available: usable);
       } else {
@@ -162,7 +164,7 @@ class SessionController extends StateNotifier<AppSession> {
           user: state.user,
           contexts: usable,
           message: usable.isEmpty
-              ? 'هذا الحساب المدرسي غير متاح حالياً'
+              ? 'لا يوجد لديك حالياً حساب مدرسي نشط يمكنك الدخول إليه.'
               : 'اختر حساباً مدرسياً متاحاً للمتابعة',
         );
       }
@@ -177,6 +179,16 @@ class SessionController extends StateNotifier<AppSession> {
       // change until connectivity returns.
       return false;
     }
+  }
+
+  SchoolContext? _usableCurrent(
+      ContextListResult result, List<SchoolContext> usable) {
+    final current = result.current;
+    if (current == null) return null;
+    for (final item in usable) {
+      if (item.membershipId == current.membershipId) return item;
+    }
+    return null;
   }
 
   void markOffline() {

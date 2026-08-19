@@ -30,7 +30,9 @@ class AppSession {
 }
 
 SessionStatus statusForContext(SchoolContext context) {
-  if (!{'student', 'parent', 'teacher'}.contains(context.role)) {
+  if (!{'student', 'parent', 'teacher'}.contains(context.role) ||
+      context.isUnavailable ||
+      (!context.isActive && !context.isHistorical)) {
     return SessionStatus.unavailable;
   }
   return context.isHistorical

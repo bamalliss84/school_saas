@@ -34,8 +34,11 @@ class SchoolContext {
   final int? academicYearId;
   final bool isDefault;
   final UnreadCounts unread;
-  bool get isHistorical => accessMode == 'historical' || !canWrite;
+  bool get isHistorical =>
+      status == 'historical' || accessMode == 'historical';
   bool get isActive => status == 'active' && !isHistorical;
+  bool get isUnavailable =>
+      {'suspended', 'ended'}.contains(status) || accessMode == 'unavailable';
 
   factory SchoolContext.fromJson(Map<String, dynamic> json) => SchoolContext(
         membershipId: json['membership_id'] as int,

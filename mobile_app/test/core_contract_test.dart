@@ -89,6 +89,34 @@ void main() {
     );
   });
 
+  test('suspended membership is unavailable, not historical', () {
+    const context = SchoolContext(
+      membershipId: 8,
+      schoolName: 'مدرسة',
+      role: 'student',
+      status: 'suspended',
+      accessMode: 'unavailable',
+      canWrite: false,
+    );
+    expect(context.isHistorical, isFalse);
+    expect(context.isUnavailable, isTrue);
+    expect(statusForContext(context), SessionStatus.unavailable);
+  });
+
+  test('ended membership is unavailable, not historical', () {
+    const context = SchoolContext(
+      membershipId: 9,
+      schoolName: 'مدرسة',
+      role: 'student',
+      status: 'ended',
+      accessMode: 'unavailable',
+      canWrite: false,
+    );
+    expect(context.isHistorical, isFalse);
+    expect(context.isUnavailable, isTrue);
+    expect(statusForContext(context), SessionStatus.unavailable);
+  });
+
   test('unsupported admin role becomes unavailable', () {
     const context = SchoolContext(
       membershipId: 1,
