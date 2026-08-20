@@ -12,12 +12,14 @@ class StudentHomeScreen extends StatelessWidget {
       required this.schoolName,
       required this.academicYear,
       required this.onOpenTimetable,
+      required this.onOpenAttendance,
       this.onRefresh});
   final StudentTimetableData data;
   final String studentName;
   final String schoolName;
   final String academicYear;
   final VoidCallback onOpenTimetable;
+  final VoidCallback onOpenAttendance;
   final Future<void> Function()? onRefresh;
   @override
   Widget build(BuildContext context) => RefreshIndicator(
@@ -29,6 +31,28 @@ class StudentHomeScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.x1),
           Text('$schoolName • $academicYear',
               style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: AppSpacing.x4),
+          AppCard(
+            child: InkWell(
+              onTap: onOpenAttendance,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              child: const Padding(
+                padding: EdgeInsets.all(AppSpacing.x1),
+                child: Row(children: [
+                  Icon(Icons.fact_check_outlined, color: AppColors.primary),
+                  SizedBox(width: AppSpacing.x3),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الحضور والغياب'),
+                      Text('عرض النسبة والسجل اليومي'),
+                    ],
+                  )),
+                  Icon(Icons.chevron_left),
+                ]),
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpacing.x6),
           _LessonSection(
               title: 'الحصة الحالية',

@@ -30,6 +30,7 @@ Use `/api/v1/auth/contexts/` after login and send `X-School-Membership-ID`. The 
 ## Scenario map
 
 - School A Grade 6/A Mathematics: Teacher A, students, attendance, published homework/submission and announcement.
+- `demo_student_a_01` has an Attendance V1 acceptance dataset in August 2026 covering `present`, `absent`, `late`, and `excused`, with daily notes and an active Term 3 for period filtering.
 - `demo_student_a_01` has a Results V1 acceptance dataset:
   - `DEMO Published Quiz` — اختبار قصير — Mathematics — `18/20` — published.
   - `DEMO Monthly Mathematics` — اختبار شهري — Mathematics — `18/20` — published.

@@ -689,3 +689,15 @@ Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 - [x] Backend validates final submission requirements and blocks electronic submissions for `none`.
 - [x] Demo acceptance records for `demo_student_a_01` cover all four modes.
 - [ ] Teacher Flutter creation screen will expose the mode selector in Teacher V1.
+
+
+## Student V1 — Phase 2 Attendance Closure
+
+- [x] مراجعة Backend قبل التنفيذ وعدم إنشاء Backend موازٍ.
+- [x] Student self attendance API مبنية على active membership + active academic year.
+- [x] حالات حاضر/غائب/متأخر/بعذر.
+- [x] ملخص النسبة + سجل يومي + تفاصيل اليوم + فلترة الفترة.
+- [x] Historical read-only contract.
+- [x] Offline cache scoped by user/membership/year.
+- [x] Demo dataset للطالب `demo_student_a_01`.
+- [ ] Runtime acceptance على Windows/Android Emulator.

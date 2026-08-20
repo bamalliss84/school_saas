@@ -74,12 +74,21 @@ Baseline: `bc18562` — Sprint 5B.2 accepted before Phase 0.
 
 ## Phase 2 — Student Attendance
 
-- Current academic year by default.
-- Summary/history/detail.
-- present/absent/late/excused.
-- لا نضيف check-in time في MVP إلا إذا ثبتت حاجة العمل له.
-- Drift read cache + historical read-only.
-- Tests + Samsung acceptance.
+الحالة: 🟡 منفذة برمجيًا — بانتظار Windows/Emulator acceptance.
+
+- [x] Backend reviewed before Flutter: existing Attendance model/service/scoping preserved.
+- [x] Additive self-scoped `GET /api/v1/students/me/attendance/` based on active membership/year.
+- [x] Current academic year by default; historical membership remains read-only.
+- [x] Summary/history/detail for present/absent/late/excused.
+- [x] Period filters: whole academic year / current month / academic term.
+- [x] Student is read-only; no attendance mutation UI.
+- [x] Scoped offline cache reuses membership/year cache boundary without schema migration.
+- [x] Deterministic demo attendance dataset for `demo_student_a_01`.
+- [x] Backend + Flutter regression tests added.
+- [ ] Windows `migrate/check/test` + Flutter `analyze/test`.
+- [ ] Emulator acceptance Online/Offline/Empty/Detail/period filters.
+
+قرار النطاق: لا نضيف check-in/check-out time في Student V1 لأن الـBackend الحالي لا يملكه؛ الطالب يشاهد الحالة اليومية الرسمية فقط.
 
 ## Phase 3 — Student Communications
 

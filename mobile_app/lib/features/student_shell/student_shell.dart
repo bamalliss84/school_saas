@@ -10,6 +10,9 @@ import '../../core/preferences/font_preferences.dart';
 import '../student/timetable/data/timetable_repository.dart';
 import '../student/timetable/presentation/timetable_controller.dart';
 import '../student/timetable/presentation/timetable_screens.dart';
+import '../student/attendance/data/attendance_repository.dart';
+import '../student/attendance/presentation/attendance_controller.dart';
+import '../student/attendance/presentation/attendance_screens.dart';
 import '../student/homework/data/homework_local_data_source.dart';
 import '../student/homework/data/homework_remote_data_source.dart';
 import '../student/homework/data/homework_repository.dart';
@@ -52,6 +55,17 @@ final studentResultsProvider = StateNotifierProvider.autoDispose
   return controller;
 });
 
+
+final studentAttendanceProvider = StateNotifierProvider.autoDispose
+    .family<AttendanceController, AttendanceState, CacheScope>((ref, scope) {
+  final controller = AttendanceController(
+    StudentAttendanceRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    scope,
+  );
+  Future<void>.microtask(controller.load);
+  return controller;
+});
+
 class StudentBottomNavigation extends StatelessWidget {
   const StudentBottomNavigation(
       {super.key, required this.selectedIndex, required this.onSelected});
@@ -84,6 +98,7 @@ class StudentShell extends ConsumerStatefulWidget {
 class _StudentShellState extends ConsumerState<StudentShell> {
   int selectedIndex = 0;
   bool showTimetable = false;
+  bool showAttendance = false;
   static const labels = ['الرئيسية', 'الواجبات', 'النتائج', 'الرسائل'];
 
   @override
@@ -99,6 +114,9 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final timetable = ref.watch(studentTimetableProvider(scope));
     final homework = ref.watch(studentHomeworkProvider(scope));
     final results = ref.watch(studentResultsProvider(scope));
+    final attendance = showAttendance
+        ? ref.watch(studentAttendanceProvider(scope))
+        : null;
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -121,7 +139,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               child: selectedIndex == 4
                   ? const AppearanceSettings()
                   : selectedIndex == 0
-                      ? _studentFeature(timetable, session, scope)
+                      ? _studentFeature(timetable, attendance, session, scope)
                       : selectedIndex == 1
                           ? _homeworkFeature(homework, session, scope)
                           : selectedIndex == 2
@@ -148,6 +166,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               setState(() {
                 selectedIndex = value;
                 showTimetable = false;
+                showAttendance = false;
               });
               Future<void>.microtask(() {
                 if (value == 0) {
@@ -242,7 +261,33 @@ class _StudentShellState extends ConsumerState<StudentShell> {
   }
 
   Widget _studentFeature(
-      TimetableState state, AppSession session, CacheScope scope) {
+      TimetableState state, AttendanceState? attendance,
+      AppSession session, CacheScope scope) {
+    if (showAttendance) {
+      if (attendance == null || attendance is AttendanceLoading) {
+        return const AppSkeletonCard();
+      }
+      if (attendance is AttendanceFailure) {
+        return AppErrorState(message: attendance.message);
+      }
+      final attendanceReady = attendance as AttendanceReady;
+      final controller = ref.read(studentAttendanceProvider(scope).notifier);
+      if (attendanceReady.selected != null) {
+        return StudentAttendanceDetailScreen(
+          record: attendanceReady.selected!,
+          historical: session.status == SessionStatus.historical,
+          onBack: controller.close,
+        );
+      }
+      return StudentAttendanceScreen(
+        state: attendanceReady,
+        historical: session.status == SessionStatus.historical,
+        onFilter: controller.selectFilter,
+        onOpen: controller.open,
+        onRefresh: controller.refresh,
+        onBack: () => setState(() => showAttendance = false),
+      );
+    }
     if (state is TimetableLoading) return const AppSkeletonCard();
     if (state is TimetableFailure) return AppErrorState(message: state.message);
     final ready = state as TimetableReady;
@@ -258,6 +303,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       schoolName: session.context?.schoolName ?? '',
       academicYear: session.context?.academicYearName ?? '',
       onOpenTimetable: () => setState(() => showTimetable = true),
+      onOpenAttendance: () => setState(() => showAttendance = true),
       onRefresh: () =>
           ref.read(studentTimetableProvider(scope).notifier).refresh(),
     );

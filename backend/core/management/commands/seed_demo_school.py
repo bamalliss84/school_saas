@@ -129,6 +129,18 @@ class Command(BaseCommand):
                 'is_active': False,
             },
         )
+        terms['current_3'], _ = AcademicTerm.objects.update_or_create(
+            school=school, academic_year=current_year, term_type='term_3',
+            defaults={
+                'name': 'DEMO Term 3 current',
+                'start_date': max(current_year.start_date, date(2026, 5, 1)),
+                'end_date': current_year.end_date,
+                'is_active': True,
+            },
+        )
+        AcademicTerm.objects.filter(
+            school=school, academic_year=current_year,
+        ).exclude(pk=terms['current_3'].pk).update(is_active=False)
         classrooms, sections = {}, {}
         for year_key, year in years.items():
             for grade in (6, 7):
@@ -409,6 +421,39 @@ class Command(BaseCommand):
                 },
             )
 
+        # Student Attendance V1 acceptance data for demo_student_a_01.
+        attendance_enrollment = StudentEnrollment.objects.get(
+            student__user__username='demo_student_a_01', academic_year=year_a,
+        )
+        attendance_specs = (
+            (date(2026, 8, 2), 'present', 'حضور منتظم.'),
+            (date(2026, 8, 3), 'present', ''),
+            (date(2026, 8, 4), 'late', 'تأخر عن بداية اليوم الدراسي.'),
+            (date(2026, 8, 5), 'present', ''),
+            (date(2026, 8, 6), 'absent', 'غياب بدون عذر مسجل.'),
+            (date(2026, 8, 9), 'present', ''),
+            (date(2026, 8, 10), 'excused', 'غياب بعذر معتمد من المدرسة.'),
+            (date(2026, 8, 11), 'present', ''),
+            (date(2026, 8, 12), 'late', 'تأخر بسيط.'),
+            (date(2026, 8, 13), 'present', ''),
+            (date(2026, 8, 16), 'present', ''),
+            (date(2026, 8, 17), 'present', ''),
+            (date(2026, 8, 18), 'present', ''),
+            (date(2026, 8, 19), 'absent', 'غياب بدون عذر مسجل.'),
+            (date(2026, 8, 20), 'present', ''),
+        )
+        for attendance_date, attendance_status, attendance_note in attendance_specs:
+            Attendance.objects.update_or_create(
+                student_enrollment=attendance_enrollment,
+                attendance_date=attendance_date,
+                defaults={
+                    'teacher_assignment': assignments['a_math'],
+                    'academic_term': a['terms']['current_3'],
+                    'status': attendance_status,
+                    'note': f'DEMO attendance V1 | {attendance_note}',
+                },
+            )
+
         homework, _ = Homework.objects.update_or_create(
             teacher_assignment=assignments['a_math'], title='DEMO Published Mathematics Homework',
             defaults={
@@ -634,7 +679,7 @@ class Command(BaseCommand):
         return {
             'schools': School.objects.filter(code__in=DEMO_SCHOOL_CODES).count(),
             'students': Student.objects.filter(user__username__startswith='demo_').count(),
-            'attendance': Attendance.objects.filter(note='DEMO attendance').count(),
+            'attendance': Attendance.objects.filter(note__startswith='DEMO attendance').count(),
             'published_results': ExamResult.objects.filter(
                 exam__school__code__in=DEMO_SCHOOL_CODES, is_published=True,
             ).count(),

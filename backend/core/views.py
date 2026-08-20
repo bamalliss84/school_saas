@@ -557,6 +557,93 @@ class StudentAttendanceSummaryAPIView(APIView):
         })
 
 
+class StudentOwnAttendanceAPIView(APIView):
+    """Read-only attendance feed for the active student membership context.
+
+    This endpoint is intentionally self-scoped so Flutter never has to trust or
+    persist a student id. The selected membership and academic year remain the
+    source of truth for current and historical contexts.
+    """
+    permission_classes = [IsActiveSchoolUser, IsStudent]
+    throttle_scope = 'reports'
+
+    @extend_schema(
+        parameters=[StudentAttendanceSummaryQuerySerializer],
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    def get(self, request):
+        query = StudentAttendanceSummaryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+
+        school = request.active_school
+        academic_year = request.active_academic_year
+        if school is None or academic_year is None:
+            raise NotFound('Academic year was not found.')
+
+        student = generics.get_object_or_404(
+            Student.objects.filter(user=request.user),
+        )
+        enrollment = generics.get_object_or_404(
+            StudentEnrollment.objects.select_related(
+                'school', 'academic_year', 'classroom', 'section',
+            ),
+            student=student, school=school, academic_year=academic_year,
+        )
+
+        records = Attendance.objects.select_related(
+            'student_enrollment', 'student_enrollment__student',
+            'student_enrollment__school', 'student_enrollment__academic_year',
+            'student_enrollment__classroom', 'student_enrollment__section',
+            'teacher_assignment', 'academic_term',
+        ).filter(student_enrollment=enrollment)
+        records = _date_range(records, params)
+        if params.get('academic_term_id'):
+            records = records.filter(academic_term_id=params['academic_term_id'])
+
+        counts = _status_counts(records)
+        total = records.count()
+        terms = AcademicTerm.objects.filter(
+            school=school, academic_year=academic_year,
+        ).order_by('start_date', 'pk')
+        return Response({
+            'student': {
+                'id': student.id,
+                'student_code': student.student_code,
+                'full_name': student.full_name,
+            },
+            'academic_year': {
+                'id': academic_year.id,
+                'name': academic_year.name,
+                'start_date': academic_year.start_date,
+                'end_date': academic_year.end_date,
+            },
+            'period': {
+                'date_from': params.get('date_from'),
+                'date_to': params.get('date_to'),
+                'academic_term_id': params.get('academic_term_id'),
+            },
+            'terms': [
+                {
+                    'id': term.id,
+                    'name': term.name,
+                    'term_type': term.term_type,
+                    'start_date': term.start_date,
+                    'end_date': term.end_date,
+                    'is_active': term.is_active,
+                }
+                for term in terms
+            ],
+            'total_records': total,
+            **{f'{key}_count': counts[key] for key, _ in Attendance.STATUS_CHOICES},
+            'attendance_percentage': _percentage(counts, total),
+            'records': AttendanceSerializer(
+                records.order_by('-attendance_date', '-id'),
+                many=True, context={'request': request},
+            ).data,
+        })
+
+
 class ClassAttendanceSummaryAPIView(APIView):
     permission_classes = [IsActiveSchoolUser, IsAttendanceManager]
     throttle_scope = 'reports'
