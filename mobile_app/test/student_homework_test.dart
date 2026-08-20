@@ -17,6 +17,7 @@ Map<String, dynamic> homeworkJson({
   bool canSubmit = true,
   String teacherNote = '',
   String? grade,
+  String submissionType = 'text',
 }) =>
     {
       'id': id,
@@ -28,6 +29,7 @@ Map<String, dynamic> homeworkJson({
       'teacher': 'معلم الرياضيات',
       'due_date': '2026-08-20T09:00:00Z',
       'completion_status': completion,
+      'submission_type': submissionType,
       'can_create_draft': canCreate,
       'can_final_submit': canSubmit,
       'max_grade': '10',
@@ -290,9 +292,15 @@ void main() {
     expect(remote.finalSubmitted, isFalse);
   });
 
-  testWidgets('homework detail labels instructions and teacher attachments',
-      (tester) async {
-    final item = StudentHomework.fromJson(homeworkJson());
+  Future<void> pumpHomeworkDetail(
+    WidgetTester tester, {
+    required String submissionType,
+  }) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final item = StudentHomework.fromJson(
+      homeworkJson(submissionType: submissionType),
+    );
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: StudentHomeworkDetailScreen(
@@ -309,16 +317,43 @@ void main() {
         ),
       ),
     ));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('homework detail labels instructions and teacher attachments',
+      (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'text');
     expect(find.text('المطلوب'), findsOneWidget);
     expect(find.text('حل الأسئلة المطلوبة مع توضيح خطوات الحل.'), findsOneWidget);
     expect(find.text('مرفقات المعلم'), findsOneWidget);
     expect(find.text('questions.pdf'), findsOneWidget);
-    await tester.drag(
-      find.byType(ListView),
-      const Offset(0, -500),
-    );
-    await tester.pumpAndSettle();
+    expect(find.text('إجابتي'), findsOneWidget);
+    expect(find.text('إرفاق صورة أو PDF'), findsNothing);
+  });
+
+  testWidgets('none submission hides answer upload and submit', (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'none');
+    expect(find.text('هذا الواجب للمتابعة فقط ولا يحتاج إلى تسليم إلكتروني.'),
+        findsOneWidget);
+    expect(find.text('إجابتي'), findsNothing);
+    expect(find.text('إرفاق صورة أو PDF'), findsNothing);
+    expect(find.text('إرسال الواجب'), findsNothing);
+  });
+
+  testWidgets('attachment submission shows upload without text answer',
+      (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'attachment');
+    expect(find.text('إجابتي'), findsNothing);
     expect(find.text('إرفاق صورة أو PDF'), findsOneWidget);
+    expect(find.text('إرسال الواجب'), findsOneWidget);
+  });
+
+  testWidgets('text and attachment submission shows both controls',
+      (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'text_and_attachment');
+    expect(find.text('إجابتي'), findsOneWidget);
+    expect(find.text('إرفاق صورة أو PDF'), findsOneWidget);
+    expect(find.text('إرسال الواجب'), findsOneWidget);
   });
 
   testWidgets('historical detail is read only', (tester) async {
