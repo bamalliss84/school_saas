@@ -44,7 +44,7 @@ dependencies:
   drift_flutter: 0.2.4
   shared_preferences: ^2.3.3
   path_provider: 2.1.5
-  file_picker: 10.3.8
+  file_selector: 1.0.3
 
 dev_dependencies:
   flutter_test:

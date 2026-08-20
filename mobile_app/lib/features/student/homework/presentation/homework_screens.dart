@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/design_system/components.dart';
@@ -195,15 +195,16 @@ class _StudentHomeworkDetailScreenState
 
   Future<void> _pickAndUpload() async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
+    const typeGroup = XTypeGroup(
+      label: 'homework attachments',
+      extensions: ['jpg', 'jpeg', 'png', 'pdf'],
     );
-    if (result == null || !mounted) return;
-    final paths = result.files
+    final files = await openFiles(
+      acceptedTypeGroups: [typeGroup],
+    );
+    if (!mounted || files.isEmpty) return;
+    final paths = files
         .map((file) => file.path)
-        .whereType<String>()
         .where((path) => path.isNotEmpty)
         .toList();
     if (paths.isEmpty) {
