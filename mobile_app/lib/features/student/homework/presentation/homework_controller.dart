@@ -130,6 +130,7 @@ class HomeworkController extends StateNotifier<HomeworkState> {
       return;
     }
     final detail = (current.detail as HomeworkDetailReady).data;
+    if (!detail.homework.requiresElectronicSubmission) return;
     await repository.saveDraft(scope, detail.homework.id, draft);
     state = current.copyWith(
       detail: HomeworkDetailReady(HomeworkDetailData(
@@ -152,7 +153,10 @@ class HomeworkController extends StateNotifier<HomeworkState> {
       return false;
     }
     final ready = current.detail as HomeworkDetailReady;
-    if (ready.data.offline) return false;
+    if (ready.data.offline ||
+        !ready.data.homework.requiresElectronicSubmission) {
+      return false;
+    }
     state = current.copyWith(
         detail: HomeworkDetailReady(ready.data, submitting: true));
     try {

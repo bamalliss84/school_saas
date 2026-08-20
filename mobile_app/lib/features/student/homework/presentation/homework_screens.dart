@@ -225,7 +225,7 @@ class _StudentHomeworkDetailScreenState
   @override
   Widget build(BuildContext context) {
     final item = widget.data.homework;
-    final editable = !widget.historical && item.canEditDraft;
+    final editable = !widget.historical && item.canEditElectronicDraft;
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.x4),
       children: [

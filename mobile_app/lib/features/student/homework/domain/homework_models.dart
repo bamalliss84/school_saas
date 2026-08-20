@@ -118,6 +118,8 @@ class StudentHomework {
 
   bool get canEditDraft =>
       canCreateDraft || submission?.canEdit == true || canFinalSubmit;
+  bool get canEditElectronicDraft =>
+      requiresElectronicSubmission && canEditDraft;
 
   StudentHomework withSubmission(HomeworkSubmissionModel? value) =>
       StudentHomework(

@@ -337,7 +337,9 @@ void main() {
         findsOneWidget);
     expect(find.text('إجابتي'), findsNothing);
     expect(find.text('إرفاق صورة أو PDF'), findsNothing);
+    expect(find.text('حفظ كمسودة'), findsNothing);
     expect(find.text('إرسال الواجب'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
   });
 
   testWidgets('attachment submission shows upload without text answer',
@@ -430,6 +432,8 @@ void main() {
       {...base, 'submission_type': 'none'},
     );
     expect(viewOnly.requiresElectronicSubmission, isFalse);
+    expect(viewOnly.canEditDraft, isTrue);
+    expect(viewOnly.canEditElectronicDraft, isFalse);
   });
 
 }
