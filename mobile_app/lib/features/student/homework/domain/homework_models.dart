@@ -74,6 +74,7 @@ class StudentHomework {
     required this.id,
     required this.title,
     required this.description,
+    this.submissionType = 'text',
     required this.subject,
     required this.classroomId,
     required this.sectionId,
@@ -92,6 +93,7 @@ class StudentHomework {
   final int id;
   final String title;
   final String description;
+  final String submissionType;
   final String subject;
   final int classroomId;
   final int sectionId;
@@ -106,6 +108,14 @@ class StudentHomework {
   final String teacherNote;
   final HomeworkSubmissionModel? submission;
 
+  bool get requiresElectronicSubmission => submissionType != 'none';
+  bool get acceptsText =>
+      submissionType == 'text' || submissionType == 'text_and_attachment';
+  bool get acceptsAttachments => submissionType == 'attachment' ||
+      submissionType == 'text_and_attachment';
+  bool get requiresText => acceptsText;
+  bool get requiresAttachment => acceptsAttachments;
+
   bool get canEditDraft =>
       canCreateDraft || submission?.canEdit == true || canFinalSubmit;
 
@@ -114,6 +124,7 @@ class StudentHomework {
         id: id,
         title: title,
         description: description,
+        submissionType: submissionType,
         subject: subject,
         classroomId: classroomId,
         sectionId: sectionId,
@@ -134,6 +145,7 @@ class StudentHomework {
         id: json['id'] as int,
         title: json['title']?.toString() ?? '',
         description: json['description']?.toString() ?? '',
+        submissionType: json['submission_type']?.toString() ?? 'text',
         subject: json['subject_name']?.toString() ?? '',
         classroomId: (json['classroom_id'] as num?)?.toInt() ?? 0,
         sectionId: (json['section_id'] as num?)?.toInt() ?? 0,

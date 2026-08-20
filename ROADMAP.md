@@ -679,3 +679,13 @@ Verification: 219 core tests passed, coverage 93%, Ruff and OpenAPI clean.
 - [x] Specialized messaging authorization services.
 - [x] Preserve the original Migration 0021 and place hardening constraints in Migration 0022.
 - [x] Complete Windows/PostgreSQL verification after applying 0022: 533 tests, 93% coverage.
+
+
+## Student V1 — Homework submission modes
+
+- [x] Backend homework submission mode: `none`, `text`, `attachment`, `text_and_attachment`.
+- [x] Legacy homework defaults to `text` for backward compatibility.
+- [x] Student Flutter renders only the controls required by the selected mode.
+- [x] Backend validates final submission requirements and blocks electronic submissions for `none`.
+- [x] Demo acceptance records for `demo_student_a_01` cover all four modes.
+- [ ] Teacher Flutter creation screen will expose the mode selector in Teacher V1.

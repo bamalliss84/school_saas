@@ -4,6 +4,8 @@ from django.utils import timezone
 def completion_status(homework, submission=None, *, now=None):
     """Derive completion state: graded > returned > submitted > draft > closed missing > overdue > not started."""
     now = now or timezone.now()
+    if getattr(homework, 'submission_type', 'text') == 'none':
+        return 'view_only'
     if submission:
         if submission.status == 'graded': return 'graded'
         if submission.status == 'returned': return 'returned'
@@ -16,6 +18,12 @@ def completion_status(homework, submission=None, *, now=None):
 
 def completion_flags(homework, submission=None, *, writable=True, now=None):
     status = completion_status(homework, submission, now=now)
+    if getattr(homework, 'submission_type', 'text') == 'none':
+        return {
+            'completion_status': 'view_only', 'is_overdue': False,
+            'can_create_draft': False, 'can_edit': False,
+            'can_final_submit': False,
+        }
     is_overdue = status == 'overdue'
     editable = bool(writable and homework.status == 'published' and (submission is None or submission.status in ('draft', 'returned')))
     return {

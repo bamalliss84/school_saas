@@ -94,10 +94,17 @@ class StudentHomeworkRepository {
     var submission = current.homework.submission;
     submission ??= HomeworkSubmissionModel.fromJson(
         await remote.createSubmission(current.homework.id));
-    final updated = HomeworkSubmissionModel.fromJson(
-      await remote.updateAnswer(submission.id, current.draft.answer),
-    );
-    await remote.finalSubmit(updated.id);
+    if (!current.homework.requiresElectronicSubmission) {
+      throw StateError('This homework does not require electronic submission.');
+    }
+    var submissionId = submission.id;
+    if (current.homework.acceptsText) {
+      final updated = HomeworkSubmissionModel.fromJson(
+        await remote.updateAnswer(submission.id, current.draft.answer),
+      );
+      submissionId = updated.id;
+    }
+    await remote.finalSubmit(submissionId);
     await local.deleteDraft(scope, current.homework.id);
     return loadDetail(scope, current.homework.id);
   }

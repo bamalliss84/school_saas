@@ -5,7 +5,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from .models import (
-    Attendance, Exam, ExamResult, School, SchoolMembership, Student, StudentEnrollment, Teacher, User,
+    Attendance, Exam, ExamResult, Homework, School, SchoolMembership, Student, StudentEnrollment, Teacher, User,
 )
 
 
@@ -43,6 +43,27 @@ class Sprint46DemoSeedTests(TestCase):
         self.run_seed('--reset-demo')
         self.assertEqual(self.snapshot(), first)
         self.assertTrue(School.objects.filter(pk=real_school.pk).exists())
+
+
+    def test_student_a01_homework_submission_modes_demo_dataset(self):
+        self.run_seed()
+        rows = Homework.objects.filter(
+            school__code='DEMO_NOOR',
+            title__startswith='DEMO Homework - ',
+        )
+        self.assertEqual(rows.count(), 4)
+        self.assertSetEqual(
+            set(rows.values_list('submission_type', flat=True)),
+            {'none', 'text', 'attachment', 'text_and_attachment'},
+        )
+        self.assertTrue(rows.filter(
+            title='DEMO Homework - Notebook Only',
+            submission_type='none', max_grade__isnull=True,
+        ).exists())
+        self.assertTrue(rows.filter(
+            title='DEMO Homework - Attachment Only',
+            submission_type='attachment',
+        ).exists())
 
     def test_student_results_acceptance_dataset_has_published_types_and_hidden_result(self):
         self.run_seed()

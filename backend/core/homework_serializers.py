@@ -191,7 +191,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'school', 'academic_year', 'academic_term', 'teacher_assignment',
             'classroom_id', 'section_id', 'subject_id', 'subject_name', 'title',
-            'description', 'status', 'publish_at', 'published_at', 'due_date',
+            'description', 'submission_type', 'status', 'publish_at', 'published_at', 'due_date',
             'max_grade', 'created_by', 'attachments', 'attachments_count',
             'submission_status', 'submitted_at', 'graded_at', 'grade',
             'teacher_note', 'is_late', 'can_edit', 'can_publish', 'can_close',
@@ -252,7 +252,10 @@ class HomeworkSerializer(serializers.ModelSerializer):
 
     def get_can_submit(self, obj) -> bool:
         request = self.context.get('request')
-        return bool(request and request.user.role == 'student' and obj.status == 'published')
+        return bool(
+            request and request.user.role == 'student'
+            and obj.status == 'published' and obj.submission_type != 'none'
+        )
 
     def _completion(self, obj):
         request = self.context.get('request')

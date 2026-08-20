@@ -16,6 +16,7 @@ const homeworkFilters = <String?, String>{
   'graded': 'تم التصحيح',
   'overdue': 'متأخر',
   'closed_without_submission': 'مغلق',
+  'view_only': 'للاطلاع',
 };
 
 class StudentHomeworkListScreen extends StatelessWidget {
@@ -253,6 +254,7 @@ class _StudentHomeworkDetailScreenState
                 ? 'لم يضف المعلم تعليمات لهذا الواجب.'
                 : item.description),
             const SizedBox(height: AppSpacing.x3),
+            Text('طريقة التسليم: ${_submissionTypeLabel(item.submissionType)}'),
             Text('موعد التسليم: ${_date(item.dueDate)}'),
             if (item.maxGrade != null) Text('الدرجة القصوى: ${item.maxGrade}'),
           ]),
@@ -310,6 +312,22 @@ class _StudentHomeworkDetailScreenState
                 ),
               )),
         ],
+        if (!item.requiresElectronicSubmission) ...[
+          const SizedBox(height: AppSpacing.x4),
+          const AppCard(
+            child: Row(
+              children: [
+                Icon(Icons.menu_book_outlined),
+                SizedBox(width: AppSpacing.x2),
+                Expanded(
+                  child: Text(
+                    'هذا الواجب للمتابعة فقط ولا يحتاج إلى تسليم إلكتروني.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (item.completionStatus == 'returned' ||
             item.completionStatus == 'graded') ...[
           const SizedBox(height: AppSpacing.x4),
@@ -329,22 +347,26 @@ class _StudentHomeworkDetailScreenState
         ],
         if (editable) ...[
           const SizedBox(height: AppSpacing.x4),
-          Text('إجابتي', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: AppSpacing.x2),
-          TextField(
-            controller: answer,
-            minLines: 5,
-            maxLines: 10,
-            decoration: const InputDecoration(hintText: 'اكتب إجابتك...'),
-          ),
-          const SizedBox(height: AppSpacing.x3),
-          AppSecondaryButton(
-            label: 'إرفاق صورة أو PDF',
-            onPressed: widget.submitting || widget.data.offline
-                ? null
-                : _pickAndUpload,
-          ),
-          if (item.submission?.attachments.isNotEmpty == true) ...[
+          if (item.acceptsText) ...[
+            Text('إجابتي', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: AppSpacing.x2),
+            TextField(
+              controller: answer,
+              minLines: 5,
+              maxLines: 10,
+              decoration: const InputDecoration(hintText: 'اكتب إجابتك...'),
+            ),
+            const SizedBox(height: AppSpacing.x3),
+          ],
+          if (item.acceptsAttachments)
+            AppSecondaryButton(
+              label: 'إرفاق صورة أو PDF',
+              onPressed: widget.submitting || widget.data.offline
+                  ? null
+                  : _pickAndUpload,
+            ),
+          if (item.acceptsAttachments &&
+              item.submission?.attachments.isNotEmpty == true) ...[
             const SizedBox(height: AppSpacing.x3),
             Text('مرفقات إجابتي',
                 style: Theme.of(context).textTheme.titleMedium),
@@ -393,6 +415,17 @@ class _StudentHomeworkDetailScreenState
                 ? null
                 : () async {
                     final messenger = ScaffoldMessenger.of(context);
+                    if (item.requiresText && answer.text.trim().isEmpty) {
+                      messenger.showSnackBar(const SnackBar(
+                          content: Text('اكتب الإجابة قبل إرسال الواجب')));
+                      return;
+                    }
+                    if (item.requiresAttachment &&
+                        item.submission?.attachments.isNotEmpty != true) {
+                      messenger.showSnackBar(const SnackBar(
+                          content: Text('أرفق صورة أو PDF قبل إرسال الواجب')));
+                      return;
+                    }
                     await widget.onSave(draft);
                     if (widget.data.offline) {
                       if (mounted) {
@@ -422,6 +455,13 @@ class _StudentHomeworkDetailScreenState
     );
   }
 }
+
+String _submissionTypeLabel(String value) => switch (value) {
+      'none' => 'بدون تسليم إلكتروني',
+      'attachment' => 'مرفق صورة أو PDF',
+      'text_and_attachment' => 'إجابة نصية + مرفق',
+      _ => 'إجابة نصية',
+    };
 
 String _date(DateTime value) =>
     '${value.day}/${value.month}/${value.year} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';

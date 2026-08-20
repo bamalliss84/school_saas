@@ -413,7 +413,7 @@ class Command(BaseCommand):
             teacher_assignment=assignments['a_math'], title='DEMO Published Mathematics Homework',
             defaults={
                 'school': school_a, 'academic_year': year_a, 'academic_term': a['terms']['current'],
-                'description': 'DEMO homework', 'status': 'published',
+                'description': 'DEMO homework', 'submission_type': 'text', 'status': 'published',
                 'published_at': timezone.now(), 'due_date': timezone.now() + timedelta(days=7),
                 'max_grade': Decimal('10'), 'created_by': teacher_a_user,
             },
@@ -422,11 +422,45 @@ class Command(BaseCommand):
             teacher_assignment=assignments['b_math'], title='DEMO School B Mathematics Homework',
             defaults={
                 'school': school_b, 'academic_year': year_b, 'academic_term': b['terms']['current'],
-                'description': 'DEMO School B homework', 'status': 'published',
+                'description': 'DEMO School B homework', 'submission_type': 'text_and_attachment', 'status': 'published',
                 'published_at': timezone.now(), 'due_date': timezone.now() + timedelta(days=7),
                 'max_grade': Decimal('10'), 'created_by': multi_user,
             },
         )
+        # Homework V1 submission-mode acceptance data for demo_student_a_01.
+        # update_or_create keeps repeated demo seeding idempotent.
+        homework_submission_modes = (
+            (
+                'DEMO Homework - Notebook Only', 'none',
+                'حل التمارين من 1 إلى 5 في دفتر الرياضيات. لا يحتاج هذا الواجب إلى تسليم إلكتروني.',
+            ),
+            (
+                'DEMO Homework - Text Answer', 'text',
+                'اكتب في التطبيق شرحاً مختصراً لطريقة حل المسألة.',
+            ),
+            (
+                'DEMO Homework - Attachment Only', 'attachment',
+                'حل الواجب في الدفتر ثم ارفع صورة واضحة أو ملف PDF للحل.',
+            ),
+            (
+                'DEMO Homework - Text And Attachment', 'text_and_attachment',
+                'اكتب ملخص الحل ثم أرفق صورة أو PDF يوضح خطوات الحل كاملة.',
+            ),
+        )
+        for demo_title, submission_type, description in homework_submission_modes:
+            Homework.objects.update_or_create(
+                teacher_assignment=assignments['a_math'], title=demo_title,
+                defaults={
+                    'school': school_a, 'academic_year': year_a,
+                    'academic_term': a['terms']['current'],
+                    'description': description, 'submission_type': submission_type,
+                    'status': 'published', 'published_at': timezone.now(),
+                    'due_date': timezone.now() + timedelta(days=10),
+                    'max_grade': None if submission_type == 'none' else Decimal('10'),
+                    'created_by': teacher_a_user,
+                },
+            )
+
         eligible_a = [item for item in enrollments if item.school_id == school_a.pk and item.classroom_id == assignments['a_math'].classroom_id]
         if eligible_a:
             HomeworkSubmission.objects.update_or_create(

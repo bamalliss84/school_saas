@@ -1651,6 +1651,12 @@ class Homework(models.Model):
         ('published', 'Published'),
         ('closed', 'Closed'),
     )
+    SUBMISSION_TYPE_CHOICES = (
+        ('none', 'No electronic submission'),
+        ('text', 'Text answer'),
+        ('attachment', 'Attachment only'),
+        ('text_and_attachment', 'Text and attachment'),
+    )
 
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='homework')
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='homework')
@@ -1660,6 +1666,9 @@ class Homework(models.Model):
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    submission_type = models.CharField(
+        max_length=30, choices=SUBMISSION_TYPE_CHOICES, default='text',
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     publish_at = models.DateTimeField(blank=True, null=True)
     published_at = models.DateTimeField(blank=True, null=True)
@@ -1677,6 +1686,12 @@ class Homework(models.Model):
             models.CheckConstraint(
                 condition=models.Q(max_grade__isnull=True) | models.Q(max_grade__gte=0),
                 name='homework_max_grade_nonnegative',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(submission_type__in=(
+                    'none', 'text', 'attachment', 'text_and_attachment',
+                )),
+                name='homework_submission_type_valid',
             ),
             models.CheckConstraint(
                 condition=models.Q(publish_at__isnull=True) | models.Q(due_date__gte=models.F('publish_at')),

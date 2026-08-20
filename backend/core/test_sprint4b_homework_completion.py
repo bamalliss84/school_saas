@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -73,3 +74,53 @@ class Sprint4BHomeworkCompletionTests(APITestCase):
         hw=self.homework(); sub=self.submission(hw,'submitted')
         with self.captureOnCommitCallbacks(execute=True): return_submission(submission=sub,actor=self.teacher_user)
         self.assertTrue(Notification.objects.filter(notification_type='homework_returned').exists())
+
+    def test_view_only_homework_has_no_submission_actions(self):
+        hw = self.homework()
+        hw.submission_type = 'none'
+        hw.save(update_fields=('submission_type', 'updated_at'))
+        flags = completion_flags(hw, None)
+        self.assertEqual(flags['completion_status'], 'view_only')
+        self.assertFalse(flags['can_create_draft'])
+        self.assertFalse(flags['can_final_submit'])
+
+    def test_text_submission_requires_answer(self):
+        hw = self.homework()
+        hw.submission_type = 'text'
+        hw.save(update_fields=('submission_type', 'updated_at'))
+        submission = create_submission_draft(
+            homework=hw, student_enrollment=self.enrollment, actor=self.student_user,
+        )
+        with self.assertRaises(ValidationError):
+            final_submit_homework(submission=submission, actor=self.student_user)
+
+    def test_no_submission_homework_rejects_draft_creation(self):
+        hw = self.homework()
+        hw.submission_type = 'none'
+        hw.save(update_fields=('submission_type', 'updated_at'))
+        with self.assertRaises(ValidationError):
+            create_submission_draft(
+                homework=hw, student_enrollment=self.enrollment, actor=self.student_user,
+            )
+
+    def test_attachment_submission_requires_attachment(self):
+        hw = self.homework()
+        hw.submission_type = 'attachment'
+        hw.save(update_fields=('submission_type', 'updated_at'))
+        submission = create_submission_draft(
+            homework=hw, student_enrollment=self.enrollment, actor=self.student_user,
+        )
+        with self.assertRaises(ValidationError):
+            final_submit_homework(submission=submission, actor=self.student_user)
+
+    def test_text_and_attachment_requires_both_parts(self):
+        hw = self.homework()
+        hw.submission_type = 'text_and_attachment'
+        hw.save(update_fields=('submission_type', 'updated_at'))
+        submission = create_submission_draft(
+            homework=hw, student_enrollment=self.enrollment, actor=self.student_user,
+        )
+        submission.answer = 'Text only is not enough for this mode.'
+        submission.save(update_fields=('answer', 'updated_at'))
+        with self.assertRaises(ValidationError):
+            final_submit_homework(submission=submission, actor=self.student_user)

@@ -117,7 +117,7 @@ def update_homework(*, homework, actor, request=None, **changes):
     old = {'status': item.status, 'title': item.title, 'due_date': item.due_date.isoformat()}
     allowed = {
         'academic_year', 'academic_term', 'teacher_assignment', 'title',
-        'description', 'publish_at', 'due_date', 'max_grade',
+        'description', 'submission_type', 'publish_at', 'due_date', 'max_grade',
     }
     if set(changes) - allowed:
         raise ValidationError('Unsupported homework fields.')
@@ -215,6 +215,8 @@ def create_submission_draft(*, homework, student_enrollment, actor, request=None
         raise PermissionDenied('You cannot create this submission.')
     if item.status != 'published':
         raise ValidationError('Homework is not accepting submissions.')
+    if item.submission_type == 'none':
+        raise ValidationError('This homework does not require an electronic submission.')
     _validate_enrollment(item, student_enrollment)
     submission, created = HomeworkSubmission.objects.select_for_update().get_or_create(
         homework=item, student_enrollment=student_enrollment,
@@ -237,6 +239,10 @@ def update_submission_draft(*, submission, actor, answer, request=None):
         raise PermissionDenied('You cannot update this submission.')
     if item.homework.status != 'published' or item.status not in ('draft', 'returned'):
         raise ValidationError('Submission cannot be edited.')
+    if item.homework.submission_type == 'none':
+        raise ValidationError('This homework does not require an electronic submission.')
+    if item.homework.submission_type == 'attachment' and answer.strip():
+        raise ValidationError({'answer': 'This homework accepts attachments only.'})
     old_status = item.status
     item.answer = answer
     item.save(update_fields=('answer', 'updated_at'))
@@ -257,6 +263,23 @@ def final_submit_homework(*, submission, actor, request=None):
         raise PermissionDenied('You cannot submit this homework.')
     if item.homework.status != 'published' or item.status not in ('draft', 'returned'):
         raise ValidationError('Submission cannot be submitted.')
+    submission_type = item.homework.submission_type
+    if submission_type == 'none':
+        raise ValidationError('This homework does not require an electronic submission.')
+    has_text = bool(item.answer.strip())
+    has_attachment = item.attachments.exists()
+    if submission_type == 'text' and not has_text:
+        raise ValidationError({'answer': 'A text answer is required.'})
+    if submission_type == 'attachment' and not has_attachment:
+        raise ValidationError({'attachments': 'At least one attachment is required.'})
+    if submission_type == 'text_and_attachment':
+        errors = {}
+        if not has_text:
+            errors['answer'] = 'A text answer is required.'
+        if not has_attachment:
+            errors['attachments'] = 'At least one attachment is required.'
+        if errors:
+            raise ValidationError(errors)
     old_status = item.status
     item.status = 'submitted'
     item.submitted_at = timezone.now()
@@ -444,6 +467,8 @@ def add_submission_attachment(*, submission, files, actor, request=None):
         raise PermissionDenied('You cannot add attachments to this submission.')
     if submission.homework.status != 'published' or submission.status not in ('draft', 'returned'):
         raise ValidationError('Submission attachments cannot be changed.')
+    if submission.homework.submission_type not in ('attachment', 'text_and_attachment'):
+        raise ValidationError('This homework does not accept submission attachments.')
     return _add_attachments(
         parent=submission, files=files, actor=actor,
         model=HomeworkSubmissionAttachment, relation_name='submission',

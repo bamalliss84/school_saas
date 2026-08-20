@@ -177,7 +177,11 @@ class HomeworkController extends StateNotifier<HomeworkState> {
       return false;
     }
     final ready = current.detail as HomeworkDetailReady;
-    if (ready.data.offline || !ready.data.homework.canEditDraft) return false;
+    if (ready.data.offline ||
+        !ready.data.homework.canEditDraft ||
+        !ready.data.homework.acceptsAttachments) {
+      return false;
+    }
     state = current.copyWith(
         detail: HomeworkDetailReady(ready.data, submitting: true));
     try {

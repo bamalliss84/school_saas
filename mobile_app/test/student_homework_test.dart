@@ -364,4 +364,37 @@ void main() {
     ));
     expect(tester.takeException(), isNull);
   });
+
+  test('homework submission type parsing keeps legacy default and mode flags', () {
+    final base = <String, dynamic>{
+      'id': 501,
+      'title': 'Mode demo',
+      'description': 'Details',
+      'subject_name': 'Math',
+      'classroom_id': 1,
+      'section_id': 1,
+      'teacher': 'Teacher',
+      'due_date': '2026-09-01T10:00:00Z',
+      'completion_status': 'not_started',
+      'can_create_draft': true,
+      'can_final_submit': true,
+      'attachments': const [],
+    };
+    final legacy = StudentHomework.fromJson(base);
+    expect(legacy.submissionType, 'text');
+    expect(legacy.acceptsText, isTrue);
+    expect(legacy.acceptsAttachments, isFalse);
+
+    final attachment = StudentHomework.fromJson(
+      {...base, 'submission_type': 'attachment'},
+    );
+    expect(attachment.acceptsText, isFalse);
+    expect(attachment.acceptsAttachments, isTrue);
+
+    final viewOnly = StudentHomework.fromJson(
+      {...base, 'submission_type': 'none'},
+    );
+    expect(viewOnly.requiresElectronicSubmission, isFalse);
+  });
+
 }
