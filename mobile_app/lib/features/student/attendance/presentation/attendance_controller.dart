@@ -9,6 +9,7 @@ sealed class AttendanceState {
   const AttendanceState();
 }
 class AttendanceLoading extends AttendanceState { const AttendanceLoading(); }
+class AttendanceOfflineEmpty extends AttendanceState { const AttendanceOfflineEmpty(); }
 class AttendanceFailure extends AttendanceState {
   const AttendanceFailure(this.message);
   final String message;
@@ -72,6 +73,8 @@ class AttendanceController extends StateNotifier<AttendanceState> {
     } catch (error) {
       if (cached != null && isOfflineEligibleError(error)) {
         state = AttendanceReady(cached);
+      } else if (isOfflineEligibleError(error)) {
+        state = const AttendanceOfflineEmpty();
       } else {
         state = AttendanceFailure(failureMessage(
             error, 'تعذر تحميل سجل الحضور ولا توجد بيانات محفوظة'));

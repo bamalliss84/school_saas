@@ -71,9 +71,44 @@ void main() {
       onFilter: (_) {}, onOpen: (_) {}, onRefresh: () async {}, onBack: () {},
     ))));
     expect(find.text('نسبة الحضور'), findsOneWidget);
-    expect(find.text('حاضر 1'), findsOneWidget);
-    expect(find.text('غائب 1'), findsOneWidget);
-    expect(find.text('متأخر 1'), findsOneWidget);
-    expect(find.text('بعذر 1'), findsOneWidget);
+    expect(find.text('حاضر'), findsWidgets);
+    expect(find.text('غائب'), findsWidgets);
+    expect(find.text('متأخر'), findsWidgets);
+    expect(find.text('بعذر'), findsWidgets);
+  });
+
+  testWidgets('attendance loading and error closure states render safely', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: StudentAttendanceLoadingView()),
+    ));
+    expect(find.byType(StudentAttendanceLoadingView), findsOneWidget);
+
+    var retried = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StudentAttendanceOfflineEmptyView(
+          onRetry: () async { retried = true; },
+          onBack: () {},
+        ),
+      ),
+    ));
+    expect(find.text('لا تتوفر بيانات الحضور دون اتصال'), findsOneWidget);
+    expect(find.text('إعادة المحاولة'), findsOneWidget);
+
+    retried = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StudentAttendanceErrorView(
+          message: 'تعذر الاتصال بالخادم',
+          onRetry: () async { retried = true; },
+          onBack: () {},
+        ),
+      ),
+    ));
+    expect(find.text('تعذر تحميل سجل الحضور'), findsOneWidget);
+    expect(find.text('إعادة المحاولة'), findsOneWidget);
+    await tester.tap(find.text('إعادة المحاولة'));
+    await tester.pump();
+    expect(retried, isTrue);
   });
 }

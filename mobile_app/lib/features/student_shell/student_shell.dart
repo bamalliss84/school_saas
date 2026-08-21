@@ -264,14 +264,24 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       TimetableState state, AttendanceState? attendance,
       AppSession session, CacheScope scope) {
     if (showAttendance) {
+      final controller = ref.read(studentAttendanceProvider(scope).notifier);
       if (attendance == null || attendance is AttendanceLoading) {
-        return const AppSkeletonCard();
+        return const StudentAttendanceLoadingView();
+      }
+      if (attendance is AttendanceOfflineEmpty) {
+        return StudentAttendanceOfflineEmptyView(
+          onRetry: controller.refresh,
+          onBack: () => setState(() => showAttendance = false),
+        );
       }
       if (attendance is AttendanceFailure) {
-        return AppErrorState(message: attendance.message);
+        return StudentAttendanceErrorView(
+          message: attendance.message,
+          onRetry: controller.refresh,
+          onBack: () => setState(() => showAttendance = false),
+        );
       }
       final attendanceReady = attendance as AttendanceReady;
-      final controller = ref.read(studentAttendanceProvider(scope).notifier);
       if (attendanceReady.selected != null) {
         return StudentAttendanceDetailScreen(
           record: attendanceReady.selected!,
