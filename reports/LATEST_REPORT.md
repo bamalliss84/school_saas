@@ -1,6 +1,30 @@
 # Latest Acceptance Report
 
-## Sprint 5B.2 — Student Homework
+## School Admin Web — D3 Operational Dashboard (Phase W1-D3)
+
+- **Branch:** `agent/antigravity-web`
+- **Commit:** `c6999cbae190a3b162206c52f2b6b1e94432f1c2`
+- **Task:** School Admin Web — D3 Operational Dashboard UI Implementation
+- **Visual Truth Source:** Approved Nano board `web_portal/design/nano/W1_D3_DASHBOARD_APPROVED.jpg`.
+- **Preserved Artifacts:** Accepted D1 Login and D2 Main Shell fully preserved and integrated.
+- **Backend Changes:** 0 Backend modifications, 0 migrations created.
+- **Verification Gates:**
+  - `npm.cmd run typecheck`: PASS (0 errors)
+  - `npm.cmd run lint`: PASS (0 errors, 0 warnings)
+  - `npm.cmd test`: PASS (7/7 test suites, 37/37 tests passing)
+  - `npm.cmd run build`: PASS (production bundle built cleanly in 7.51s, 0 errors)
+  - `manage.py check`: PASS (0 issues)
+  - `manage.py makemigrations --check --dry-run`: PASS (0 migrations needed)
+  - Background processes: all stopped (`RUNSERVER_COUNT=0`, Vite preview stopped)
+- **Real vs Unavailable Dashboard Metrics & API Gaps:**
+  - Real live backend connections: Authentication context (`/api/v1/auth/me/`), Active Membership (`X-School-Membership-ID`), Attendance (`/api/v1/attendance/`), Timetable config (`/api/v1/timetable/config/`), Homework (`/api/v1/homework/`), Exams (`/api/v1/exams/`), Communication badges (`/api/v1/communication/badges/`).
+  - Unavailable aggregated metrics (Documented transparently under `GAP-DASH-01`): Unified admin dashboard summary (`/api/v1/dashboard/admin/`) is scheduled for Phase W2/W3. UI provides real fallback calculation with clear badge tags and collapsible gap disclosures without fabricated mock illusions.
+- **Historical Mode (Section I):**
+  - Read-only historical banner displayed when `isHistorical: true` / `access_mode: read_only`.
+  - Mutation quick action buttons ([إضافة طالب], [إضافة معلم], [إنشاء إعلان], [إنشاء اختبار], [استيراد Excel]) are strictly disabled with lock indicators.
+- **Browser Subagent Note:**
+  - Automated browser subagent encountered an environment-level Playwright driver download 404 (`playwright.azureedge.net/builds/driver/playwright-1.57.0-win32_x64.zip`), handled per user guidelines.
+- **Decision:** **D3 OPERATIONAL DASHBOARD UI COMPLETED — READY FOR SUPERVISOR REVIEW**.
 
 - Baseline `56cf542`; Flutter-only Student Homework implementation. Backend production files and migrations unchanged.
 - Nano Homework visual reference received/readable/reviewed; production-quality RTL list/detail/status/action treatment PASS.
