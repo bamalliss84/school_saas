@@ -69,10 +69,14 @@ class StudentAppHeader extends StatelessWidget {
       {super.key,
       required this.schoolName,
       this.studentName,
-      this.academicYear});
+      this.academicYear,
+      this.onNotifications,
+      this.notificationCount = 0});
   final String schoolName;
   final String? studentName;
   final String? academicYear;
+  final VoidCallback? onNotifications;
+  final int notificationCount;
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(AppSpacing.x4),
@@ -94,6 +98,16 @@ class StudentAppHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall),
               ])),
+          if (onNotifications != null)
+            Badge(
+              isLabelVisible: notificationCount > 0,
+              label: Text(notificationCount > 99 ? '99+' : '$notificationCount'),
+              child: IconButton(
+                tooltip: 'الإشعارات',
+                onPressed: onNotifications,
+                icon: const Icon(Icons.notifications_none),
+              ),
+            ),
         ]),
       );
 }

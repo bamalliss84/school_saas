@@ -27,6 +27,8 @@ Map<String, dynamic> attendancePayload() => {
   ],
 };
 
+void _noop() {}
+
 void main() {
   test('attendance parses all backend statuses and computes percentage', () {
     final data = StudentAttendanceData.fromJson(attendancePayload(), DateTime.utc(2026, 8, 20));
@@ -153,6 +155,21 @@ void main() {
       record: data.records.first,
       historical: true,
       onBack: () {},
+    )));
+    expect(find.text('للعرض فقط'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(scaled(StudentAttendanceDetailScreen(
+      record: StudentAttendanceRecord(
+        id: 99,
+        date: DateTime(2026, 8, 20),
+        status: StudentAttendanceStatus.late,
+        termId: 7,
+        termName: 'الفصل الدراسي الثالث المطول لاختبار الشاشات الصغيرة',
+        note: 'ملاحظة مدرسية طويلة لاختبار التفاف النص بشكل آمن.',
+      ),
+      historical: true,
+      onBack: _noop,
     )));
     expect(find.text('للعرض فقط'), findsOneWidget);
     expect(tester.takeException(), isNull);

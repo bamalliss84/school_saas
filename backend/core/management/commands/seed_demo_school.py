@@ -643,6 +643,64 @@ class Command(BaseCommand):
             AnnouncementReceipt.objects.get_or_create(
                 announcement=announcement_b, recipient_membership=membership,
             )
+        demo_student_a01 = Student.objects.get(user__username='demo_student_a_01')
+        demo_student_a01_m = SchoolMembership.objects.get(
+            user=demo_student_a01.user, school=school_a, role='student', status='active',
+        )
+        Notification.objects.update_or_create(
+            recipient_membership=demo_student_a01_m, deduplication_key='DEMO:student:a01:announcement',
+            defaults={
+                'school': school_a, 'recipient': demo_student_a01.user,
+                'notification_type': 'announcement_published',
+                'title': 'موعد الاختبارات النهائية',
+                'body': 'تم نشر إعلان جديد من المدرسة.',
+                'source_type': 'announcement', 'source_id': announcement.pk,
+                'payload': {'action': {'route': 'announcement_detail', 'params': {'announcement_id': announcement.pk}}},
+            },
+        )
+        demo_result_for_notification = ExamResult.objects.get(
+            exam__title='DEMO Final Mathematics',
+            student_enrollment__student=demo_student_a01,
+            is_published=True,
+        )
+        Notification.objects.update_or_create(
+            recipient_membership=demo_student_a01_m, deduplication_key='DEMO:student:a01:result',
+            defaults={
+                'school': school_a, 'recipient': demo_student_a01.user,
+                'notification_type': 'result_published',
+                'title': 'تم نشر نتيجة جديدة', 'body': 'يمكنك مراجعة النتيجة من التطبيق.',
+                'source_type': 'exam_result', 'source_id': demo_result_for_notification.pk,
+                'payload': {'action': {'route': 'result_detail', 'params': {'result_id': demo_result_for_notification.pk}}},
+            },
+        )
+        student_chat, _ = Conversation.objects.update_or_create(
+            school=school_a, conversation_type='teacher_student', subject='مناقشة الواجب - تمارين المعادلات',
+            defaults={'created_by_membership': teacher_a_m, 'status': 'open', 'priority': 'normal'},
+        )
+        for member, role in ((teacher_a_m, 'teacher'), (demo_student_a01_m, 'student')):
+            ConversationParticipant.objects.update_or_create(
+                conversation=student_chat, membership=member,
+                defaults={'participant_role': role, 'can_reply': True, 'is_active': True},
+            )
+        Message.objects.update_or_create(
+            conversation=student_chat, sender_membership=teacher_a_m,
+            body='بخصوص واجب تمارين المعادلات، إذا احتجت توضيحاً اكتب هنا.',
+            defaults={'message_type': 'text'},
+        )
+        student_support, _ = Conversation.objects.update_or_create(
+            school=school_a, conversation_type='school_support', subject='استفسار عن بيانات الطالب',
+            defaults={'created_by_membership': demo_student_a01_m, 'status': 'in_progress', 'category': 'profile_update', 'priority': 'normal'},
+        )
+        for member, role in ((demo_student_a01_m, 'student'), (SchoolMembership.objects.get(user=admin_a, school=school_a), 'school_admin')):
+            ConversationParticipant.objects.update_or_create(
+                conversation=student_support, membership=member,
+                defaults={'participant_role': role, 'can_reply': True, 'is_active': True},
+            )
+        Message.objects.update_or_create(
+            conversation=student_support, sender_membership=demo_student_a01_m,
+            body='أرغب في مراجعة بيانات الطالب.', defaults={'message_type': 'text'},
+        )
+
         Notification.objects.update_or_create(
             recipient_membership=teacher_a_m, deduplication_key='DEMO:system:welcome',
             defaults={

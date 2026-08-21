@@ -21,6 +21,10 @@ import '../student/homework/presentation/homework_screens.dart';
 import '../student/results/data/results_repository.dart';
 import '../student/results/presentation/results_controller.dart';
 import '../student/results/presentation/results_screens.dart';
+import '../student/communications/data/communications_repository.dart';
+import '../student/communications/domain/communication_models.dart';
+import '../student/communications/presentation/communications_controller.dart';
+import '../student/communications/presentation/communications_screens.dart';
 
 final studentTimetableProvider = StateNotifierProvider.autoDispose
     .family<TimetableController, TimetableState, CacheScope>((ref, scope) {
@@ -66,6 +70,17 @@ final studentAttendanceProvider = StateNotifierProvider.autoDispose
   return controller;
 });
 
+
+final studentCommunicationsProvider = StateNotifierProvider.autoDispose
+    .family<CommunicationsController, CommunicationsState, CacheScope>((ref, scope) {
+  final controller = CommunicationsController(
+    StudentCommunicationsRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    scope,
+  );
+  Future<void>.microtask(controller.load);
+  return controller;
+});
+
 class StudentBottomNavigation extends StatelessWidget {
   const StudentBottomNavigation(
       {super.key, required this.selectedIndex, required this.onSelected});
@@ -99,7 +114,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
   int selectedIndex = 0;
   bool showTimetable = false;
   bool showAttendance = false;
-  static const labels = ['الرئيسية', 'الواجبات', 'النتائج', 'الرسائل'];
+  bool showCommunicationsCenter = false;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +129,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final timetable = ref.watch(studentTimetableProvider(scope));
     final homework = ref.watch(studentHomeworkProvider(scope));
     final results = ref.watch(studentResultsProvider(scope));
+    final communications = ref.watch(studentCommunicationsProvider(scope));
     final attendance = showAttendance
         ? ref.watch(studentAttendanceProvider(scope))
         : null;
@@ -123,7 +139,11 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           StudentAppHeader(
               schoolName: session.context?.schoolName ?? 'مدرستي',
               studentName: session.user?.fullName,
-              academicYear: session.context?.academicYearName),
+              academicYear: session.context?.academicYearName,
+              notificationCount: communications is CommunicationsReady
+                  ? communications.data.badges.notifications
+                  : 0,
+              onNotifications: () => setState(() => showCommunicationsCenter = true)),
           if (session.status == SessionStatus.historical)
             HistoricalContextBanner(context: session.context),
           if (session.offline) const OfflineCacheBanner(),
@@ -136,21 +156,17 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                       value: timetable.data.lastUpdated.toLocal())),
             ),
           Expanded(
-              child: selectedIndex == 4
-                  ? const AppearanceSettings()
-                  : selectedIndex == 0
-                      ? _studentFeature(timetable, attendance, session, scope)
-                      : selectedIndex == 1
-                          ? _homeworkFeature(homework, session, scope)
-                          : selectedIndex == 2
-                              ? _resultsFeature(results, session, scope)
-                              : Center(
-                                  child: Padding(
-                                  padding: const EdgeInsets.all(AppSpacing.x6),
-                                  child: Text(
-                                      '${labels[selectedIndex]}\nواجهة تمهيدية — ستكتمل في المرحلة المخصصة لها',
-                                      textAlign: TextAlign.center),
-                                ))),
+              child: showCommunicationsCenter
+                  ? _communicationsCenter(communications, session, scope)
+                  : selectedIndex == 4
+                      ? const AppearanceSettings()
+                      : selectedIndex == 0
+                          ? _studentFeature(timetable, attendance, session, scope)
+                          : selectedIndex == 1
+                              ? _homeworkFeature(homework, session, scope)
+                              : selectedIndex == 2
+                                  ? _resultsFeature(results, session, scope)
+                                  : _messagesFeature(communications, session, scope)),
         ]),
       ),
       bottomNavigationBar: SafeArea(
@@ -167,6 +183,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                 selectedIndex = value;
                 showTimetable = false;
                 showAttendance = false;
+                showCommunicationsCenter = false;
               });
               Future<void>.microtask(() {
                 if (value == 0) {
@@ -175,9 +192,135 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                   ref.read(studentHomeworkProvider(scope).notifier).refresh();
                 } else if (value == 2) {
                   ref.read(studentResultsProvider(scope).notifier).refresh();
+                } else if (value == 3) {
+                  ref.read(studentCommunicationsProvider(scope).notifier).refresh();
                 }
               });
             }),
+      ),
+    );
+  }
+
+  Future<void> _openNotification(
+      CommunicationNotification item, CacheScope scope) async {
+    final communications = ref.read(studentCommunicationsProvider(scope).notifier);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (!item.isRead) {
+      try { await communications.readNotification(item.id); } catch (_) {}
+    }
+    final action = item.action;
+    final route = action?['route']?.toString();
+    final params = action?['params'] is Map ? Map<String, dynamic>.from(action!['params'] as Map) : const <String, dynamic>{};
+    if (!mounted) return;
+    if (route == null || route.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('لا توجد تفاصيل إضافية لهذا الإشعار.')));
+      return;
+    }
+    if (route == 'homework_detail') {
+      final id = (params['homework_id'] as num?)?.toInt();
+      if (id != null) {
+        setState(() { selectedIndex = 1; showCommunicationsCenter = false; });
+        await ref.read(studentHomeworkProvider(scope).notifier).open(id);
+      }
+      return;
+    }
+    if (route == 'result_detail') {
+      final id = (params['result_id'] as num?)?.toInt();
+      final state = ref.read(studentResultsProvider(scope));
+      if (id != null && state is ResultsReady) {
+        final matches = state.data.items.where((e) => e.id == id);
+        if (matches.isNotEmpty) {
+          setState(() { selectedIndex = 2; showCommunicationsCenter = false; });
+          ref.read(studentResultsProvider(scope).notifier).open(matches.first);
+        }
+      }
+      return;
+    }
+    if (route == 'announcement_detail') {
+      final id = (params['announcement_id'] as num?)?.toInt();
+      final state = ref.read(studentCommunicationsProvider(scope));
+      if (id != null && state is CommunicationsReady) {
+        final matches = state.data.announcements.where((e) => e.id == id);
+        if (matches.isNotEmpty) {
+          final announcement = matches.first;
+          if (!announcement.isRead) {
+            try { await communications.readAnnouncement(announcement.id); } catch (_) {}
+          }
+          if (!mounted) return;
+          await navigator.push(MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              body: SafeArea(
+                child: StudentAnnouncementDetailScreen(
+                  item: announcement,
+                  historical: false,
+                  onBack: () => navigator.pop(),
+                ),
+              ),
+            ),
+          ));
+          return;
+        }
+      }
+      messenger.showSnackBar(const SnackBar(content: Text('تعذر فتح تفاصيل الإعلان.')));
+      return;
+    }
+    if (route == 'conversation_detail' || route == 'school_support_detail') {
+      final id = (params['conversation_id'] as num?)?.toInt();
+      final state = ref.read(studentCommunicationsProvider(scope));
+      if (id != null && state is CommunicationsReady) {
+        final matches = state.data.conversations.where((e) => e.id == id);
+        if (matches.isNotEmpty) {
+          setState(() { selectedIndex = 3; showCommunicationsCenter = false; });
+          await communications.openConversation(matches.first);
+        }
+      }
+      return;
+    }
+    messenger.showSnackBar(const SnackBar(content: Text('هذا الإشعار لا يحتوي على وجهة مدعومة.')));
+  }
+
+  Widget _communicationsCenter(
+      CommunicationsState state, AppSession session, CacheScope scope) {
+    if (state is CommunicationsLoading) return const AppSkeletonCard();
+    if (state is CommunicationsFailure) return AppErrorState(message: state.message);
+    final ready = state as CommunicationsReady;
+    final controller = ref.read(studentCommunicationsProvider(scope).notifier);
+    return StudentCommunicationsCenter(
+      data: ready.data,
+      historical: session.status == SessionStatus.historical,
+      onBack: () => setState(() => showCommunicationsCenter = false),
+      onOpenNotification: (item) => _openNotification(item, scope),
+      onReadAll: controller.readAll,
+      onReadAnnouncement: controller.readAnnouncement,
+    );
+  }
+
+  Widget _messagesFeature(
+      CommunicationsState state, AppSession session, CacheScope scope) {
+    if (state is CommunicationsLoading) return const AppSkeletonCard();
+    if (state is CommunicationsFailure) return AppErrorState(message: state.message);
+    final ready = state as CommunicationsReady;
+    final controller = ref.read(studentCommunicationsProvider(scope).notifier);
+    if (ready.selectedConversation != null) {
+      return ConversationDetailScreen(
+        conversation: ready.selectedConversation!,
+        messages: ready.messages,
+        historical: session.status == SessionStatus.historical,
+        offline: ready.data.offline || session.offline,
+        onBack: controller.closeConversation,
+        onSend: controller.send,
+      );
+    }
+    return StudentConversationsScreen(
+      items: ready.data.conversations,
+      offline: ready.data.offline || session.offline,
+      historical: session.status == SessionStatus.historical,
+      onOpen: controller.openConversation,
+      onSupport: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => SchoolSupportSheet(onSubmit: controller.createSupport),
       ),
     );
   }

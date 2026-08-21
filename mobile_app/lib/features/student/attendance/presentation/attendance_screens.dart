@@ -86,6 +86,7 @@ class _AttendanceTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           IconButton(
             tooltip: 'رجوع',
@@ -93,14 +94,26 @@ class _AttendanceTitle extends StatelessWidget {
             icon: const Icon(Icons.arrow_back),
           ),
           Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (historical) ...[
+                  const SizedBox(height: AppSpacing.x1),
+                  const Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: _ReadOnlyBadge(),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (historical) const _ReadOnlyBadge(),
         ],
       );
 }
@@ -526,21 +539,40 @@ class _DetailRow extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$label:', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(width: AppSpacing.x2),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final compact = constraints.maxWidth < 280 || textScale > 1.2;
+          final labelStyle = Theme.of(context).textTheme.bodyMedium;
+          final valueStyle = labelStyle?.copyWith(fontWeight: FontWeight.w600);
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$label:', style: labelStyle),
+                const SizedBox(height: AppSpacing.x1),
+                Text(value, style: valueStyle),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                flex: 2,
+                child: Text('$label:', style: labelStyle),
+              ),
+              const SizedBox(width: AppSpacing.x2),
+              Expanded(
+                flex: 3,
+                child: Text(value, style: valueStyle),
+              ),
+            ],
+          );
+        },
       );
 }
 
