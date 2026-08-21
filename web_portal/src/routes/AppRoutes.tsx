@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '../pages/LoginPage';
 import { ContextSelectionPage } from '../pages/ContextSelectionPage';
-import { DashboardPlaceholderPage } from '../pages/DashboardPlaceholderPage';
+import { DashboardPage } from '../pages/DashboardPage';
 import { UnauthorizedPage } from '../pages/UnauthorizedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { AppShell } from '../components/layout/AppShell';
@@ -79,8 +79,8 @@ export const AppRoutes: React.FC = () => {
         }
       >
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard/*" element={<DashboardPlaceholderPage />} />
-        <Route path="/dashboard" element={<DashboardPlaceholderPage />} />
+        <Route path="/dashboard/*" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
 
         {/* People routes */}
         <Route
