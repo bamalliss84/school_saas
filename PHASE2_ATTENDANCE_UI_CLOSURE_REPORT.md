@@ -33,3 +33,19 @@ The approved Nano/Gemini Student Attendance V1 board is the visual reference. Ex
 - Dart delimiter balance check for modified Dart files: PASS.
 
 Flutter SDK is not installed in the artifact build container, so `flutter analyze` and `flutter test` must be executed on the Windows Flutter environment before runtime acceptance. The project already contains regression coverage for Attendance and the closure states added by this patch.
+
+## Responsive overflow root fix
+After the first Windows Flutter gate, the closure-state test exposed a real `RenderFlex` overflow in Error/Offline states on constrained height. Root cause: the state body was capped by a `SizedBox` at 42% of viewport height while its icon, text, spacing, and retry button needed more vertical space under text scaling.
+
+The final fix removes the hard maximum height. Closure states now use a responsive minimum height and are allowed to grow naturally inside their scrollable parent. The internal state `Column` shrink-wraps with `MainAxisSize.min`, so 150% text scaling and compact screens do not force content into a smaller fixed box.
+
+Regression coverage now explicitly exercises:
+- 320x480 logical viewport.
+- 150% text scaling.
+- Loading state.
+- Offline-without-cache state.
+- Error + retry state.
+- Ready attendance screen.
+- Historical attendance detail screen.
+
+No backend/API/model/migration/cache changes were introduced by this fix.

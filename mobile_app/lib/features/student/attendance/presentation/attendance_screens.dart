@@ -646,15 +646,13 @@ class StudentAttendanceOfflineEmptyView extends StatelessWidget {
             historical: false,
             onBack: onBack,
           ),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * .42,
-            child: _CenteredAttendanceState(
-              icon: Icons.wifi_off_outlined,
-              title: 'لا تتوفر بيانات الحضور دون اتصال',
-              message: 'اتصل بالإنترنت لتحميل سجل الحضور لأول مرة',
-              actionLabel: 'إعادة المحاولة',
-              onAction: onRetry,
-            ),
+          _CenteredAttendanceState(
+            fillViewport: true,
+            icon: Icons.wifi_off_outlined,
+            title: 'لا تتوفر بيانات الحضور دون اتصال',
+            message: 'اتصل بالإنترنت لتحميل سجل الحضور لأول مرة',
+            actionLabel: 'إعادة المحاولة',
+            onAction: onRetry,
           ),
         ],
       );
@@ -687,15 +685,13 @@ class StudentAttendanceErrorView extends StatelessWidget {
             historical: false,
             onBack: onBack,
           ),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * .42,
-            child: _CenteredAttendanceState(
-              icon: Icons.travel_explore_outlined,
-              title: 'تعذر تحميل سجل الحضور',
-              message: message,
-              actionLabel: 'إعادة المحاولة',
-              onAction: onRetry,
-            ),
+          _CenteredAttendanceState(
+            fillViewport: true,
+            icon: Icons.travel_explore_outlined,
+            title: 'تعذر تحميل سجل الحضور',
+            message: message,
+            actionLabel: 'إعادة المحاولة',
+            onAction: onRetry,
           ),
         ],
       );
@@ -740,6 +736,7 @@ class _CenteredAttendanceState extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
+    this.fillViewport = false,
   });
 
   final IconData icon;
@@ -747,18 +744,29 @@ class _CenteredAttendanceState extends StatelessWidget {
   final String message;
   final String? actionLabel;
   final Future<void> Function()? onAction;
+  final bool fillViewport;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final minHeight = fillViewport
+        ? (MediaQuery.sizeOf(context).height * .36)
+            .clamp(176.0, 300.0)
+            .toDouble()
+        : 0.0;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
+      child: Padding(
         padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.x8,
+          vertical: AppSpacing.x4,
           horizontal: AppSpacing.x4,
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: AppColors.disabled),
-            const SizedBox(height: AppSpacing.x4),
+            Icon(icon, size: 56, color: AppColors.disabled),
+            const SizedBox(height: AppSpacing.x3),
             Text(
               title,
               textAlign: TextAlign.center,
@@ -776,7 +784,7 @@ class _CenteredAttendanceState extends StatelessWidget {
                   ),
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpacing.x4),
+              const SizedBox(height: AppSpacing.x3),
               FilledButton(
                 onPressed: () => onAction!(),
                 child: Text(actionLabel!),
@@ -784,7 +792,9 @@ class _CenteredAttendanceState extends StatelessWidget {
             ],
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _StatusIcon extends StatelessWidget {

@@ -78,37 +78,84 @@ void main() {
   });
 
   testWidgets('attendance loading and error closure states render safely', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: StudentAttendanceLoadingView()),
-    ));
+    await tester.binding.setSurfaceSize(const Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    Widget scaled(Widget child) => MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 480),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: Scaffold(body: child),
+          ),
+        );
+
+    await tester.pumpWidget(scaled(const StudentAttendanceLoadingView()));
     expect(find.byType(StudentAttendanceLoadingView), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     var retried = false;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: StudentAttendanceOfflineEmptyView(
-          onRetry: () async { retried = true; },
-          onBack: () {},
-        ),
-      ),
-    ));
+    await tester.pumpWidget(scaled(StudentAttendanceOfflineEmptyView(
+      onRetry: () async { retried = true; },
+      onBack: () {},
+    )));
     expect(find.text('لا تتوفر بيانات الحضور دون اتصال'), findsOneWidget);
     expect(find.text('إعادة المحاولة'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     retried = false;
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: StudentAttendanceErrorView(
-          message: 'تعذر الاتصال بالخادم',
-          onRetry: () async { retried = true; },
-          onBack: () {},
-        ),
-      ),
-    ));
+    await tester.pumpWidget(scaled(StudentAttendanceErrorView(
+      message: 'تعذر الاتصال بالخادم',
+      onRetry: () async { retried = true; },
+      onBack: () {},
+    )));
     expect(find.text('تعذر تحميل سجل الحضور'), findsOneWidget);
     expect(find.text('إعادة المحاولة'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.tap(find.text('إعادة المحاولة'));
     await tester.pump();
     expect(retried, isTrue);
   });
+  testWidgets('attendance ready and detail tolerate compact 150 percent scale',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final data = StudentAttendanceData.fromJson(
+      attendancePayload(),
+      DateTime.utc(2026, 8, 20),
+    );
+
+    Widget scaled(Widget child) => MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 480),
+              textScaler: TextScaler.linear(1.5),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Scaffold(body: child),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(scaled(StudentAttendanceScreen(
+      state: AttendanceReady(data),
+      historical: false,
+      onFilter: (_) {},
+      onOpen: (_) {},
+      onRefresh: () async {},
+      onBack: () {},
+    )));
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(scaled(StudentAttendanceDetailScreen(
+      record: data.records.first,
+      historical: true,
+      onBack: () {},
+    )));
+    expect(find.text('للعرض فقط'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }
