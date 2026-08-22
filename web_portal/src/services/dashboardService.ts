@@ -215,6 +215,14 @@ export const dashboardService = {
       hasLiveAttendance = false;
     }
 
+    // Contextual subtext for attendance rate (e.g. "10 من 11 طالب")
+    let attendanceSubtext = 'لم يُسجل الحضور اليوم بعد';
+    if (hasLiveAttendance && effectiveTotalStudents !== null && effectiveTotalStudents > 0) {
+      attendanceSubtext = `${(presentCount + lateCount).toLocaleString('ar-EG')} من ${effectiveTotalStudents.toLocaleString('ar-EG')} طالب`;
+    } else if (hasLiveAttendance) {
+      attendanceSubtext = 'نسبة الحضور التراكمية اليوم';
+    }
+
     // -------------------------------------------------------------
     // 4. Assemble KPIs with Safe Fallbacks (No Fabricated Data)
     // -------------------------------------------------------------
@@ -256,7 +264,7 @@ export const dashboardService = {
         id: 'attendance_rate',
         title: 'حضور الطلاب اليوم',
         value: attendanceRateDisplay,
-        subtext: hasLiveAttendance ? 'نسبة الحضور التراكمية اليوم' : 'لم يُسجل الحضور اليوم بعد',
+        subtext: attendanceSubtext,
         trend: hasLiveAttendance ? { direction: 'up', value: `▲ ${attendanceRateDisplay}` } : undefined,
         iconName: 'attendance',
         color: 'var(--success-600)',
@@ -373,6 +381,26 @@ export const dashboardService = {
         title: `${awaitingApprovalExamsCount} كشوف درجات بانتظار الاعتماد الإداري النهائي`,
         actionLabel: 'اعتماد النتائج',
         actionRoute: '/exams',
+      });
+    }
+
+    if (pendingGradingCount > 0) {
+      attentionAlerts.push({
+        id: 'alert-homework-grading',
+        severity: 'warning',
+        title: `${pendingGradingCount} واجبات تنتظر التقييم ورصد الدرجات من الكادر التعليمي`,
+        actionLabel: 'مراجعة الواجبات',
+        actionRoute: '/homework',
+      });
+    }
+
+    if (unreadInboxCount > 0) {
+      attentionAlerts.push({
+        id: 'alert-unread-messages',
+        severity: 'info',
+        title: `${unreadInboxCount} رسائل أو استفسارات واردة غير مقروءة في صندوق الوارد`,
+        actionLabel: 'عرض الرسائل',
+        actionRoute: '/messages',
       });
     }
 

@@ -1446,14 +1446,14 @@
   border: 1px dashed var(--border-strong);
 }
 
-/* Preserved Operations Grid (Section E & F) */
+/* Operations Grid (Section E & F) */
 .dashboard-operations-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.625rem;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .dashboard-operations-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1552,15 +1552,32 @@
   color: var(--text-muted);
 }
 
-/* Quick Actions Grid (Section G) */
-.quick-actions-grid {
+/* Quick Actions Grid (Section H) */
+.quick-actions-primary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
 }
 
 @media (max-width: 640px) {
-  .quick-actions-grid {
+  .quick-actions-primary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.quick-actions-secondary-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-actions-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.375rem;
+}
+
+@media (max-width: 640px) {
+  .quick-actions-secondary-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -1579,6 +1596,11 @@
   transition: all var(--transition-fast);
   text-decoration: none;
   position: relative;
+}
+
+.quick-action-tile.secondary {
+  padding: 0.4375rem 0.375rem;
+  background-color: var(--neutral-50);
 }
 
 .quick-action-tile:hover:not(.disabled) {

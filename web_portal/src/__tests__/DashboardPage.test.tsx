@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
 import * as UseAuthModule from '../context/useAuth';
@@ -50,7 +50,7 @@ const mockConsistentDashboardData: DashboardApiResponse = {
       id: 'attendance_rate',
       title: 'حضور الطلاب اليوم',
       value: '90.9%',
-      subtext: 'نسبة الحضور التراكمية اليوم',
+      subtext: '10 من 11 طالب',
       trend: { direction: 'up', value: '▲ 90.9%' },
       iconName: 'attendance',
       color: 'var(--success-600)',
@@ -107,6 +107,13 @@ const mockConsistentDashboardData: DashboardApiResponse = {
       actionLabel: 'مراجعة الغياب',
       actionRoute: '/attendance',
     },
+    {
+      id: 'alert-hw',
+      severity: 'warning',
+      title: '2 واجبات تنتظر التقييم ورصد الدرجات من الكادر التعليمي',
+      actionLabel: 'مراجعة الواجبات',
+      actionRoute: '/homework',
+    },
   ],
   domainSummary: {
     homework: {
@@ -135,6 +142,13 @@ const mockConsistentDashboardData: DashboardApiResponse = {
       timeAgo: 'الآن',
       timestamp: new Date().toISOString(),
       type: 'system',
+    },
+    {
+      id: 'act-att',
+      title: 'تم تحديث مؤشرات الحضور الصباحي اليوم بنسبة 90.9%',
+      timeAgo: 'اليوم',
+      timestamp: new Date().toISOString(),
+      type: 'attendance',
     },
   ],
   attendanceTrend: [
@@ -189,7 +203,7 @@ const defaultAuthContextValue: AuthContextType = {
   setShowContextModal: vi.fn(),
 };
 
-describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () => {
+describe('DashboardPage (D3.1 Executive Operational Dashboard Polish)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(dashboardService.getDashboardData).mockResolvedValue(mockConsistentDashboardData);
@@ -214,7 +228,7 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
     expect(screen.queryByText(/فجوة موثقة/i)).not.toBeInTheDocument();
   });
 
-  it('renders mathematically consistent scoped KPI values and attendance breakdown', async () => {
+  it('renders mathematically consistent scoped KPI values and contextual subtitles', async () => {
     render(
       <MemoryRouter>
         <DashboardPage />
@@ -225,10 +239,10 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
     expect(await screen.findByText('إجمالي الطلاب')).toBeInTheDocument();
     expect(screen.getByText((11).toLocaleString('ar-EG'))).toBeInTheDocument();
 
-    // Verify Attendance Rate & Consistent Absent / Late counts
+    // Verify Attendance Rate & Contextual Subtitle (10 من 11 طالب)
     expect(screen.getByText('حضور الطلاب اليوم')).toBeInTheDocument();
     expect(screen.getByText('90.9%')).toBeInTheDocument();
-    expect(screen.getByText('▲ 90.9%')).toBeInTheDocument();
+    expect(screen.getByText('10 من 11 طالب')).toBeInTheDocument();
 
     // Verify Absent count is 1 (not 76!)
     expect(screen.getByText('غياب الطلاب')).toBeInTheDocument();
@@ -245,7 +259,21 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
     expect(screen.getByText((10).toLocaleString('ar-EG'))).toBeInTheDocument();
   });
 
-  it('renders Section B (سير اليوم الدراسي) with flow statistics and timeline nodes', async () => {
+  it('renders Section C (يحتاج انتباهك) Attention Inbox with actionable items and counts', async () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('يحتاج انتباهك')).toBeInTheDocument();
+    expect(screen.getByText(/1 طالب غائب اليوم يتطلب المتابعة/)).toBeInTheDocument();
+    expect(screen.getByText(/2 واجبات تنتظر التقييم/)).toBeInTheDocument();
+    expect(screen.getByText('مراجعة الغياب')).toBeInTheDocument();
+    expect(screen.getByText('مراجعة الواجبات')).toBeInTheDocument();
+  });
+
+  it('renders Section D (سير اليوم الدراسي + الحضور اليوم) as an operational pair', async () => {
     render(
       <MemoryRouter>
         <DashboardPage />
@@ -264,9 +292,12 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
 
     expect(screen.getByText('عرض الجدول اليومي')).toBeInTheDocument();
     expect(screen.getByText('متابعة الحصص غير المسجلة')).toBeInTheDocument();
+
+    expect(screen.getByText('الحضور اليوم')).toBeInTheDocument();
+    expect(screen.getByText('حضور المعلمين اليوم')).toBeInTheDocument();
   });
 
-  it('renders Preserved Operations grid: Homework, Exams, Communications, and Activity feed', async () => {
+  it('renders Section E & F Academic Operations 3-card grid: Homework, Exams, Communications', async () => {
     render(
       <MemoryRouter>
         <DashboardPage />
@@ -282,30 +313,51 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
     expect(screen.getByText('التواصل والإشعارات')).toBeInTheDocument();
     expect(screen.getByText('عرض الرسائل')).toBeInTheDocument();
     expect(screen.getAllByText('إنشاء إعلان').length).toBeGreaterThan(0);
-
-    expect(screen.getByText('آخر النشاطات')).toBeInTheDocument();
   });
 
-  it('renders Section G Quick Actions Grid and Section H Attendance Trend chart', async () => {
+  it('renders Section G & H Quick Actions (4 primary + toggleable secondary group) and Attendance Trend', async () => {
     render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>
     );
 
+    // 4 Primary Promoted Actions
     expect(await screen.findByText('إجراءات سريعة')).toBeInTheDocument();
     expect(screen.getByText('إضافة طالب')).toBeInTheDocument();
     expect(screen.getByText('إضافة معلم')).toBeInTheDocument();
     expect(screen.getByText('مراجعة الحضور')).toBeInTheDocument();
-    expect(screen.getByText('تصدير Excel')).toBeInTheDocument();
+    expect(screen.getAllByText('إنشاء إعلان').length).toBeGreaterThan(0);
 
-    // Section H Trend
+    // Secondary actions toggle button
+    const toggleSecondaryBtn = screen.getByText('المزيد من الإجراءات والعمليات');
+    expect(toggleSecondaryBtn).toBeInTheDocument();
+
+    // Click to open secondary actions
+    fireEvent.click(toggleSecondaryBtn);
+    expect(screen.getByText('إنشاء إختبار')).toBeInTheDocument();
+    expect(screen.getByText('تصدير Excel')).toBeInTheDocument();
+    expect(screen.getByText('استيراد بيانات الطلاب')).toBeInTheDocument();
+
+    // Section G Trend
     expect(screen.getByText('اتجاه الحضور خلال آخر 7 أيام')).toBeInTheDocument();
     expect(screen.getByText('Mon')).toBeInTheDocument();
     expect(screen.getByText('Sun')).toBeInTheDocument();
   });
 
-  it('enforces Historical Context read-only state by disabling mutation buttons (Section I)', async () => {
+  it('renders Section I Recent Activity at the bottom with event feed', async () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('آخر النشاطات والتحديثات')).toBeInTheDocument();
+    expect(screen.getByText('تم تسجيل الدخول إلى لوحة الإدارة المدرسية بنجاح')).toBeInTheDocument();
+    expect(screen.getByText(/تم تحديث مؤشرات الحضور الصباحي اليوم/)).toBeInTheDocument();
+  });
+
+  it('enforces Historical Context read-only state by disabling mutation buttons', async () => {
     vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
       ...defaultAuthContextValue,
       isHistorical: true,
@@ -337,9 +389,6 @@ describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () =>
     expect(addTeacherBtn).toBeDisabled();
 
     // Verify non-mutating buttons remain enabled
-    const exportExcelBtn = screen.getByRole('button', { name: /تصدير Excel/ });
-    expect(exportExcelBtn).not.toBeDisabled();
-
     const reviewAttendanceBtn = screen.getByRole('button', { name: /مراجعة الحضور/ });
     expect(reviewAttendanceBtn).not.toBeDisabled();
   });

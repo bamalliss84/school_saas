@@ -4,27 +4,20 @@ import {
   BookOpen,
   FileSpreadsheet,
   MessageSquare,
-  Activity,
-  CheckCircle2,
   Send,
-  UserPlus,
-  Bell,
-  Award,
 } from 'lucide-react';
-import { DomainOperationsSummary, ActivityItem } from '../../types/dashboard';
+import { DomainOperationsSummary } from '../../types/dashboard';
 import { Card, CardHeader, CardTitle, CardBody } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
-interface PreservedOperationsGridProps {
+interface AcademicOperationsGridProps {
   summary: DomainOperationsSummary;
-  activities: ActivityItem[];
   isLoading?: boolean;
 }
 
-export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = ({
+export const AcademicOperationsGrid: React.FC<AcademicOperationsGridProps> = ({
   summary,
-  activities,
   isLoading,
 }) => {
   const navigate = useNavigate();
@@ -32,27 +25,12 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
   if (isLoading) {
     return (
       <div className="dashboard-operations-grid">
-        {[1, 2, 3, 4].map((idx) => (
-          <div key={idx} className="skeleton" style={{ height: '260px', borderRadius: 'var(--radius-xl)' }} />
+        {[1, 2, 3].map((idx) => (
+          <div key={idx} className="skeleton" style={{ height: '240px', borderRadius: 'var(--radius-xl)' }} />
         ))}
       </div>
     );
   }
-
-  const getActivityIcon = (type: ActivityItem['type']) => {
-    switch (type) {
-      case 'exam':
-        return <Award size={14} className="text-warning" />;
-      case 'student':
-        return <UserPlus size={14} className="text-primary" />;
-      case 'announcement':
-        return <Bell size={14} className="text-indigo" />;
-      case 'attendance':
-        return <CheckCircle2 size={14} className="text-success" />;
-      default:
-        return <Activity size={14} className="text-neutral" />;
-    }
-  };
 
   return (
     <div className="dashboard-operations-grid">
@@ -86,12 +64,14 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
               <strong className="ops-metric-value">{summary.homework.activeCount}</strong>
             </div>
             <div className="ops-metric-row">
-              <span className="ops-metric-label">تسليمات اليوم المستحقة</span>
-              <strong className="ops-metric-value">{summary.homework.dueTodayCount}</strong>
+              <span className="ops-metric-label">درجات بانتظار التقييم</span>
+              <strong className={`ops-metric-value ${summary.homework.pendingGradingCount > 0 ? 'text-warning' : ''}`}>
+                {summary.homework.pendingGradingCount}
+              </strong>
             </div>
             <div className="ops-metric-row">
-              <span className="ops-metric-label">درجات بانتظار التقييم</span>
-              <strong className="ops-metric-value text-warning">{summary.homework.pendingGradingCount}</strong>
+              <span className="ops-metric-label">تسليمات اليوم المستحقة</span>
+              <strong className="ops-metric-value">{summary.homework.dueTodayCount}</strong>
             </div>
           </div>
 
@@ -145,22 +125,24 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
         <CardBody style={{ padding: '0.875rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div className="ops-metric-list">
             <div className="ops-metric-row">
-              <span className="ops-metric-label">اختبارات قادمة (Upcoming)</span>
+              <span className="ops-metric-label">اختبارات قادمة</span>
               <strong className="ops-metric-value">{summary.exams.upcomingCount}</strong>
+            </div>
+            <div className="ops-metric-row">
+              <span className="ops-metric-label">نتائج بانتظار الاعتماد الإداري</span>
+              <strong className={`ops-metric-value ${summary.exams.awaitingApprovalCount > 0 ? 'text-danger' : ''}`}>
+                {summary.exams.awaitingApprovalCount}
+              </strong>
             </div>
             <div className="ops-metric-row">
               <span className="ops-metric-label">اختبارات مجدولة اليوم</span>
               <strong className="ops-metric-value">{summary.exams.todayCount}</strong>
             </div>
-            <div className="ops-metric-row">
-              <span className="ops-metric-label">نتائج بانتظار الاعتماد الإداري</span>
-              <strong className="ops-metric-value text-danger">{summary.exams.awaitingApprovalCount}</strong>
-            </div>
           </div>
 
           <div style={{ marginTop: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', marginBottom: '0.25rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>متوسط نسبة النجاح والتفوق</span>
+              <span style={{ color: 'var(--text-secondary)' }}>متوسط نسبة النجاح</span>
               <strong style={{ color: 'var(--success-700)' }}>{summary.exams.averagePassRate}%</strong>
             </div>
             <div className="ops-progress-bar">
@@ -182,7 +164,7 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
         </CardBody>
       </Card>
 
-      {/* 3. التواصل (Communications) */}
+      {/* 3. التواصل والإشعارات (Communications) */}
       <Card className="dashboard-operational-card">
         <CardHeader style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -208,8 +190,10 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
         <CardBody style={{ padding: '0.875rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div className="ops-metric-list">
             <div className="ops-metric-row">
-              <span className="ops-metric-label">رسائل واردة عاجلة (Inbox)</span>
-              <strong className="ops-metric-value text-primary">{summary.communications.urgentMessagesCount}</strong>
+              <span className="ops-metric-label">رسائل واردة عاجلة</span>
+              <strong className={`ops-metric-value ${summary.communications.urgentMessagesCount > 0 ? 'text-primary' : ''}`}>
+                {summary.communications.urgentMessagesCount}
+              </strong>
             </div>
             <div className="ops-metric-row">
               <span className="ops-metric-label">محادثات نشطة</span>
@@ -240,44 +224,6 @@ export const PreservedOperationsGrid: React.FC<PreservedOperationsGridProps> = (
               <Send size={12} />
               <span>إنشاء إعلان</span>
             </Button>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* 4. آخر النشاطات (Recent Activity Feed) */}
-      <Card className="dashboard-operational-card">
-        <CardHeader style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--neutral-100)',
-                color: 'var(--neutral-700)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Activity size={16} />
-            </div>
-            <CardTitle style={{ fontSize: '0.9375rem', fontWeight: 800 }}>آخر النشاطات</CardTitle>
-          </div>
-          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>آخر التحديثات</span>
-        </CardHeader>
-
-        <CardBody style={{ padding: '0.625rem 0.875rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div className="activity-feed-list">
-            {activities.map((item) => (
-              <div key={item.id} className="activity-feed-item">
-                <div className="activity-feed-icon-wrap">{getActivityIcon(item.type)}</div>
-                <div className="activity-feed-content">
-                  <p className="activity-feed-title">{item.title}</p>
-                  <span className="activity-feed-time">{item.timeAgo}</span>
-                </div>
-              </div>
-            ))}
           </div>
         </CardBody>
       </Card>

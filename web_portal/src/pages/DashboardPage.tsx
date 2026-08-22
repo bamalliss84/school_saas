@@ -3,12 +3,13 @@ import { useAuth } from '../context';
 import { dashboardService, DashboardApiResponse } from '../services/dashboardService';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { DashboardKpiGrid } from '../components/dashboard/DashboardKpiGrid';
+import { AttentionAlertsCard } from '../components/dashboard/AttentionAlertsCard';
 import { SchoolDayFlowCard } from '../components/dashboard/SchoolDayFlowCard';
 import { TodayAttendanceCard } from '../components/dashboard/TodayAttendanceCard';
-import { AttentionAlertsCard } from '../components/dashboard/AttentionAlertsCard';
-import { PreservedOperationsGrid } from '../components/dashboard/PreservedOperationsGrid';
-import { QuickActionsGrid } from '../components/dashboard/QuickActionsGrid';
+import { AcademicOperationsGrid } from '../components/dashboard/AcademicOperationsGrid';
 import { AttendanceTrendCard } from '../components/dashboard/AttendanceTrendCard';
+import { QuickActionsGrid } from '../components/dashboard/QuickActionsGrid';
+import { RecentActivityCard } from '../components/dashboard/RecentActivityCard';
 import { ErrorAlert } from '../components/feedback/ErrorAlert';
 import { Clock } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
@@ -41,13 +42,13 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-      {/* 1. Header with Breadcrumbs & Context Greeting */}
+      {/* 1. Section A: Active Context & Page Header */}
       <DashboardHeader
         onRefresh={fetchDashboard}
         isLoading={isLoading}
       />
 
-      {/* 2. Historical Context Alert (Section I in Nano Approved Design) */}
+      {/* Historical Context Alert (Section A / Rule I) */}
       {isLocked && (
         <div
           className="alert alert-warning"
@@ -84,45 +85,44 @@ export const DashboardPage: React.FC = () => {
         />
       )}
 
-      {/* 3. Top KPI Metric Cards Grid (6 cards - Nano Board A) */}
+      {/* 2. Section B: Today's Executive KPIs (6 compact metric cards) */}
       <DashboardKpiGrid metrics={data?.kpis || []} isLoading={isLoading} />
 
-      {/* 4. Primary Operational Grid (Section B & D) */}
-      <div className="dashboard-two-col-grid">
-        {/* Right Column (in RTL): سير اليوم الدراسي + الحضور اليوم */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          {data?.schoolDayFlow && (
-            <SchoolDayFlowCard flow={data.schoolDayFlow} isLoading={isLoading} />
-          )}
-          {data?.attendanceBreakdown && (
-            <TodayAttendanceCard breakdown={data.attendanceBreakdown} isLoading={isLoading} />
-          )}
-        </div>
+      {/* 3. Section C: "يحتاج انتباهك" (High-Priority Executive Attention Inbox) */}
+      {data?.attentionAlerts && (
+        <AttentionAlertsCard alerts={data.attentionAlerts} isLoading={isLoading} />
+      )}
 
-        {/* Left Column (in RTL): يحتاج انتباهك (Attention Alerts) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          {data?.attentionAlerts && (
-            <AttentionAlertsCard alerts={data.attentionAlerts} isLoading={isLoading} />
-          )}
-        </div>
+      {/* 4. Section D: School Day + Today's Attendance (Operational Pair - Side-by-side on desktop) */}
+      <div className="dashboard-two-col-grid">
+        {data?.schoolDayFlow && (
+          <SchoolDayFlowCard flow={data.schoolDayFlow} isLoading={isLoading} />
+        )}
+        {data?.attendanceBreakdown && (
+          <TodayAttendanceCard breakdown={data.attendanceBreakdown} isLoading={isLoading} />
+        )}
       </div>
 
-      {/* 5. Preserved Operations & Communications Grid (Section E & F) */}
+      {/* 5. Section E & F: Academic Operations & Communications (3 Compact Summary Cards) */}
       {data?.domainSummary && (
-        <PreservedOperationsGrid
+        <AcademicOperationsGrid
           summary={data.domainSummary}
-          activities={data.recentActivities || []}
           isLoading={isLoading}
         />
       )}
 
-      {/* 6. Bottom Row: Quick Actions (Section G) & Attendance Trend (Section H) */}
+      {/* 6. Section G & H: Attendance Trend (7-Day) + Quick Actions (4 Promoted + Secondary Group) */}
       <div className="dashboard-two-col-grid">
-        <QuickActionsGrid />
         {data?.attendanceTrend && (
           <AttendanceTrendCard trend={data.attendanceTrend} isLoading={isLoading} />
         )}
+        <QuickActionsGrid />
       </div>
+
+      {/* 7. Section I: Recent Activity & Secondary Events (Positioned Lower) */}
+      {data?.recentActivities && data.recentActivities.length > 0 && (
+        <RecentActivityCard activities={data.recentActivities} isLoading={isLoading} />
+      )}
     </div>
   );
 };
