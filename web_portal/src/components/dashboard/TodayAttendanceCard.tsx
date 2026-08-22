@@ -21,13 +21,17 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({ breakd
     breakdown.presentCount +
     breakdown.absentCount +
     breakdown.lateCount +
-    breakdown.excusedCount +
-    breakdown.pendingCount;
+    breakdown.excusedCount;
 
-  const presentPct = totalRecorded > 0 ? (breakdown.presentCount / totalRecorded) * 100 : 91.8;
-  const absentPct = totalRecorded > 0 ? (breakdown.absentCount / totalRecorded) * 100 : 6.1;
-  const latePct = totalRecorded > 0 ? (breakdown.lateCount / totalRecorded) * 100 : 1.4;
-  const excusedPct = totalRecorded > 0 ? (breakdown.excusedCount / totalRecorded) * 100 : 0.7;
+  const totalPopulation = totalRecorded + breakdown.pendingCount;
+
+  const denominator = totalRecorded > 0 ? totalRecorded : (totalPopulation > 0 ? totalPopulation : 1);
+
+  const presentPct = totalRecorded > 0 ? (breakdown.presentCount / denominator) * 100 : 0;
+  const absentPct = totalRecorded > 0 ? (breakdown.absentCount / denominator) * 100 : 0;
+  const latePct = totalRecorded > 0 ? (breakdown.lateCount / denominator) * 100 : 0;
+  const excusedPct = totalRecorded > 0 ? (breakdown.excusedCount / denominator) * 100 : 0;
+  const pendingPct = totalRecorded === 0 && breakdown.pendingCount > 0 ? 100 : 0;
 
   return (
     <Card className="dashboard-operational-card">
@@ -55,7 +59,13 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({ breakd
             <div className="attendance-teacher-badge" title="حضور الكادر التعليمي اليوم">
               <span className="label">حضور المعلمين اليوم</span>
               <span className="counts">
-                <strong className="text-success">{breakdown.teacherPresentCount}</strong> / {breakdown.teacherTotalCount}
+                {breakdown.teacherTotalCount > 0 ? (
+                  <>
+                    <strong className="text-success">{breakdown.teacherPresentCount}</strong> / {breakdown.teacherTotalCount}
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.6875rem' }}>غير متوفر حالياً</span>
+                )}
               </span>
             </div>
           </div>
@@ -66,10 +76,20 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({ breakd
         {/* Stacked Attendance Progress Bar */}
         <div>
           <div className="attendance-stacked-bar">
-            <div className="bar-segment present" style={{ width: `${presentPct}%` }} title={`حاضر: ${breakdown.presentCount}`} />
-            <div className="bar-segment absent" style={{ width: `${absentPct}%` }} title={`غائب: ${breakdown.absentCount}`} />
-            <div className="bar-segment late" style={{ width: `${latePct}%` }} title={`متأخر: ${breakdown.lateCount}`} />
-            <div className="bar-segment excused" style={{ width: `${excusedPct}%` }} title={`معذور: ${breakdown.excusedCount}`} />
+            {totalRecorded > 0 ? (
+              <>
+                <div className="bar-segment present" style={{ width: `${presentPct}%` }} title={`حاضر: ${breakdown.presentCount}`} />
+                <div className="bar-segment absent" style={{ width: `${absentPct}%` }} title={`غائب: ${breakdown.absentCount}`} />
+                <div className="bar-segment late" style={{ width: `${latePct}%` }} title={`متأخر: ${breakdown.lateCount}`} />
+                <div className="bar-segment excused" style={{ width: `${excusedPct}%` }} title={`معذور: ${breakdown.excusedCount}`} />
+              </>
+            ) : (
+              <div
+                className="bar-segment pending"
+                style={{ width: `${pendingPct || 100}%`, backgroundColor: 'var(--neutral-200)' }}
+                title="لم يُسجل الحضور اليوم بعد"
+              />
+            )}
           </div>
 
           {/* Legend Items Grid */}
@@ -101,7 +121,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({ breakd
             <div className="legend-item">
               <span className="dot pending" />
               <span className="legend-name">لم يسجل بعد</span>
-              <strong className="legend-val">{breakdown.pendingCount}</strong>
+              <strong className="legend-val">{breakdown.pendingCount.toLocaleString('ar-EG')}</strong>
             </div>
           </div>
         </div>

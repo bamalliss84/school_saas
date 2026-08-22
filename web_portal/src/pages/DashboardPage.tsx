@@ -10,7 +10,7 @@ import { PreservedOperationsGrid } from '../components/dashboard/PreservedOperat
 import { QuickActionsGrid } from '../components/dashboard/QuickActionsGrid';
 import { AttendanceTrendCard } from '../components/dashboard/AttendanceTrendCard';
 import { ErrorAlert } from '../components/feedback/ErrorAlert';
-import { Clock, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 
 export const DashboardPage: React.FC = () => {
@@ -18,7 +18,6 @@ export const DashboardPage: React.FC = () => {
   const [data, setData] = useState<DashboardApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showGapDetails, setShowGapDetails] = useState<boolean>(false);
 
   const fetchDashboard = useCallback(async () => {
     setIsLoading(true);
@@ -46,7 +45,6 @@ export const DashboardPage: React.FC = () => {
       <DashboardHeader
         onRefresh={fetchDashboard}
         isLoading={isLoading}
-        isAggregateGap={!data?.meta.isAggregateEndpointAvailable}
       />
 
       {/* 2. Historical Context Alert (Section I in Nano Approved Design) */}
@@ -106,48 +104,6 @@ export const DashboardPage: React.FC = () => {
           {data?.attentionAlerts && (
             <AttentionAlertsCard alerts={data.attentionAlerts} isLoading={isLoading} />
           )}
-
-          {/* Transparent API Gap Note Container */}
-          <div className="dashboard-gap-notice-card">
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-              }}
-              onClick={() => setShowGapDetails(!showGapDetails)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Info size={15} className="text-primary flex-shrink-0" />
-                <span style={{ fontSize: '0.78125rem', fontWeight: 700, color: 'var(--neutral-800)' }}>
-                  تقرير توافق واجهات الـ Backend (W1-D3)
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                  {showGapDetails ? 'إخفاء التفاصيل' : 'عرض فجوات الـ API الموثقة'}
-                </span>
-                {showGapDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </div>
-            </div>
-
-            {showGapDetails && (
-              <div style={{ marginTop: '0.75rem', paddingTop: '0.625rem', borderTop: '1px dashed var(--border-subtle)', fontSize: '0.71875rem', color: 'var(--neutral-600)', lineHeight: 1.5 }}>
-                <p style={{ marginBottom: '0.375rem' }}>
-                  <strong>شفافية البيانات:</strong> بناءً على قواعد المشروع الصارمة (عدم اختلاق أرقام وهمية)، يتم تصنيف المقاييس كما يلي:
-                </p>
-                <ul style={{ paddingRight: '1.25rem', listStyleType: 'disc', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <li>
-                    <strong>حقيقي ومباشر (SUPPORTED_NOW):</strong> سجلات الحضور اليومي، إحصائيات الواجبات، كشوف الاختبارات، الإعلانات والتواصل، الجدول المدرسي، وصلاحيات السياق.
-                  </li>
-                  <li>
-                    <strong>فجوة موثقة (GAP-DASH-01):</strong> نقطة تجميع مؤشرات الأداء الموحدة (`/api/v1/dashboard/admin/`) مجدولة للتفعيل في المرحلة <strong>Phase W2</strong> لتجنب تعدد استدعاءات الشبكة.
-                  </li>
-                </ul>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

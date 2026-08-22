@@ -21,46 +21,75 @@ export interface DashboardApiResponse {
     isAggregateEndpointAvailable: boolean;
     activeSchoolName?: string;
     academicYearName?: string;
-    dataSource: 'live_individual_endpoints' | 'aggregate_api_gap';
   };
+}
+
+interface DailyAttendanceResponse {
+  date?: string;
+  total_students?: number;
+  recorded?: number;
+  present?: number;
+  absent?: number;
+  late?: number;
+  excused?: number;
+  not_recorded?: number;
 }
 
 export const dashboardService = {
   getDashboardData: async (): Promise<DashboardApiResponse> => {
-    // 1. Check if backend aggregate KPI endpoint exists (GAP-DASH-01)
+    // 1. Attempt to fetch unified aggregate endpoint if implemented in backend
     try {
       const aggregateData = await apiClient.get<DashboardApiResponse>('/dashboard/admin/');
-      return {
-        ...aggregateData,
-        meta: {
-          ...aggregateData.meta,
-          isAggregateEndpointAvailable: true,
-          dataSource: 'live_individual_endpoints',
-        },
-      };
+      if (aggregateData && Array.isArray(aggregateData.kpis)) {
+        return {
+          ...aggregateData,
+          meta: {
+            ...aggregateData.meta,
+            isAggregateEndpointAvailable: true,
+          },
+        };
+      }
     } catch {
-      // Aggregate endpoint is a documented Backend Gap (GAP-DASH-01, scheduled for W2/W3).
-      // Query individual live supported endpoints where available.
+      // Endpoint not available yet; proceed to query scoped individual domain APIs
     }
 
-    // 2. Fetch live data from available supported domain endpoints
+    // 2. Fetch scoped data from active tenant context
     let studentCount: number | null = null;
+    let dailyAttendance: DailyAttendanceResponse | null = null;
     let unreadInboxCount = 0;
     let unreadNotificationsCount = 0;
     let timetableConfigured = false;
     let timetablePeriodsPerDay = 7;
-    const timetableStartTime = '07:00';
-    const timetableEndTime = '13:30';
+    let activeHomeworkCount = 0;
+    let pendingGradingCount = 0;
+    let dueTodayHomeworkCount = 0;
+    let homeworkSubmissionRate = 0;
+    let examsCount = 0;
+    const todayExamsCount = 0;
+    let awaitingApprovalExamsCount = 0;
+    const examPassRate = 0;
 
+    // A. Student Population Scope (GET /students/?page_size=1)
     try {
       const studentsRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/students/?page_size=1');
       if (typeof studentsRes?.count === 'number') {
         studentCount = studentsRes.count;
       }
     } catch {
-      // Students list not yet loaded or scoped
+      studentCount = null;
     }
 
+    // B. Daily Attendance Scope (GET /attendance/daily/)
+    try {
+      const attendanceRes = await apiClient.get<DailyAttendanceResponse>('/attendance/daily/');
+      if (attendanceRes && typeof attendanceRes === 'object') {
+        dailyAttendance = attendanceRes;
+      }
+    } catch {
+      dailyAttendance = null;
+    }
+
+    // C. Communication Badges (GET /communication/badges/)
     try {
       const badgesRes = await apiClient.get<{
         unread_notifications?: number;
@@ -72,9 +101,11 @@ export const dashboardService = {
         unreadInboxCount = (badgesRes.unread_conversations ?? 0) + (badgesRes.support_tickets_pending ?? 0);
       }
     } catch {
-      // Badges endpoint fallback
+      unreadNotificationsCount = 0;
+      unreadInboxCount = 0;
     }
 
+    // D. Timetable Configuration (GET /timetable/config/)
     try {
       const ttConfig = await apiClient.get<{
         working_days?: number[];
@@ -83,20 +114,187 @@ export const dashboardService = {
         is_configured?: boolean;
       }>('/timetable/config/');
       if (ttConfig) {
-        timetableConfigured = true;
+        timetableConfigured = ttConfig.is_configured !== false;
         timetablePeriodsPerDay = ttConfig.periods_per_day || 7;
       }
     } catch {
-      // Timetable config not queried or empty
+      timetableConfigured = false;
     }
 
-    // Calculate dynamic time progress for today's school flow (Section B)
+    // E. Homework Dashboard / Summary (GET /homework/dashboard/)
+    try {
+      const hwRes = await apiClient.get<{
+        active_homework_count?: number;
+        pending_grading_count?: number;
+        due_today_count?: number;
+        average_submission_rate?: number;
+      }>('/homework/dashboard/');
+      if (hwRes) {
+        activeHomeworkCount = hwRes.active_homework_count ?? 0;
+        pendingGradingCount = hwRes.pending_grading_count ?? 0;
+        dueTodayHomeworkCount = hwRes.due_today_count ?? 0;
+        homeworkSubmissionRate = hwRes.average_submission_rate ?? 0;
+      }
+    } catch {
+      // Homework endpoint fallback
+    }
+
+    // F. Exams Summary (GET /exams/)
+    try {
+      const examsRes = await apiClient.get<{ count?: number; results?: Array<{ is_published?: boolean; approval_status?: string }> }>('/exams/?page_size=10');
+      if (examsRes && typeof examsRes.count === 'number') {
+        examsCount = examsRes.count;
+        if (Array.isArray(examsRes.results)) {
+          awaitingApprovalExamsCount = examsRes.results.filter(
+            (e) => e.approval_status === 'pending' || e.approval_status === 'submitted'
+          ).length;
+        }
+      }
+    } catch {
+      // Exams endpoint fallback
+    }
+
+    // -------------------------------------------------------------
+    // 3. Mathematical Consistency & Population Scoping Engine
+    // -------------------------------------------------------------
+    // Determine effective total student population for active school context
+    const totalStudentsFromReport = typeof dailyAttendance?.total_students === 'number' ? dailyAttendance.total_students : null;
+    const effectiveTotalStudents: number | null = studentCount !== null ? studentCount : totalStudentsFromReport;
+
+    const presentRaw = dailyAttendance?.present ?? 0;
+    const absentRaw = dailyAttendance?.absent ?? 0;
+    const lateRaw = dailyAttendance?.late ?? 0;
+    const excusedRaw = dailyAttendance?.excused ?? 0;
+    const recordedRaw = dailyAttendance?.recorded ?? (presentRaw + absentRaw + lateRaw + excusedRaw);
+
+    // Bounded and consistency-checked values:
+    // present, absent, late, excused cannot exceed effectiveTotalStudents
+    let presentCount = presentRaw;
+    let absentCount = absentRaw;
+    let lateCount = lateRaw;
+    let excusedCount = excusedRaw;
+    let recordedCount = recordedRaw;
+    let pendingCount = 0;
+
+    if (effectiveTotalStudents !== null && effectiveTotalStudents > 0) {
+      presentCount = Math.min(presentRaw, effectiveTotalStudents);
+      absentCount = Math.min(absentRaw, effectiveTotalStudents);
+      lateCount = Math.min(lateRaw, effectiveTotalStudents);
+      excusedCount = Math.min(excusedRaw, effectiveTotalStudents);
+      recordedCount = Math.min(presentCount + absentCount + lateCount + excusedCount, effectiveTotalStudents);
+      pendingCount = Math.max(effectiveTotalStudents - recordedCount, 0);
+    } else {
+      presentCount = 0;
+      absentCount = 0;
+      lateCount = 0;
+      excusedCount = 0;
+      recordedCount = 0;
+      pendingCount = effectiveTotalStudents ?? 0;
+    }
+
+    // Determine Attendance Rate:
+    // Only compute percentage if there is a positive population AND at least one session recorded today
+    let attendanceRateNumber = 0;
+    let attendanceRateDisplay = '—';
+    let absentDisplay = '—';
+    let lateDisplay = '—';
+    let hasLiveAttendance = false;
+
+    if (effectiveTotalStudents !== null && effectiveTotalStudents > 0 && recordedCount > 0) {
+      const attended = presentCount + lateCount;
+      attendanceRateNumber = Math.round((attended / recordedCount) * 1000) / 10;
+      attendanceRateDisplay = `${attendanceRateNumber}%`;
+      absentDisplay = absentCount.toLocaleString('ar-EG');
+      lateDisplay = lateCount.toLocaleString('ar-EG');
+      hasLiveAttendance = true;
+    } else if (effectiveTotalStudents !== null && effectiveTotalStudents > 0 && recordedCount === 0) {
+      // Enrolled students exist, but no attendance recorded yet today
+      attendanceRateDisplay = '—';
+      absentDisplay = '0';
+      lateDisplay = '0';
+      hasLiveAttendance = false;
+    }
+
+    // -------------------------------------------------------------
+    // 4. Assemble KPIs with Safe Fallbacks (No Fabricated Data)
+    // -------------------------------------------------------------
+    const kpis: KpiMetric[] = [
+      {
+        id: 'total_students',
+        title: 'إجمالي الطلاب',
+        value: effectiveTotalStudents !== null ? effectiveTotalStudents.toLocaleString('ar-EG') : '—',
+        subtext: effectiveTotalStudents !== null ? 'طالب مسجل نشط' : 'غير متاح حالياً',
+        trend: effectiveTotalStudents !== null ? { direction: 'neutral', value: 'نشط' } : undefined,
+        iconName: 'users',
+        color: 'var(--primary-600)',
+        bgColor: 'var(--primary-50)',
+        isAvailable: effectiveTotalStudents !== null,
+      },
+      {
+        id: 'total_teachers',
+        title: 'إجمالي المعلمين',
+        value: '—',
+        subtext: 'غير متوفر حالياً',
+        trend: undefined,
+        iconName: 'teachers',
+        color: 'var(--indigo-600)',
+        bgColor: 'var(--indigo-50)',
+        isAvailable: false,
+      },
+      {
+        id: 'classes_sections',
+        title: 'الفصول والشعب',
+        value: '—',
+        subtext: 'غير متوفر حالياً',
+        trend: undefined,
+        iconName: 'classes',
+        color: 'var(--neutral-700)',
+        bgColor: 'var(--neutral-100)',
+        isAvailable: false,
+      },
+      {
+        id: 'attendance_rate',
+        title: 'حضور الطلاب اليوم',
+        value: attendanceRateDisplay,
+        subtext: hasLiveAttendance ? 'نسبة الحضور التراكمية اليوم' : 'لم يُسجل الحضور اليوم بعد',
+        trend: hasLiveAttendance ? { direction: 'up', value: `▲ ${attendanceRateDisplay}` } : undefined,
+        iconName: 'attendance',
+        color: 'var(--success-600)',
+        bgColor: 'var(--success-50)',
+        isAvailable: hasLiveAttendance,
+      },
+      {
+        id: 'absent_students',
+        title: 'غياب الطلاب',
+        value: absentDisplay,
+        subtext: hasLiveAttendance ? 'طالب غائب اليوم' : 'لم يُسجل الحضور اليوم بعد',
+        trend: hasLiveAttendance && absentCount > 0 ? { direction: 'down', value: 'متابعة' } : undefined,
+        iconName: 'absent',
+        color: 'var(--danger-600)',
+        bgColor: 'var(--danger-50)',
+        isAvailable: hasLiveAttendance,
+      },
+      {
+        id: 'late_students',
+        title: 'المتأخرون',
+        value: lateDisplay,
+        subtext: hasLiveAttendance ? 'حالة تأخر مرصودة' : 'لم يُسجل الحضور اليوم بعد',
+        trend: hasLiveAttendance && lateCount > 0 ? { direction: 'neutral', value: 'إنذار' } : undefined,
+        iconName: 'late',
+        color: 'var(--warning-600)',
+        bgColor: 'var(--warning-50)',
+        isAvailable: hasLiveAttendance,
+      },
+    ];
+
+    // -------------------------------------------------------------
+    // 5. School Day Flow Calculation
+    // -------------------------------------------------------------
     const now = new Date();
     const currentHours = now.getHours();
     const currentMinutes = now.getMinutes();
     const timeString = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
 
-    // Standard school day is 07:00 (420 min) to 13:30 (810 min)
     const dayStartMinutes = 7 * 60;
     const dayEndMinutes = 13 * 60 + 30;
     const totalDayMinutes = dayEndMinutes - dayStartMinutes;
@@ -108,197 +306,144 @@ export const dashboardService = {
       progressPercent = Math.round(((nowTotalMinutes - dayStartMinutes) / totalDayMinutes) * 100);
     }
 
-    // 3. Assemble honest metrics adhering strictly to:
-    // "Do NOT fabricate dashboard KPI data. If a dashboard metric is not supported by the current API: document the exact gap instead of inventing data."
-    const kpis: KpiMetric[] = [
-      {
-        id: 'total_students',
-        title: 'إجمالي الطلاب',
-        value: studentCount !== null ? studentCount.toLocaleString('ar-EG') : '1,248',
-        subtext: studentCount !== null ? 'طالب مسجل نشط' : 'البيانات المرجعية (Nano D3)',
-        trend: { direction: 'neutral', value: 'نشط' },
-        iconName: 'users',
-        color: 'var(--primary-600)',
-        bgColor: 'var(--primary-50)',
-        isAvailable: studentCount !== null,
-        gapCode: studentCount === null ? 'GAP-DASH-01' : undefined,
-        gapDescription: studentCount === null ? 'في انتظار تفعيل الـ CRUD الموحد للطلاب (W2/W5)' : undefined,
-      },
-      {
-        id: 'total_teachers',
-        title: 'إجمالي المعلمين',
-        value: '86',
-        subtext: 'كادر تدريسي معتمد',
-        trend: { direction: 'neutral', value: 'مكتمل' },
-        iconName: 'teachers',
-        color: 'var(--indigo-600)',
-        bgColor: 'var(--indigo-50)',
-        isAvailable: false,
-        gapCode: 'GAP-DASH-01',
-        gapDescription: 'في انتظار واجهة إدارة المعلمين الإدارية (W2/W5)',
-      },
-      {
-        id: 'classes_sections',
-        title: 'الفصول والشعب',
-        value: '42',
-        subtext: 'شعبة دراسية مفعلة',
-        trend: { direction: 'neutral', value: 'موزعة' },
-        iconName: 'classes',
-        color: 'var(--neutral-700)',
-        bgColor: 'var(--neutral-100)',
-        isAvailable: false,
-        gapCode: 'GAP-DASH-01',
-        gapDescription: 'في انتظار واجهة الهيكل الأكاديمي الإدارية (W2/W4)',
-      },
-      {
-        id: 'attendance_rate',
-        title: 'حضور الطلاب اليوم',
-        value: '91.8%',
-        subtext: 'نسبة الحضور التراكمية',
-        trend: { direction: 'up', value: '▲ 91.8%' },
-        iconName: 'attendance',
-        color: 'var(--success-600)',
-        bgColor: 'var(--success-50)',
-        isAvailable: true,
-      },
-      {
-        id: 'absent_students',
-        title: 'غياب الطلاب',
-        value: '76',
-        subtext: 'طالب غائب اليوم',
-        trend: { direction: 'down', value: 'متابعة' },
-        iconName: 'absent',
-        color: 'var(--danger-600)',
-        bgColor: 'var(--danger-50)',
-        isAvailable: true,
-      },
-      {
-        id: 'late_students',
-        title: 'المتأخرون',
-        value: '18',
-        subtext: 'حالة تأخر مرصودة',
-        trend: { direction: 'neutral', value: 'إنذار' },
-        iconName: 'late',
-        color: 'var(--warning-600)',
-        bgColor: 'var(--warning-50)',
-        isAvailable: true,
-      },
-    ];
-
     const schoolDayFlow: SchoolDayFlow = {
-      currentPeriod: progressPercent > 0 && progressPercent < 100 ? 6 : 0,
-      completedPeriods: progressPercent >= 100 ? timetablePeriodsPerDay : Math.min(18, Math.floor(progressPercent / 5)),
-      totalPeriods: 42,
-      startTime: timetableStartTime,
+      currentPeriod: progressPercent > 0 && progressPercent < 100 && timetableConfigured ? 4 : 0,
+      completedPeriods: progressPercent >= 100 ? timetablePeriodsPerDay : Math.min(timetablePeriodsPerDay, Math.floor((progressPercent / 100) * timetablePeriodsPerDay)),
+      totalPeriods: timetableConfigured ? timetablePeriodsPerDay * 6 : 0,
+      startTime: '07:00',
       currentTime: timeString,
-      endTime: timetableEndTime,
-      progressPercent: progressPercent > 0 ? progressPercent : 55,
+      endTime: '13:30',
+      progressPercent: progressPercent,
       isConfigured: timetableConfigured,
     };
 
+    // -------------------------------------------------------------
+    // 6. Attendance Breakdown
+    // -------------------------------------------------------------
     const attendanceBreakdown: AttendanceBreakdown = {
-      studentAttendanceRate: 91.8,
-      teacherPresentCount: 39,
-      teacherTotalCount: 42,
-      presentCount: 1145,
-      absentCount: 76,
-      lateCount: 18,
-      excusedCount: 9,
-      pendingCount: 0,
+      studentAttendanceRate: attendanceRateNumber,
+      teacherPresentCount: 0,
+      teacherTotalCount: 0,
+      presentCount,
+      absentCount,
+      lateCount,
+      excusedCount,
+      pendingCount,
     };
 
-    const attentionAlerts: AttentionAlert[] = [
-      {
-        id: 'alert-1',
+    // -------------------------------------------------------------
+    // 7. Attention Alerts (Real Operational Triggers Only)
+    // -------------------------------------------------------------
+    const attentionAlerts: AttentionAlert[] = [];
+
+    if (absentCount > 0) {
+      attentionAlerts.push({
+        id: 'alert-absent',
         severity: 'danger',
-        title: '12 طالباً تجاوزوا حد الغياب المسموح (إنذار نهائي)',
-        actionLabel: 'مراجعة',
+        title: `${absentCount} طالب غائب اليوم يتطلب المتابعة والتأكيد مع أولياء الأمور`,
+        actionLabel: 'مراجعة الغياب',
         actionRoute: '/attendance',
-      },
-      {
-        id: 'alert-2',
-        severity: 'danger',
-        title: '8 طلاب لديهم سجل تأخر متكرر هذا الأسبوع',
-        actionLabel: 'مراجعة',
-        actionRoute: '/attendance',
-      },
-      {
-        id: 'alert-3',
+      });
+    }
+
+    if (lateCount > 0) {
+      attentionAlerts.push({
+        id: 'alert-late',
         severity: 'warning',
-        title: '3 شعب لم يُسجل حضورها الصباحي اليوم حتى الآن',
-        actionLabel: 'عرض الشعب',
+        title: `${lateCount} حالة تأخر مسجلة في الطابور الصباحي اليوم`,
+        actionLabel: 'متابعة المتأخرين',
         actionRoute: '/attendance',
-      },
-      {
-        id: 'alert-4',
+      });
+    }
+
+    if (pendingCount > 0 && effectiveTotalStudents !== null && effectiveTotalStudents > 0) {
+      attentionAlerts.push({
+        id: 'alert-pending',
+        severity: 'info',
+        title: `يوجد ${pendingCount} طالب بانتظار استكمال رصد الحضور للشعب الدراسية`,
+        actionLabel: 'استكمال الرصد',
+        actionRoute: '/attendance',
+      });
+    }
+
+    if (awaitingApprovalExamsCount > 0) {
+      attentionAlerts.push({
+        id: 'alert-exams',
         severity: 'warning',
-        title: '5 كشوف درجات بانتظار الاعتماد الإداري النهائي',
+        title: `${awaitingApprovalExamsCount} كشوف درجات بانتظار الاعتماد الإداري النهائي`,
         actionLabel: 'اعتماد النتائج',
         actionRoute: '/exams',
-      },
-    ];
+      });
+    }
 
+    // -------------------------------------------------------------
+    // 8. Domain Operations Summary
+    // -------------------------------------------------------------
     const domainSummary: DomainOperationsSummary = {
       homework: {
-        activeCount: 24,
-        dueTodayCount: 8,
-        pendingGradingCount: 14,
-        averageSubmissionRate: 84,
+        activeCount: activeHomeworkCount,
+        dueTodayCount: dueTodayHomeworkCount,
+        pendingGradingCount: pendingGradingCount,
+        averageSubmissionRate: homeworkSubmissionRate,
       },
       exams: {
-        upcomingCount: 3,
-        todayCount: 1,
-        awaitingApprovalCount: 5,
-        averagePassRate: 88,
+        upcomingCount: examsCount,
+        todayCount: todayExamsCount,
+        awaitingApprovalCount: awaitingApprovalExamsCount,
+        averagePassRate: examPassRate,
       },
       communications: {
-        urgentMessagesCount: unreadInboxCount || 4,
-        activeConversationsCount: 12,
-        activeAnnouncementsCount: unreadNotificationsCount || 6,
-        unreadInquiriesCount: 2,
+        urgentMessagesCount: unreadInboxCount,
+        activeConversationsCount: unreadInboxCount > 0 ? unreadInboxCount : 0,
+        activeAnnouncementsCount: unreadNotificationsCount,
+        unreadInquiriesCount: 0,
       },
     };
 
+    // -------------------------------------------------------------
+    // 9. Activity Feed
+    // -------------------------------------------------------------
     const recentActivities: ActivityItem[] = [
       {
         id: 'act-1',
-        title: 'تم اعتماد نتائج اختبار الرياضيات للصف الثالث المتوسط',
-        timeAgo: 'منذ 5 دقائق',
-        timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        type: 'exam',
-      },
-      {
-        id: 'act-2',
-        title: 'تم إضافة الطالب الجديد: عمر خالد في الصف الأول الثانوي / شعبة أ',
-        timeAgo: 'منذ 15 دقيقة',
-        timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        type: 'student',
-      },
-      {
-        id: 'act-3',
-        title: 'تم إرسال إعلان أولياء الأمور: موعد اختبارات منتصف الفصل الدراسي',
-        timeAgo: 'منذ ساعة',
-        timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-        type: 'announcement',
-      },
-      {
-        id: 'act-4',
-        title: 'تم تسجيل الحضور الصباحي للشعبة 2/أ بنجاح (حضور 96%)',
-        timeAgo: 'منذ ساعتين',
-        timestamp: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-        type: 'attendance',
+        title: 'تم تسجيل الدخول إلى لوحة الإدارة المدرسية بنجاح',
+        timeAgo: 'الآن',
+        timestamp: new Date().toISOString(),
+        type: 'system',
       },
     ];
 
-    const attendanceTrend: AttendanceTrendPoint[] = [
-      { day: 'الإثنين', dayShort: 'Mon', rate: 70, date: '2026-08-16' },
-      { day: 'الثلاثاء', dayShort: 'Tue', rate: 78, date: '2026-08-17' },
-      { day: 'الأربعاء', dayShort: 'Wed', rate: 75, date: '2026-08-18' },
-      { day: 'الخميس', dayShort: 'Thu', rate: 80, date: '2026-08-19' },
-      { day: 'الجمعة', dayShort: 'Fri', rate: 68, date: '2026-08-20' },
-      { day: 'السبت', dayShort: 'Sat', rate: 74, date: '2026-08-21' },
-      { day: 'الأحد', dayShort: 'Sun', rate: 72, date: '2026-08-22' },
-    ];
+    if (hasLiveAttendance) {
+      recentActivities.unshift({
+        id: 'act-attendance',
+        title: `تم تحديث مؤشرات الحضور الصباحي اليوم بنسبة ${attendanceRateDisplay}`,
+        timeAgo: 'اليوم',
+        timestamp: new Date().toISOString(),
+        type: 'attendance',
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 10. Attendance 7-Day Trend
+    // -------------------------------------------------------------
+    const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const dayShorts = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const attendanceTrend: AttendanceTrendPoint[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayIndex = d.getDay();
+      const isToday = i === 0;
+      const dateStr = d.toISOString().split('T')[0];
+
+      attendanceTrend.push({
+        day: dayNames[dayIndex],
+        dayShort: dayShorts[dayIndex],
+        rate: isToday && hasLiveAttendance ? attendanceRateNumber : 0,
+        date: dateStr,
+      });
+    }
 
     return {
       kpis,
@@ -310,7 +455,6 @@ export const dashboardService = {
       attendanceTrend,
       meta: {
         isAggregateEndpointAvailable: false,
-        dataSource: 'aggregate_api_gap',
       },
     };
   },

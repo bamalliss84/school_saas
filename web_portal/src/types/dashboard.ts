@@ -26,8 +26,6 @@ export interface KpiMetric {
   color: string;
   bgColor: string;
   isAvailable: boolean;
-  gapCode?: string;
-  gapDescription?: string;
 }
 
 export interface SchoolDayFlow {
@@ -58,7 +56,6 @@ export interface AttentionAlert {
   title: string;
   actionLabel: string;
   actionRoute: string;
-  gapCode?: string;
 }
 
 export interface DomainOperationsSummary {

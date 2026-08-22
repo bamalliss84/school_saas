@@ -1,5 +1,5 @@
 import React from 'react';
-import { School, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { School, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -7,22 +7,20 @@ import { Button } from '../ui/Button';
 interface DashboardHeaderProps {
   onRefresh: () => void;
   isLoading: boolean;
-  isAggregateGap: boolean;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onRefresh,
   isLoading,
-  isAggregateGap,
 }) => {
   const { user, activeMembership, setShowContextModal } = useAuth();
 
   // Dynamic Arabic greeting based on time of day
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'صباح الخير' : 'مساء الخير';
-  const userName = user?.full_name || user?.username || 'أحمد محمد';
-  const schoolName = activeMembership?.school?.name || 'مدرسة النور الأهلية';
-  const yearName = activeMembership?.academic_year?.name || 'العام الدراسي 2026/2027';
+  const userName = user?.full_name || user?.username || 'مدير المدرسة';
+  const schoolName = activeMembership?.school?.name || 'المدرسة الحالية';
+  const yearName = activeMembership?.academic_year?.name || 'العام الدراسي الحالي';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
@@ -38,11 +36,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {isAggregateGap && (
-            <Badge variant="warning" icon={<AlertCircle size={12} />}>
-              واجهة التجميع الموحدة (W2/W3 Gap)
-            </Badge>
-          )}
           <Button
             variant="outline"
             size="sm"

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
 import * as UseAuthModule from '../context/useAuth';
+import { AuthContextType } from '../context/authContextDef';
 import { dashboardService, DashboardApiResponse } from '../services/dashboardService';
 
 // Mock dashboardService
@@ -12,37 +13,34 @@ vi.mock('../services/dashboardService', () => ({
   },
 }));
 
-const mockDashboardData: DashboardApiResponse = {
+const mockConsistentDashboardData: DashboardApiResponse = {
   kpis: [
     {
       id: 'total_students',
       title: 'إجمالي الطلاب',
-      value: '1,248',
+      value: (11).toLocaleString('ar-EG'),
       subtext: 'طالب مسجل نشط',
       trend: { direction: 'neutral', value: 'نشط' },
       iconName: 'users',
       color: 'var(--primary-600)',
       bgColor: 'var(--primary-50)',
-      isAvailable: false,
-      gapCode: 'GAP-DASH-01',
-      gapDescription: 'في انتظار تفعيل الـ CRUD الموحد للطلاب (W2/W5)',
+      isAvailable: true,
     },
     {
       id: 'total_teachers',
       title: 'إجمالي المعلمين',
-      value: '86',
-      subtext: 'كادر تدريسي معتمد',
+      value: '—',
+      subtext: 'غير متوفر حالياً',
       iconName: 'teachers',
       color: 'var(--indigo-600)',
       bgColor: 'var(--indigo-50)',
       isAvailable: false,
-      gapCode: 'GAP-DASH-01',
     },
     {
       id: 'classes_sections',
       title: 'الفصول والشعب',
-      value: '42',
-      subtext: 'شعبة دراسية مفعلة',
+      value: '—',
+      subtext: 'غير متوفر حالياً',
       iconName: 'classes',
       color: 'var(--neutral-700)',
       bgColor: 'var(--neutral-100)',
@@ -51,9 +49,9 @@ const mockDashboardData: DashboardApiResponse = {
     {
       id: 'attendance_rate',
       title: 'حضور الطلاب اليوم',
-      value: '91.8%',
-      subtext: 'نسبة الحضور التراكمية',
-      trend: { direction: 'up', value: '▲ 91.8%' },
+      value: '90.9%',
+      subtext: 'نسبة الحضور التراكمية اليوم',
+      trend: { direction: 'up', value: '▲ 90.9%' },
       iconName: 'attendance',
       color: 'var(--success-600)',
       bgColor: 'var(--success-50)',
@@ -62,8 +60,9 @@ const mockDashboardData: DashboardApiResponse = {
     {
       id: 'absent_students',
       title: 'غياب الطلاب',
-      value: '76',
+      value: (1).toLocaleString('ar-EG'),
       subtext: 'طالب غائب اليوم',
+      trend: { direction: 'down', value: 'متابعة' },
       iconName: 'absent',
       color: 'var(--danger-600)',
       bgColor: 'var(--danger-50)',
@@ -72,7 +71,7 @@ const mockDashboardData: DashboardApiResponse = {
     {
       id: 'late_students',
       title: 'المتأخرون',
-      value: '18',
+      value: (0).toLocaleString('ar-EG'),
       subtext: 'حالة تأخر مرصودة',
       iconName: 'late',
       color: 'var(--warning-600)',
@@ -81,8 +80,8 @@ const mockDashboardData: DashboardApiResponse = {
     },
   ],
   schoolDayFlow: {
-    currentPeriod: 6,
-    completedPeriods: 18,
+    currentPeriod: 4,
+    completedPeriods: 3,
     totalPeriods: 42,
     startTime: '07:00',
     currentTime: '10:35',
@@ -91,109 +90,88 @@ const mockDashboardData: DashboardApiResponse = {
     isConfigured: true,
   },
   attendanceBreakdown: {
-    studentAttendanceRate: 91.8,
-    teacherPresentCount: 39,
-    teacherTotalCount: 42,
-    presentCount: 1145,
-    absentCount: 76,
-    lateCount: 18,
-    excusedCount: 9,
+    studentAttendanceRate: 90.9,
+    teacherPresentCount: 0,
+    teacherTotalCount: 0,
+    presentCount: 10,
+    absentCount: 1,
+    lateCount: 0,
+    excusedCount: 0,
     pendingCount: 0,
   },
   attentionAlerts: [
     {
       id: 'alert-1',
       severity: 'danger',
-      title: '12 طالباً تجاوزوا حد الغياب المسموح (إنذار نهائي)',
-      actionLabel: 'مراجعة',
+      title: '1 طالب غائب اليوم يتطلب المتابعة والتأكيد مع أولياء الأمور',
+      actionLabel: 'مراجعة الغياب',
       actionRoute: '/attendance',
-    },
-    {
-      id: 'alert-2',
-      severity: 'danger',
-      title: '8 طلاب لديهم سجل تأخر متكرر هذا الأسبوع',
-      actionLabel: 'مراجعة',
-      actionRoute: '/attendance',
-    },
-    {
-      id: 'alert-3',
-      severity: 'warning',
-      title: '3 شعب لم يُسجل حضورها الصباحي اليوم حتى الآن',
-      actionLabel: 'عرض الشعب',
-      actionRoute: '/attendance',
-    },
-    {
-      id: 'alert-4',
-      severity: 'warning',
-      title: '5 كشوف درجات بانتظار الاعتماد الإداري النهائي',
-      actionLabel: 'اعتماد النتائج',
-      actionRoute: '/exams',
     },
   ],
   domainSummary: {
     homework: {
-      activeCount: 24,
-      dueTodayCount: 8,
-      pendingGradingCount: 14,
-      averageSubmissionRate: 84,
+      activeCount: 4,
+      dueTodayCount: 1,
+      pendingGradingCount: 2,
+      averageSubmissionRate: 85,
     },
     exams: {
-      upcomingCount: 3,
-      todayCount: 1,
-      awaitingApprovalCount: 5,
-      averagePassRate: 88,
+      upcomingCount: 2,
+      todayCount: 0,
+      awaitingApprovalCount: 1,
+      averagePassRate: 90,
     },
     communications: {
-      urgentMessagesCount: 4,
-      activeConversationsCount: 12,
-      activeAnnouncementsCount: 6,
-      unreadInquiriesCount: 2,
+      urgentMessagesCount: 1,
+      activeConversationsCount: 1,
+      activeAnnouncementsCount: 3,
+      unreadInquiriesCount: 0,
     },
   },
   recentActivities: [
     {
       id: 'act-1',
-      title: 'تم اعتماد نتائج اختبار الرياضيات للصف الثالث المتوسط',
-      timeAgo: 'منذ 5 دقائق',
+      title: 'تم تسجيل الدخول إلى لوحة الإدارة المدرسية بنجاح',
+      timeAgo: 'الآن',
       timestamp: new Date().toISOString(),
-      type: 'exam',
+      type: 'system',
     },
   ],
   attendanceTrend: [
-    { day: 'الإثنين', dayShort: 'Mon', rate: 70, date: '2026-08-16' },
-    { day: 'الثلاثاء', dayShort: 'Tue', rate: 78, date: '2026-08-17' },
-    { day: 'الأربعاء', dayShort: 'Wed', rate: 75, date: '2026-08-18' },
-    { day: 'الخميس', dayShort: 'Thu', rate: 80, date: '2026-08-19' },
-    { day: 'الجمعة', dayShort: 'Fri', rate: 68, date: '2026-08-20' },
-    { day: 'السبت', dayShort: 'Sat', rate: 74, date: '2026-08-21' },
-    { day: 'الأحد', dayShort: 'Sun', rate: 72, date: '2026-08-22' },
+    { day: 'الإثنين', dayShort: 'Mon', rate: 0, date: '2026-08-16' },
+    { day: 'الثلاثاء', dayShort: 'Tue', rate: 0, date: '2026-08-17' },
+    { day: 'الأربعاء', dayShort: 'Wed', rate: 0, date: '2026-08-18' },
+    { day: 'الخميس', dayShort: 'Thu', rate: 0, date: '2026-08-19' },
+    { day: 'الجمعة', dayShort: 'Fri', rate: 0, date: '2026-08-20' },
+    { day: 'السبت', dayShort: 'Sat', rate: 0, date: '2026-08-21' },
+    { day: 'الأحد', dayShort: 'Sun', rate: 90.9, date: '2026-08-22' },
   ],
   meta: {
     isAggregateEndpointAvailable: false,
-    dataSource: 'aggregate_api_gap',
   },
 };
 
-const defaultAuthContextValue = {
+const defaultAuthContextValue: AuthContextType = {
   user: {
     id: 1,
     username: 'admin_ahmed',
     email: 'admin@alnoor.edu.sa',
-    first_name: 'أحمد',
-    last_name: 'محمد',
     full_name: 'أحمد محمد',
     role: 'school_admin',
-    is_active: true,
   },
   activeMembership: {
     membership_id: 10,
-    school: { id: 1, name: 'مدرسة النور الأهلية', code: 'NOOR', is_active: true },
+    school: { id: 1, name: 'مدرسة النور الأهلية' },
     role: 'school_admin',
-    role_display: 'مدير المدرسة',
-    academic_year: { id: 1, name: 'العام الدراسي 2026/2027', is_active: true },
-    access_mode: 'full_access',
+    academic_year: { id: 1, name: 'العام الدراسي 2026/2027' },
+    access_mode: 'read_write',
     status: 'active',
     is_default: true,
+    is_current_school: true,
+    can_write: true,
+    start_date: '2026-09-01',
+    end_date: null,
+    last_used_at: null,
     unread_notifications_count: 3,
     unread_conversations_count: 2,
   },
@@ -211,44 +189,60 @@ const defaultAuthContextValue = {
   setShowContextModal: vi.fn(),
 };
 
-describe('DashboardPage (W1-D3 Operational Dashboard)', () => {
+describe('DashboardPage (W1-D3 Operational Dashboard Production Closure)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(dashboardService.getDashboardData).mockResolvedValue(mockDashboardData);
-    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue(defaultAuthContextValue as any);
+    vi.mocked(dashboardService.getDashboardData).mockResolvedValue(mockConsistentDashboardData);
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue(defaultAuthContextValue);
   });
 
-  it('renders header, greeting banner, and all 6 KPI cards according to approved Nano D3', async () => {
+  it('renders clean School Admin UI WITHOUT any GAP-DASH-01 or developer diagnostic labels', async () => {
     render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>
     );
 
-    // Check Header & Context Greeting
+    // Wait for content to render
     expect(await screen.findByText(/أحمد محمد/)).toBeInTheDocument();
-    expect(screen.getByText('مدرسة النور الأهلية')).toBeInTheDocument();
-    expect(screen.getByText('لوحة التحكم التشغيلية')).toBeInTheDocument();
 
-    // Check All 6 KPI Cards
-    expect(screen.getByText('إجمالي الطلاب')).toBeInTheDocument();
-    expect(screen.getByText('1,248')).toBeInTheDocument();
+    // Verify ABSOLUTE ABSENCE of developer diagnostics in School Admin UI
+    expect(screen.queryByText(/GAP-DASH/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/W2\/W3 Gap/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/تقرير توافق/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/شفافية البيانات/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/فجوة موثقة/i)).not.toBeInTheDocument();
+  });
 
-    expect(screen.getByText('إجمالي المعلمين')).toBeInTheDocument();
-    expect(screen.getByText('86')).toBeInTheDocument();
+  it('renders mathematically consistent scoped KPI values and attendance breakdown', async () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
 
-    expect(screen.getByText('الفصول والشعب')).toBeInTheDocument();
-    expect(screen.getAllByText('42').length).toBeGreaterThan(0);
+    // Verify Total Students is 11
+    expect(await screen.findByText('إجمالي الطلاب')).toBeInTheDocument();
+    expect(screen.getByText((11).toLocaleString('ar-EG'))).toBeInTheDocument();
 
+    // Verify Attendance Rate & Consistent Absent / Late counts
     expect(screen.getByText('حضور الطلاب اليوم')).toBeInTheDocument();
-    expect(screen.getByText('91.8%')).toBeInTheDocument();
-    expect(screen.getByText('▲ 91.8%')).toBeInTheDocument();
+    expect(screen.getByText('90.9%')).toBeInTheDocument();
+    expect(screen.getByText('▲ 90.9%')).toBeInTheDocument();
 
+    // Verify Absent count is 1 (not 76!)
     expect(screen.getByText('غياب الطلاب')).toBeInTheDocument();
-    expect(screen.getByText('76')).toBeInTheDocument();
+    expect(screen.getAllByText((1).toLocaleString('ar-EG')).length).toBeGreaterThan(0);
 
-    expect(screen.getByText('المتأخرون')).toBeInTheDocument();
-    expect(screen.getAllByText('18').length).toBeGreaterThan(0);
+    // Verify Unavailable metrics render safe "—" rather than fabricated numbers
+    expect(screen.getByText('إجمالي المعلمين')).toBeInTheDocument();
+    expect(screen.getByText('الفصول والشعب')).toBeInTheDocument();
+    const dashPlaceholders = screen.getAllByText('—');
+    expect(dashPlaceholders.length).toBeGreaterThanOrEqual(2);
+
+    // Verify Today Attendance Card numbers: Present = 10, Absent = 1
+    expect(screen.getByText('الحضور اليوم')).toBeInTheDocument();
+    expect(screen.getByText((10).toLocaleString('ar-EG'))).toBeInTheDocument();
   });
 
   it('renders Section B (سير اليوم الدراسي) with flow statistics and timeline nodes', async () => {
@@ -272,26 +266,6 @@ describe('DashboardPage (W1-D3 Operational Dashboard)', () => {
     expect(screen.getByText('متابعة الحصص غير المسجلة')).toBeInTheDocument();
   });
 
-  it('renders Section D (الحضور اليوم) and Attention Alerts with action buttons', async () => {
-    render(
-      <MemoryRouter>
-        <DashboardPage />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByText('الحضور اليوم')).toBeInTheDocument();
-    expect(screen.getByText('حضور المعلمين اليوم')).toBeInTheDocument();
-    expect(screen.getByText('حاضر')).toBeInTheDocument();
-    expect(screen.getByText('غائب')).toBeInTheDocument();
-    expect(screen.getByText('متأخر')).toBeInTheDocument();
-
-    // Attention Alerts
-    expect(screen.getByText('يحتاج انتباهك')).toBeInTheDocument();
-    expect(screen.getByText(/12 طالباً تجاوزوا حد الغياب/)).toBeInTheDocument();
-    expect(screen.getByText(/3 شعب لم يُسجل حضورها/)).toBeInTheDocument();
-    expect(screen.getByText('اعتماد النتائج')).toBeInTheDocument();
-  });
-
   it('renders Preserved Operations grid: Homework, Exams, Communications, and Activity feed', async () => {
     render(
       <MemoryRouter>
@@ -310,7 +284,6 @@ describe('DashboardPage (W1-D3 Operational Dashboard)', () => {
     expect(screen.getAllByText('إنشاء إعلان').length).toBeGreaterThan(0);
 
     expect(screen.getByText('آخر النشاطات')).toBeInTheDocument();
-    expect(screen.getByText(/تم اعتماد نتائج اختبار الرياضيات/)).toBeInTheDocument();
   });
 
   it('renders Section G Quick Actions Grid and Section H Attendance Trend chart', async () => {
@@ -337,12 +310,15 @@ describe('DashboardPage (W1-D3 Operational Dashboard)', () => {
       ...defaultAuthContextValue,
       isHistorical: true,
       isReadOnly: true,
-      activeMembership: {
-        ...defaultAuthContextValue.activeMembership,
-        status: 'historical',
-        access_mode: 'read_only',
-      },
-    } as any);
+      activeMembership: defaultAuthContextValue.activeMembership
+        ? {
+            ...defaultAuthContextValue.activeMembership,
+            status: 'historical',
+            access_mode: 'read_only',
+            can_write: false,
+          }
+        : null,
+    });
 
     render(
       <MemoryRouter>
@@ -368,20 +344,19 @@ describe('DashboardPage (W1-D3 Operational Dashboard)', () => {
     expect(reviewAttendanceBtn).not.toBeDisabled();
   });
 
-  it('toggles transparent API Gap report details when clicked', async () => {
+  it('renders safe empty state for attention alerts when no urgent alerts exist', async () => {
+    vi.mocked(dashboardService.getDashboardData).mockResolvedValue({
+      ...mockConsistentDashboardData,
+      attentionAlerts: [],
+    });
+
     render(
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>
     );
 
-    const gapToggle = await screen.findByText('تقرير توافق واجهات الـ Backend (W1-D3)');
-    expect(gapToggle).toBeInTheDocument();
-
-    // Click to open details
-    fireEvent.click(gapToggle);
-
-    expect(await screen.findByText(/شفافية البيانات/)).toBeInTheDocument();
-    expect(screen.getAllByText(/GAP-DASH-01/).length).toBeGreaterThan(0);
+    expect(await screen.findByText('لا توجد تنبيهات عاجلة اليوم')).toBeInTheDocument();
+    expect(screen.getByText('جميع العمليات التشغيلية تسير بانتظام')).toBeInTheDocument();
   });
 });

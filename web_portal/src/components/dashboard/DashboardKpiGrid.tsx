@@ -7,7 +7,6 @@ import {
   UserX,
   Clock,
   TrendingUp,
-  Info,
 } from 'lucide-react';
 import { KpiMetric, MetricIconType } from '../../types/dashboard';
 import { Card, CardBody } from '../ui/Card';
@@ -78,18 +77,9 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ metrics, isL
                 )}
               </div>
 
-              {/* Subtext + Status / Gap badge */}
+              {/* Subtext */}
               <div className="dashboard-kpi-subtext-row">
                 <span className="dashboard-kpi-subtext">{metric.subtext}</span>
-                {!metric.isAvailable && metric.gapCode && (
-                  <span
-                    className="dashboard-kpi-gap-tag"
-                    title={metric.gapDescription || 'واجهة التجميع غير متوفرة بعد'}
-                  >
-                    <Info size={10} />
-                    {metric.gapCode}
-                  </span>
-                )}
               </div>
             </CardBody>
           </Card>
