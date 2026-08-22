@@ -15,7 +15,7 @@ import { Clock } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 
 export const DashboardPage: React.FC = () => {
-  const { isHistorical, isReadOnly } = useAuth();
+  const { activeMembership, isHistorical, isReadOnly } = useAuth();
   const [data, setData] = useState<DashboardApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, [fetchDashboard]);
+  }, [fetchDashboard, activeMembership?.membership_id]);
 
   const isLocked = isHistorical || isReadOnly;
 
