@@ -1,30 +1,31 @@
 # Latest Acceptance Report
 
-## School Admin Web — D3.1 Executive Operational Dashboard Polish (Phase W1-D3.1)
+## School Admin Web — D4 Active Context Selector Closure (Phase W1-D4)
 
 - **Branch:** `agent/antigravity-web`
-- **Commit:** `5624774`
-- **Task:** School Admin Web — D3.1 Executive Operational Dashboard Polish
-- **Visual Truth Source:** Approved Nano board `web_portal/design/nano/W1_D3_DASHBOARD_APPROVED.jpg`.
-- **Preserved Artifacts:** Accepted D1 Login, D2 Main Shell, and approved D3 visual language fully preserved.
-- **Key Enhancements in D3.1:**
-  1. **Executive Information Hierarchy:**
-     - **Section A — Active Context / Header:** Dynamic Arabic greeting, active school/year context, context switch trigger, and historical read-only banner when in archive mode.
-     - **Section B — Today's Executive KPIs:** 6 compact metric cards featuring real numbers, contextual subtitles (`10 من 11 طالب`), and safe unavailable fallbacks (`—` / `غير متوفر حالياً`) with zero demo/fabricated data.
-     - **Section C — "يحتاج انتباهك" (Attention Inbox):** Prominently placed right under KPIs as a high-priority operational command center. Displays real actionable items (pending attendance, unconfirmed absence, unapproved exams, pending grading, unread inbox) or clean positive empty state (`لا توجد تنبيهات عاجلة اليوم`).
-     - **Section D — School Day + Today Attendance:** Operational pair side-by-side on desktop, prioritizing current/completed/scheduled periods timeline, attendance progress, and breakdown.
-     - **Section E & F — Academic Operations & Communications:** Reorganized into 3 compact summary cards (الواجبات, الاختبارات والنتائج, التواصل والإشعارات) answering "What requires action?".
-     - **Section G & H — Attendance Trend & Quick Actions:** Two-column grid with compact 7-day attendance trend chart and redesigned Quick Actions featuring **4 Promoted Primary Actions** ([إضافة طالب], [إضافة معلم], [مراجعة الحضور], [إنشاء إعلان]) and a compact collapsible **"المزيد من الإجراءات"** secondary group.
-     - **Section I — Recent Activity:** Positioned lower with compact layout to prioritize operational decision-making.
-  2. **Data Integrity & Context Isolation:**
-     - 100% scoped to active user, active `SchoolMembership`, active school, and active academic year (`X-School-Membership-ID`).
-     - Strict mathematical bounding ($present + absent + late + excused + pending = total\_students$).
-     - Zero hardcoded mock numbers, zero developer gap terminology in user interface.
-- **Backend Changes:** 0 Backend modifications, 0 migrations created.
+- **Commit:** `181575a`
+- **Task:** School Admin Web — W1-D4 Active Context Selector Closure
+- **Visual Truth Source:** Approved Nano board & D2/D3.1 design system.
+- **Preserved Artifacts:** Accepted D1 Login, D2 Main Shell, and D3.1 Executive Operational Dashboard fully preserved.
+- **Key Features Completed in D4:**
+  1. **Active Context Selector Modal:**
+     - Fully responsive, RTL-native modal with search/filter for multi-school/multi-year accounts.
+     - Visually distinct active context badge (`السياق الحالي` with checkmark) and default context badge (`الافتراضي` with star).
+     - Clear status indicators: Active (`نشط`), Historical Archive (`أرشيف - للقراءة فقط`), Suspended/Ended (`معلق` / `منتهي` with disabled interaction).
+     - Role label and academic year clearly demarcated.
+     - "تعيين كافتراضي" option dynamically enabled only for active contexts.
+     - Single-context account handling with clean informative message (`لديك سياق مدرسي واحد متاح لهذا الحساب.`).
+     - Real-time search filter across school and academic year names.
+     - Resilient error handling that preserves the previous context and allows immediate retry without app corruption.
+  2. **Active Context Isolation & Scoped Lifecycle:**
+     - Single source of truth in `AuthContext` driving `X-School-Membership-ID` header in `apiClient`.
+     - Context switch immediately invalidates old state and triggers fresh scoped data fetching in `DashboardPage` without full reload or token loss.
+     - Multi-school switching safely moves all scoped calls to the newly selected school.
+     - Historical year switching activates read-only guards, displays the historical banner, and disables mutation actions.
+- **Backend Changes:** 0 Backend modifications, 0 migrations created (existing backend contract fully compliant).
 - **Verification Gates:**
   - `npm.cmd run typecheck`: PASS (0 errors)
   - `npm.cmd run lint`: PASS (0 errors, 0 warnings, `--max-warnings 0`)
-  - `npm.cmd test`: PASS (8/8 test suites, 42/42 tests passing)
-  - `npm.cmd run build`: PASS (production bundle built cleanly, 0 errors)
-  - Historical Mode: Mutation actions disabled in archive mode.
-- **Decision:** **D3.1 EXECUTIVE OPERATIONAL DASHBOARD POLISH COMPLETED AND COMMITTED — READY FOR SUPERVISOR REVIEW**.
+  - `npm.cmd test`: PASS (9/9 test suites, 52/52 tests passing)
+  - `npm.cmd run build`: PASS (production bundle built cleanly in 8.37s, 0 errors)
+- **Decision:** **READY FOR SUPERVISOR D4 ACCEPTANCE**.
