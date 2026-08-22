@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
 import * as UseAuthModule from '../context/useAuth';
@@ -407,5 +407,66 @@ describe('DashboardPage (D3.1 Executive Operational Dashboard Polish)', () => {
 
     expect(await screen.findByText('لا توجد تنبيهات عاجلة اليوم')).toBeInTheDocument();
     expect(screen.getByText('جميع العمليات التشغيلية تسير بانتظام')).toBeInTheDocument();
+  });
+
+  it('reloads and updates total_students KPI when active membership switches from School A (10 students) to School B (11 students)', async () => {
+    const authSpy = vi.spyOn(UseAuthModule, 'useAuth');
+
+    // Initial state: School A (Membership 133) with 10 students
+    authSpy.mockReturnValue({
+      ...defaultAuthContextValue,
+      activeMembership: defaultAuthContextValue.activeMembership
+        ? {
+            ...defaultAuthContextValue.activeMembership,
+            membership_id: 133,
+            school: { id: 14, name: 'مدرسة النور التجريبية' },
+          }
+        : null,
+    });
+
+    vi.mocked(dashboardService.getDashboardData).mockResolvedValue({
+      ...mockConsistentDashboardData,
+      kpis: mockConsistentDashboardData.kpis.map((k) =>
+        k.id === 'total_students' ? { ...k, value: (10).toLocaleString('ar-EG') } : k
+      ),
+    });
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('إجمالي الطلاب')).toBeInTheDocument();
+    expect(screen.getAllByText((10).toLocaleString('ar-EG')).length).toBeGreaterThan(0);
+
+    // Context switches to School B (Membership 164) with 11 students
+    authSpy.mockReturnValue({
+      ...defaultAuthContextValue,
+      activeMembership: defaultAuthContextValue.activeMembership
+        ? {
+            ...defaultAuthContextValue.activeMembership,
+            membership_id: 164,
+            school: { id: 15, name: 'مدرسة المستقبل التجريبية' },
+          }
+        : null,
+    });
+
+    vi.mocked(dashboardService.getDashboardData).mockResolvedValue({
+      ...mockConsistentDashboardData,
+      kpis: mockConsistentDashboardData.kpis.map((k) =>
+        k.id === 'total_students' ? { ...k, value: (11).toLocaleString('ar-EG') } : k
+      ),
+    });
+
+    rerender(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText((11).toLocaleString('ar-EG')).length).toBeGreaterThan(0);
+    });
   });
 });

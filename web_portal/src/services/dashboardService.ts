@@ -154,12 +154,11 @@ export const dashboardService = {
       // Exams endpoint fallback
     }
 
-    // -------------------------------------------------------------
-    // 3. Mathematical Consistency & Population Scoping Engine
-    // -------------------------------------------------------------
-    // Determine effective total student population for active school context
+    // Authoritative operational active student population in active academic year context:
+    // Primary: dailyAttendance.total_students (derived strictly from active, current enrollments in the active academic year)
+    // Fallback: studentCount from /students/ if daily attendance report is unavailable
     const totalStudentsFromReport = typeof dailyAttendance?.total_students === 'number' ? dailyAttendance.total_students : null;
-    const effectiveTotalStudents: number | null = studentCount !== null ? studentCount : totalStudentsFromReport;
+    const effectiveTotalStudents: number | null = totalStudentsFromReport !== null ? totalStudentsFromReport : studentCount;
 
     const presentRaw = dailyAttendance?.present ?? 0;
     const absentRaw = dailyAttendance?.absent ?? 0;

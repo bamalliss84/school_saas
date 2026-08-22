@@ -9,13 +9,14 @@ vi.mock('../services/apiClient', () => ({
   },
 }));
 
-describe('dashboardService - Mathematical Consistency & Safe Fallbacks', () => {
+describe('dashboardService - Active Current Student KPI & Mathematical Scoping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('guarantees attendance numbers never exceed total student population and sums consistently', async () => {
-    // Mock 11 total students
+  it('School A: scopes total_students to 10 active current students despite 11 historical enrollments in students API', async () => {
+    // School A: unparameterized /students/ returns 11 (due to 1 transferred student from previous year)
+    // /attendance/daily/ returns 10 (authoritative active current population)
     vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
       if (url.includes('/dashboard/admin/')) {
         throw new Error('Not implemented');
@@ -25,7 +26,49 @@ describe('dashboardService - Mathematical Consistency & Safe Fallbacks', () => {
       }
       if (url.includes('/attendance/daily/')) {
         return {
-          date: '2026-08-22',
+          date: '2026-08-23',
+          total_students: 10,
+          recorded: 10,
+          present: 9,
+          absent: 1,
+          late: 0,
+          excused: 0,
+          not_recorded: 0,
+        } as unknown as never;
+      }
+      return {} as unknown as never;
+    });
+
+    const result = await dashboardService.getDashboardData();
+
+    // Verify Total Students KPI is 10, NOT 11
+    const totalStudentsKpi = result.kpis.find((k) => k.id === 'total_students');
+    expect(totalStudentsKpi?.value).toBe((10).toLocaleString('ar-EG'));
+    expect(totalStudentsKpi?.subtext).toBe('طالب مسجل نشط');
+
+    // Verify attendance breakdown bounded to 10
+    const { presentCount, absentCount, lateCount, excusedCount, pendingCount } = result.attendanceBreakdown;
+    expect(presentCount + absentCount + lateCount + excusedCount + pendingCount).toBe(10);
+    expect(presentCount).toBe(9);
+    expect(absentCount).toBe(1);
+
+    // Verify contextual subtext
+    const rateKpi = result.kpis.find((k) => k.id === 'attendance_rate');
+    expect(rateKpi?.subtext).toBe(`${(9).toLocaleString('ar-EG')} من ${(10).toLocaleString('ar-EG')} طالب`);
+  });
+
+  it('School B: scopes total_students to 11 active current students', async () => {
+    // School B: 11 active current students (including transferred student who is active here)
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url.includes('/dashboard/admin/')) {
+        throw new Error('Not implemented');
+      }
+      if (url.includes('/students/')) {
+        return { count: 11, results: [] } as unknown as never;
+      }
+      if (url.includes('/attendance/daily/')) {
+        return {
+          date: '2026-08-23',
           total_students: 11,
           recorded: 11,
           present: 10,
@@ -35,39 +78,38 @@ describe('dashboardService - Mathematical Consistency & Safe Fallbacks', () => {
           not_recorded: 0,
         } as unknown as never;
       }
-      if (url.includes('/timetable/config/')) {
-        return { is_configured: true, periods_per_day: 7 } as unknown as never;
+      return {} as unknown as never;
+    });
+
+    const result = await dashboardService.getDashboardData();
+
+    const totalStudentsKpi = result.kpis.find((k) => k.id === 'total_students');
+    expect(totalStudentsKpi?.value).toBe((11).toLocaleString('ar-EG'));
+
+    const { presentCount, absentCount, lateCount, excusedCount, pendingCount } = result.attendanceBreakdown;
+    expect(presentCount + absentCount + lateCount + excusedCount + pendingCount).toBe(11);
+    expect(presentCount).toBe(10);
+  });
+
+  it('falls back to /students/ count only when daily attendance endpoint is unavailable', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url.includes('/students/')) {
+        return { count: 15, results: [] } as unknown as never;
       }
-      if (url.includes('/communication/badges/')) {
-        return { unread_notifications: 2, unread_conversations: 1, support_tickets_pending: 0 } as unknown as never;
+      if (url.includes('/attendance/daily/')) {
+        throw new Error('Endpoint not available');
       }
       return {} as unknown as never;
     });
 
     const result = await dashboardService.getDashboardData();
 
-    // Verify Total Students KPI
     const totalStudentsKpi = result.kpis.find((k) => k.id === 'total_students');
-    expect(totalStudentsKpi?.value).toBe((11).toLocaleString('ar-EG'));
-
-    // Verify Attendance Breakdown
-    const { presentCount, absentCount, lateCount, excusedCount, pendingCount } = result.attendanceBreakdown;
-    expect(presentCount).toBeLessThanOrEqual(11);
-    expect(absentCount).toBeLessThanOrEqual(11);
-    expect(lateCount).toBeLessThanOrEqual(11);
-    expect(excusedCount).toBeLessThanOrEqual(11);
-
-    // Sum must equal total population exactly
-    const sum = presentCount + absentCount + lateCount + excusedCount + pendingCount;
-    expect(sum).toBe(11);
-
-    // Attendance Rate KPI
-    const rateKpi = result.kpis.find((k) => k.id === 'attendance_rate');
-    expect(rateKpi?.value).toBe('90.9%');
+    expect(totalStudentsKpi?.value).toBe((15).toLocaleString('ar-EG'));
+    expect(totalStudentsKpi?.isAvailable).toBe(true);
   });
 
   it('renders safe unavailable states (— / غير متاح) when backend endpoints are unavailable without fabricating numbers', async () => {
-    // All endpoints reject / fail
     vi.mocked(apiClient.get).mockRejectedValue(new Error('Network error'));
 
     const result = await dashboardService.getDashboardData();
@@ -103,12 +145,9 @@ describe('dashboardService - Mathematical Consistency & Safe Fallbacks', () => {
 
   it('handles unrecorded school day safely when total students exist but no sessions are recorded yet', async () => {
     vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
-      if (url.includes('/students/')) {
-        return { count: 25, results: [] } as unknown as never;
-      }
       if (url.includes('/attendance/daily/')) {
         return {
-          date: '2026-08-22',
+          date: '2026-08-23',
           total_students: 25,
           recorded: 0,
           present: 0,
