@@ -6,10 +6,15 @@ import {
   ChevronDown,
   Search,
   User as UserIcon,
+  Menu,
 } from 'lucide-react';
 import { useAuth } from '../../context';
 
-export const Topbar: React.FC = () => {
+interface TopbarProps {
+  onToggleMobileSidebar?: () => void;
+}
+
+export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileSidebar }) => {
   const {
     user,
     activeMembership,
@@ -40,8 +45,19 @@ export const Topbar: React.FC = () => {
 
   return (
     <header className="topbar">
-      {/* Right side (RTL): Active School & Academic Year Context */}
+      {/* Right side (RTL): Mobile Hamburger + Active School & Academic Year Context */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {onToggleMobileSidebar && (
+          <button
+            type="button"
+            className="topbar-hamburger-btn"
+            onClick={onToggleMobileSidebar}
+            aria-label="فتح القائمة الرئيسية"
+            title="فتح القائمة الرئيسية"
+          >
+            <Menu size={20} />
+          </button>
+        )}
         <button
           onClick={() => setShowContextModal(true)}
           className="topbar-context-btn"

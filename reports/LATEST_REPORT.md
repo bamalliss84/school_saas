@@ -1,59 +1,56 @@
 # Latest Acceptance Report
 
-## School Admin Web — D5 System States & Feedback (Phase W1-D5)
+## School Admin Web — D6 Responsive System (Phase W1-D6)
 
 - **Branch:** `agent/antigravity-web`
-- **Task:** School Admin Web — W1-D5 System States & Feedback UI Implementation
-- **Visual Truth Source:** Approved Nano board `web_portal/design/nano/W1_D5_SYSTEM_STATES_APPROVED.jpg`.
-- **Preserved Artifacts:** Accepted D1 Login, D2 Main Shell, D3.1 Executive Operational Dashboard, and D4 Active Context Selector fully preserved.
-- **Key Features Completed in D5 (All 12 State Families):**
-  1. **A. Page & Component Skeletons (`PageSkeleton.tsx` / `.skeleton` shimmer):**
-     - Compact shimmer placeholders for banners, metric cards, tables, and form sections with pulse animation.
-  2. **B. Empty State Variants (`EmptyState.tsx`):**
-     - Default empty state with custom action.
-     - Announcements preset ("لا توجد إعلانات حتى الآن", "ابدأ بإنشاء أول إعلان للمدرسة.", primary action "إنشاء إعلان").
-     - Filtered list empty state ("لا توجد نتائج مطابقة", "جرّب تغيير معايير البحث أو التصفية.", secondary action "إعادة تعيين الفلاتر").
-  3. **C. General Load / Server Error (`ServerErrorState.tsx`):**
-     - Red AlertCircle icon in danger circle.
-     - Title: "تعذر تحميل البيانات". Subtitle: "حدث خطأ أثناء جلب البيانات. يمكنك المحاولة مرة أخرى."
-     - Actions: Primary "إعادة المحاولة" + Secondary "العودة للرئيسية".
-  4. **D. Connection / Offline State (`OfflineState.tsx`, `OfflineBanner.tsx`, `useNetworkStatus.ts`):**
-     - Top amber banner: "الاتصال بالإنترنت غير متاح — سيتم تحديث البيانات عند عودة الاتصال." automatically active in `AppShell` when offline.
-     - Centered card: WifiOff icon, Title: "تعذر الاتصال بالخادم", Action: "إعادة المحاولة".
-  5. **E. Unauthorized / No Permission (`UnauthorizedState.tsx`):**
-     - ShieldAlert icon in circular badge.
-     - Title: "ليس لديك صلاحية للوصول".
-     - Actions: Primary "العودة للرئيسية" + Secondary "تغيير سياق العمل" (opens Context Selector).
-  6. **F. Session Expired Modal (`SessionExpiredModal.tsx`):**
-     - Modal dialog on 401 token refresh failure.
-     - Title: "انتهت جلسة الدخول".
-     - Actions: Primary "تسجيل الدخول مرة أخرى" + Secondary "إلغاء".
-  7. **G. Historical Read-Only Action Blocked (`HistoricalBlockedModal.tsx`):**
-     - Modal dialog when mutations are attempted in historical mode.
-     - Title: "لا يمكن تعديل بيانات عام سابق".
-     - Actions: Primary "الانتقال للعام الحالي" + Secondary "العودة للعرض".
-  8. **H. Form Validation States (`Input.tsx`):**
-     - Red border (`var(--danger-500)`), focus ring, error message below field ("هذا الحقل مطلوب", "رقم الجوال غير صحيح").
-  9. **I. Toast Notification System (`Toast.tsx`, `ToastContainer.tsx`, `ToastContext.tsx`, `useToast.ts`):**
-     - Floating toast notifications with variants: `success` (green checkmark, e.g. "تم حفظ التغييرات بنجاح", "تم استيراد البيانات بنجاح"), `info`, `warning`, `error`.
-     - Auto-dismiss timer, progress indicator, dismiss button, clean RTL animation.
-  10. **J. Destructive Confirmation Modal (`ConfirmationModal.tsx`):**
-      - Modal dialog for delete / irreversible actions with title "تأكيد الحذف" and danger button "حذف".
-  11. **K. Import / Export Feedback (`ImportExportFeedback.tsx`, `ProgressBar.tsx`):**
-      - Progress bars with percentage and label ("جاري استيراد ومعالجة بيانات الطلاب...").
-      - Success badge ("تم تجهيز الملف بنجاح").
-      - Partial error summary ("تم استيراد 121 سجلاً وتعذر استيراد 7 سجلات") with expandable error table.
-  12. **L. System Feedback Token Strip (`SystemFeedbackStrip.tsx`):**
-      - Standard token strip showing badges for Success, Info, Warning, Error, Toast, Inline alert, Field validation, Modal alert.
-  13. **Showcase / Live Verification Route (`SystemStatesShowcasePage.tsx` at `/system-states`):**
-      - Interactive live showcase rendering all 12 D5 state families in one organized view.
+- **Task:** School Admin Web — W1-D6 Responsive System Implementation
+- **Visual Truth Source:** Approved Nano board `web_portal/design/nano/W1_D6_RESPONSIVE_SYSTEM_APPROVED.jpg`.
+- **D5 Final Status:** **CLOSED / ACCEPTED** (Supervisor runtime verified and closed in Phase 1).
+- **Preserved Artifacts:** Accepted D1 Login, D2 Main Shell, D3.1 Executive Operational Dashboard, D4 Active Context Selector, and D5 System States & Feedback fully preserved.
+- **Key Responsive Features Completed in D6 (All 12 Responsive Panels):**
+  1. **A. Desktop Viewport (1440px+):**
+     - Full administrative workspace with 215px/260px expanded sidebar, 6-card KPI row, 2-column operational grids, full topbar with search, badges, and user profile.
+  2. **B. Laptop Viewport (1024–1439px):**
+     - Adaptive layout with 3-column KPI cards, collapsible sidebar toggle, and fluid typography.
+  3. **C. Tablet Viewport (768–1023px):**
+     - Compact layout with 2-column KPI cards, vertically stacked operational sections, compact search input (160px), and compact icon navigation rail.
+  4. **D. Mobile Web Viewport (360–767px):**
+     - Off-canvas right-sliding navigation drawer with dark backdrop overlay (`.sidebar.mobile-open`, `.mobile-nav-backdrop`).
+     - Hamburger button in Topbar (`Menu` icon with minimum 44px tap target).
+     - 1-2 column reflow for KPI cards.
+     - Single-column stacked cards for Attention Inbox, Attendance, Academic Operations, and Quick Actions.
+     - Touch-friendly paddings and full-width mobile action buttons.
+  5. **E. Responsive Data Table Strategy (`ResponsiveTable.tsx`):**
+     - Horizontal scrollable container (`.responsive-table-container`) for desktop/tablet.
+     - Smart mobile card reflow view (`.table-mobile-card-list`) with key-value pairs and full-width action buttons on mobile screens.
+  6. **F. Search & Filter Adaptation (`ResponsiveFilterBar.tsx`):**
+     - Desktop: Inline horizontal search bar and filter controls with reset button.
+     - Mobile: Collapsible filter accordion / drawer button with active filter counter and reset actions.
+  7. **G. Excel Actions Across Breakpoints:**
+     - Desktop: Full buttons ("استيراد Excel", "تصدير Excel").
+     - Tablet: Compact buttons with icons.
+     - Mobile: Responsive flex-wrap action buttons.
+  8. **H. Responsive Forms (`.form-responsive-grid`):**
+     - 2-column form grids on desktop and automatic 1-column full-width reflow on mobile.
+     - Full-width stacked action buttons on small viewports.
+  9. **I. Responsive Overlay Strategy:**
+     - Centered modals on desktop with backdrop blur; responsive bottom-sheet style cards on mobile screens (`max-width: 95vw`).
+  10. **J. Historical Read-Only Across Devices:**
+      - Responsive amber warning banner wrapping cleanly without horizontal overflow on mobile screens.
+  11. **K. Navigation Adaptation (`Sidebar.tsx`, `Topbar.tsx`, `AppShell.tsx`):**
+      - Automatic drawer close upon clicking any navigation link or backdrop on mobile.
+  12. **L. Breakpoint / Design Token Strip (`BreakpointTokenStrip.tsx`, `tokens.css`):**
+      - Breakpoint tokens defined in `tokens.css` (`--breakpoint-sm: 576px`, `--breakpoint-md: 768px`, `--breakpoint-lg: 1024px`, `--breakpoint-xl: 1280px`, `--breakpoint-2xl: 1440px`).
+      - Interactive token strip component for testing viewport modes.
+  13. **Live Interactive Showcase Route (`ResponsiveSystemShowcasePage.tsx` at `/responsive-system`):**
+      - Interactive live showcase rendering all 12 D6 panels in one view.
 
 - **Backend Changes:** 0 Backend modifications, 0 migrations created.
 - **Verification Gates:**
   - `npm.cmd run typecheck`: PASS (0 errors)
   - `npm.cmd run lint`: PASS (0 errors, 0 warnings, `--max-warnings 0`)
-  - `npm.cmd test`: PASS (10/10 test suites, 72/72 tests passing)
-  - `npm.cmd run build`: PASS (production bundle built cleanly in 7.88s, 0 errors)
+  - `npm.cmd test`: PASS (11/11 test suites, 79/79 tests passing)
+  - `npm.cmd run build`: PASS (production bundle built cleanly in 23.47s, 0 errors)
   - `manage.py check`: PASS (0 issues)
   - `manage.py makemigrations --check --dry-run`: PASS (No changes detected)
-- **Decision:** **READY FOR SUPERVISOR ACCEPTANCE**.
+- **Decision:** **READY FOR SUPERVISOR D6 ACCEPTANCE**.

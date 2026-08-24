@@ -78,8 +78,8 @@
 | D2 Main Shell UI | Antigravity | ✅ DONE | active-route fix + density correction + manual review |
 | D3 Operational Dashboard UI implementation | Antigravity | ✅ DONE | D3.1 Executive Polish + Active Student KPI closure accepted |
 | D4 Context Selector UI implementation | Antigravity | ✅ DONE | Multi-school, historical read-only, default context accepted |
-| D5 System States UI implementation | Antigravity | 🟠 REVIEW | Implemented 12 state families, all gates passed, awaiting acceptance |
-| D6 Responsive System implementation | Antigravity | 🔴 TODO | approved Nano exists |
+| D5 System States UI implementation | Antigravity | ✅ DONE | Supervisor runtime accepted |
+| D6 Responsive System implementation | Antigravity | 🟠 REVIEW | Implemented 12 responsive panels, all gates passed, awaiting acceptance |
 | Backend School Admin Enablement | Antigravity | 🔴 TODO | shared Backend gate |
 | Dashboard real data | Antigravity | 🔴 TODO | no hard-coded demo metrics |
 | Academic Structure | Antigravity | 🔴 TODO | |

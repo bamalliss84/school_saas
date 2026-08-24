@@ -18,6 +18,7 @@ import {
   Settings,
   ChevronRight,
   ChevronLeft,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context';
 import { isRouteActive } from '../../utils/navigation';
@@ -25,9 +26,16 @@ import { isRouteActive } from '../../utils/navigation';
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  collapsed,
+  onToggleCollapse,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const { activeMembership } = useAuth();
   const location = useLocation();
 
@@ -61,33 +69,56 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
     { to: '/settings', label: 'الإعدادات', icon: Settings },
   ];
 
+  const handleLinkClick = () => {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="القائمة الجانبية">
+    <aside
+      className={`sidebar ${collapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}
+      aria-label="القائمة الجانبية"
+    >
       <div className="sidebar-header">
-        {!collapsed ? (
-          <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          {!collapsed ? (
             <div className="sidebar-brand">
               <div className="sidebar-brand-icon">
                 <Building2 size={18} />
               </div>
               <span>منصة المدرسة</span>
             </div>
-
-            <div className="sidebar-school-info">
-              <span className="sidebar-school-label">اسم المدرسة:</span>
-              <span className="sidebar-school-name" title={activeMembership?.school?.name || 'مدرسة النور الأهلية'}>
-                {activeMembership?.school?.name || 'مدرسة النور الأهلية'}
-              </span>
-              <span className="sidebar-academic-year">
-                {activeMembership?.academic_year?.name
-                  ? `العام الدراسي ${activeMembership.academic_year.name}`
-                  : 'العام الدراسي 2026/2027'}
-              </span>
+          ) : (
+            <div className="sidebar-brand-icon" title="منصة المدرسة">
+              <Building2 size={18} />
             </div>
-          </>
-        ) : (
-          <div className="sidebar-brand-icon" title="منصة المدرسة">
-            <Building2 size={18} />
+          )}
+
+          {/* Close button on mobile */}
+          {onCloseMobile && (
+            <button
+              type="button"
+              className="sidebar-mobile-close-btn"
+              onClick={onCloseMobile}
+              aria-label="إغلاق القائمة الجانبية"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {!collapsed && (
+          <div className="sidebar-school-info">
+            <span className="sidebar-school-label">اسم المدرسة:</span>
+            <span className="sidebar-school-name" title={activeMembership?.school?.name || 'مدرسة النور الأهلية'}>
+              {activeMembership?.school?.name || 'مدرسة النور الأهلية'}
+            </span>
+            <span className="sidebar-academic-year">
+              {activeMembership?.academic_year?.name
+                ? `العام الدراسي ${activeMembership.academic_year.name}`
+                : 'العام الدراسي 2026/2027'}
+            </span>
           </div>
         )}
       </div>
@@ -102,9 +133,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
               to={item.to}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
               title={collapsed ? item.label : undefined}
+              onClick={handleLinkClick}
             >
               <Icon className="sidebar-link-icon" size={18} />
-              {!collapsed && (
+              {(!collapsed || isMobileOpen) && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
                   <span className="text-truncate">{item.label}</span>
                   {item.badge !== undefined && (
@@ -131,3 +163,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
     </aside>
   );
 };
+

@@ -4,6 +4,7 @@ import { LoginPage } from '../pages/LoginPage';
 import { ContextSelectionPage } from '../pages/ContextSelectionPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { SystemStatesShowcasePage } from '../pages/SystemStatesShowcasePage';
+import { ResponsiveSystemShowcasePage } from '../pages/ResponsiveSystemShowcasePage';
 import { UnauthorizedPage } from '../pages/UnauthorizedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { AppShell } from '../components/layout/AppShell';
@@ -83,6 +84,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/dashboard/*" element={<DashboardPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/system-states" element={<SystemStatesShowcasePage />} />
+        <Route path="/responsive-system" element={<ResponsiveSystemShowcasePage />} />
 
         {/* People routes */}
         <Route
