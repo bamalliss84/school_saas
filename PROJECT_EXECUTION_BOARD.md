@@ -25,7 +25,7 @@
 | Results | Codex | ✅ DONE | Functional closure accepted; ExamType metadata normalization remains controlled follow-up |
 | Attendance | Codex | ✅ DONE | Functional + technical acceptance; do not rebuild |
 | Communications V1 | Codex | ✅ DONE | Supervisor runtime accepted on Android Emulator |
-| More/Profile + Context UX | Codex | 🔴 TODO | after Communications |
+| More/Profile + Context UX | Codex | ✅ DONE | Supervisor runtime accepted: multi-context selection/current identification, historical switching/banner/read-only enforcement, and topbar refresh |
 | Timetable UI Closure | Codex | 🔴 TODO | existing backend/Flutter; visual/runtime closure only |
 | Student Final Regression | Codex | 🔴 TODO | final pilot gate |
 
@@ -142,7 +142,13 @@ Only one Backend-changing integration window should be active at a time.
 
 ### Codex
 Current:
-**More/Profile + Context UX**
+**No Mobile task active — M1.2 Supervisor accepted; awaiting authorization to start M1.3.**
+
+M1.2 More/Profile + Context UX closure:
+- ✅ Supervisor runtime accepted
+- ✅ multi-context selector and current-context identification
+- ✅ historical selection, banner, and read-only enforcement
+- ✅ topbar/context refresh and switching behavior
 
 Communications V1 closure:
 - ✅ Supervisor runtime accepted on Android Emulator

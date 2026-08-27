@@ -8,6 +8,8 @@ class ContextRepository {
   final SessionStore _store;
   Future<int?> storedMembershipId() => _store.readMembershipId();
   Future<void> clearStoredMembership() => _store.writeMembershipId(null);
+  Future<void> restoreStoredMembership(int? membershipId) =>
+      _store.writeMembershipId(membershipId);
 
   Future<ContextListResult> list() async => ContextListResult.fromJson(
       (await _dio.get<Map<String, dynamic>>('auth/contexts/')).data!);

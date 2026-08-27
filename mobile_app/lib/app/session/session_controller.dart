@@ -47,7 +47,9 @@ class SessionController extends StateNotifier<AppSession> {
           (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
-          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          usable.isEmpty
+              ? SessionStatus.unavailable
+              : SessionStatus.needsContext,
           contexts: usable,
         );
         return;
@@ -115,14 +117,20 @@ class SessionController extends StateNotifier<AppSession> {
 
   Future<void> selectContext(SchoolContext context,
       {AuthenticatedUser? user, List<SchoolContext>? available}) async {
-    await contexts.select(context);
-    final resolvedUser = user ?? state.user ?? await auth.me();
-    await snapshotStore.write(
-        LocalSessionSnapshot(user: resolvedUser, context: context));
-    state = AppSession(statusForContext(context),
-        user: resolvedUser,
-        context: context,
-        contexts: available ?? state.contexts);
+    final previousMembershipId = await contexts.storedMembershipId();
+    try {
+      await contexts.select(context);
+      final resolvedUser = user ?? state.user ?? await auth.me();
+      await snapshotStore
+          .write(LocalSessionSnapshot(user: resolvedUser, context: context));
+      state = AppSession(statusForContext(context),
+          user: resolvedUser,
+          context: context,
+          contexts: available ?? state.contexts);
+    } catch (_) {
+      await contexts.restoreStoredMembership(previousMembershipId);
+      rethrow;
+    }
   }
 
   /// Revalidates the current membership after an authenticated 403.
@@ -146,8 +154,8 @@ class SessionController extends StateNotifier<AppSession> {
       }
       if (current != null) {
         if (state.user != null) {
-          await snapshotStore.write(
-              LocalSessionSnapshot(user: state.user!, context: current));
+          await snapshotStore
+              .write(LocalSessionSnapshot(user: state.user!, context: current));
         }
         return false;
       }
@@ -160,7 +168,9 @@ class SessionController extends StateNotifier<AppSession> {
         await selectContext(next, available: usable);
       } else {
         state = AppSession(
-          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          usable.isEmpty
+              ? SessionStatus.unavailable
+              : SessionStatus.needsContext,
           user: state.user,
           contexts: usable,
           message: usable.isEmpty

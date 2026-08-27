@@ -7,23 +7,17 @@ Read:
 - existing Student closure/API/architecture docs referenced by the handoff.
 
 ## CURRENT TASK
-**Student App V1 — Communications V1 Closure**
+**M1.2 — Student More / Profile + Context UX**
 
-Audit current implementation first. Do not rebuild accepted domains.
+Execute only the existing Student fifth-tab closure:
+- read-only profile from `students/me/profile/`
+- canonical context display/switching from `auth/contexts/`
+- academic history from `students/me/academic-history/`
+- scoped offline cache
+- historical read-only UX
+- Appearance, Help, About, and existing Logout integration
+- compact/150%/RTL regression and tests
 
-Execute only Communications V1:
-- Notifications
-- Announcements
-- Messages
-- School Support
-- deep links
-- offline cached reads
-- correct mutation restrictions
-- historical restrictions
-- tenant/context cache isolation
-- compact/150% regression
-- tests/runtime acceptance
-
-Do not start More/Profile automatically.
+Do not start Timetable closure or Teacher App automatically.
 
 At completion return the required Supervisor handoff and STOP.

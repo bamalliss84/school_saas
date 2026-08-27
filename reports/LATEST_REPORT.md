@@ -1,5 +1,23 @@
 # Latest Acceptance Report
 
+## M1.2 — Student More / Profile + Context UX
+
+**Decision: M1.2 CLOSED / ✅ SUPERVISOR ACCEPTED.**
+
+- Baseline: `e8884ea` on `agent/codex-mobile`; unrelated Results/Timetable and generated registrant working-tree changes were preserved and excluded.
+- More: Nano-aligned Student account hub with Profile, conditional multi-context action, Academic History, Appearance, Help, About, and existing Logout.
+- Profile: real `GET students/me/profile/` identity fields only; read-only, loading/error/retry/offline-cache states, long-value safety, and historical context labeling without leaking the current enrollment into another selected school.
+- Context: canonical `auth/contexts/` session list only. Switching uses the existing default-context contract and restores the previous stored membership/session when completion fails. Offline switching is disabled; single-context users do not see a redundant switch action.
+- History and schools: real `students/me/academic-history/?school_membership_id=<active membership>` and `students/me/schools/`; the latter supports presentation only and does not duplicate context authorization.
+- Cache: existing `CachedContexts`, scoped by user + membership + academic year with resource `student_more_profile_v1`; no Drift schema or migration change.
+- Navigation: nested More destinations have explicit back actions; Android system Back returns to More before leaving Student Shell. Help routes to the accepted Communications tab instead of creating another support system.
+- Appearance/font persistence and current logout/session purge behavior are preserved.
+- Focused M1.2 tests: 15 PASS, covering endpoint parsing/queries, scoped cache isolation, single/multiple context UX, successful/failed/offline switching, rollback, historical mode, history empty/data, Help/About/Logout/Back, long Arabic content, and 320×480 at 150%.
+- `flutter analyze --no-pub`: PASS — no issues found.
+- `flutter test --no-pub`: PASS — 93 tests.
+- Supervisor Android Emulator runtime acceptance: PASS. Multi-context selector, current-context identification, historical selection, topbar/context refresh after switching, historical banner, read-only enforcement, and switching behavior were accepted.
+- Backend changed: NO. Migration: NO.
+
 ## Mobile Student Communications — offline recovery and support entry layout
 
 **Decision: STUDENT COMMUNICATIONS V1 / SCHOOL SUPPORT CLOSED — ✅ SUPERVISOR ACCEPTED.**
@@ -15,7 +33,7 @@
 - `git diff --check`: PASS (line-ending conversion warnings only; no whitespace errors).
 - Emulator diagnostics: Android reports the active Wi-Fi network as `INTERNET` + `VALIDATED`; airplane mode is off; TCP reachability to `10.0.2.2:8000` succeeds. ICMP ping is blocked/unanswered and was not treated as authoritative Internet evidence.
 - Supervisor Android Emulator runtime acceptance: PASS. Backend/login/online Communications/recovery, existing School Support and teacher conversations, support entry/sheet, Arabic RTL fields, attachment and submit controls, floating labels, keyboard-safe submit action, and visual overflow checks all passed. Existing offline and historical restrictions remain unchanged.
-- Closure commit attempt: Git created verified commit object `b049dffe675f1258784fb8d24d6759a87e69b38e` with the intended eight files and correct parent, but this environment refused to move `refs/heads/agent/codex-mobile` (`fatal: couldn't set`); the focused files remain staged and the branch still points to `2634f77`.
+- Closure commit: `e8884ea` (`Close student communications and school support`).
 
 ## Student Communications V1 Closure — implementation handoff
 

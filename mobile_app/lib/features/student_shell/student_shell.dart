@@ -25,6 +25,9 @@ import '../student/communications/data/communications_repository.dart';
 import '../student/communications/domain/communication_models.dart';
 import '../student/communications/presentation/communications_controller.dart';
 import '../student/communications/presentation/communications_screens.dart';
+import '../student/student_profile_controller.dart';
+import '../student/student_profile_repository.dart';
+import '../student/student_profile_screens.dart';
 
 final studentTimetableProvider = StateNotifierProvider.autoDispose
     .family<TimetableController, TimetableState, CacheScope>((ref, scope) {
@@ -83,6 +86,20 @@ final studentCommunicationsProvider = StateNotifierProvider.autoDispose
   return controller;
 });
 
+final studentProfileProvider = StateNotifierProvider.autoDispose
+    .family<StudentProfileController, StudentProfileState, CacheScope>(
+        (ref, scope) {
+  final controller = StudentProfileController(
+    StudentProfileRepository(
+        ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    scope,
+  );
+  Future<void>.microtask(controller.load);
+  return controller;
+});
+
+enum _MoreDestination { profile, context, history, appearance, help, about }
+
 class StudentBottomNavigation extends StatelessWidget {
   const StudentBottomNavigation(
       {super.key,
@@ -127,6 +144,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
   bool showTimetable = false;
   bool showAttendance = false;
   bool showCommunicationsCenter = false;
+  _MoreDestination? moreDestination;
 
   @override
   void initState() {
@@ -168,81 +186,164 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final homework = ref.watch(studentHomeworkProvider(scope));
     final results = ref.watch(studentResultsProvider(scope));
     final communications = ref.watch(studentCommunicationsProvider(scope));
+    final profile =
+        selectedIndex == 4 ? ref.watch(studentProfileProvider(scope)) : null;
     final attendance =
         showAttendance ? ref.watch(studentAttendanceProvider(scope)) : null;
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          StudentAppHeader(
-              schoolName: session.context?.schoolName ?? 'مدرستي',
-              studentName: session.user?.fullName,
-              academicYear: session.context?.academicYearName,
-              notificationCount: communications is CommunicationsReady
-                  ? communications.data.badges.notifications
-                  : 0,
-              onNotifications: () =>
-                  setState(() => showCommunicationsCenter = true)),
-          if (session.status == SessionStatus.historical)
-            HistoricalContextBanner(context: session.context),
-          if (session.offline) const OfflineCacheBanner(),
-          if (selectedIndex == 0 && timetable is TimetableReady)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
-              child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: LastUpdatedLabel(
-                      value: timetable.data.lastUpdated.toLocal())),
-            ),
-          Expanded(
-              child: showCommunicationsCenter
-                  ? _communicationsCenter(communications, session, scope)
-                  : selectedIndex == 4
-                      ? const AppearanceSettings()
-                      : selectedIndex == 0
-                          ? _studentFeature(
-                              timetable, attendance, session, scope)
-                          : selectedIndex == 1
-                              ? _homeworkFeature(homework, session, scope)
-                              : selectedIndex == 2
-                                  ? _resultsFeature(results, session, scope)
-                                  : _messagesFeature(
-                                      communications, session, scope)),
-        ]),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: StudentBottomNavigation(
-            selectedIndex: selectedIndex,
-            messageCount: communications is CommunicationsReady
-                ? communications.data.badges.conversations
-                : 0,
-            onSelected: (value) {
-              if (value == 1) {
-                ref.read(studentHomeworkProvider(scope).notifier).closeDetail();
-              } else if (value == 2) {
-                ref.read(studentResultsProvider(scope).notifier).close();
-              }
-              setState(() {
-                selectedIndex = value;
-                showTimetable = false;
-                showAttendance = false;
-                showCommunicationsCenter = false;
-              });
-              Future<void>.microtask(() {
-                if (value == 0) {
-                  ref.read(studentTimetableProvider(scope).notifier).refresh();
-                } else if (value == 1) {
-                  ref.read(studentHomeworkProvider(scope).notifier).refresh();
-                } else if (value == 2) {
-                  ref.read(studentResultsProvider(scope).notifier).refresh();
-                } else if (value == 3) {
-                  ref
-                      .read(studentCommunicationsProvider(scope).notifier)
-                      .refresh();
-                }
-              });
-            }),
-      ),
+    return PopScope(
+        canPop: !(selectedIndex == 4 && moreDestination != null),
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && selectedIndex == 4 && moreDestination != null) {
+            setState(() => moreDestination = null);
+          }
+        },
+        child: Scaffold(
+          body: SafeArea(
+            child: Column(children: [
+              StudentAppHeader(
+                  schoolName: session.context?.schoolName ?? 'مدرستي',
+                  studentName: session.user?.fullName,
+                  academicYear: session.context?.academicYearName,
+                  notificationCount: communications is CommunicationsReady
+                      ? communications.data.badges.notifications
+                      : 0,
+                  onNotifications: () =>
+                      setState(() => showCommunicationsCenter = true)),
+              if (session.status == SessionStatus.historical)
+                HistoricalContextBanner(context: session.context),
+              if (session.offline) const OfflineCacheBanner(),
+              if (selectedIndex == 0 && timetable is TimetableReady)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.x4),
+                  child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: LastUpdatedLabel(
+                          value: timetable.data.lastUpdated.toLocal())),
+                ),
+              Expanded(
+                  child: showCommunicationsCenter
+                      ? _communicationsCenter(communications, session, scope)
+                      : selectedIndex == 4
+                          ? _moreFeature(profile!, session, scope)
+                          : selectedIndex == 0
+                              ? _studentFeature(
+                                  timetable, attendance, session, scope)
+                              : selectedIndex == 1
+                                  ? _homeworkFeature(homework, session, scope)
+                                  : selectedIndex == 2
+                                      ? _resultsFeature(results, session, scope)
+                                      : _messagesFeature(
+                                          communications, session, scope)),
+            ]),
+          ),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: StudentBottomNavigation(
+                selectedIndex: selectedIndex,
+                messageCount: communications is CommunicationsReady
+                    ? communications.data.badges.conversations
+                    : 0,
+                onSelected: (value) {
+                  if (value == 1) {
+                    ref
+                        .read(studentHomeworkProvider(scope).notifier)
+                        .closeDetail();
+                  } else if (value == 2) {
+                    ref.read(studentResultsProvider(scope).notifier).close();
+                  }
+                  setState(() {
+                    selectedIndex = value;
+                    showTimetable = false;
+                    showAttendance = false;
+                    showCommunicationsCenter = false;
+                    moreDestination = null;
+                  });
+                  Future<void>.microtask(() {
+                    if (value == 0) {
+                      ref
+                          .read(studentTimetableProvider(scope).notifier)
+                          .refresh();
+                    } else if (value == 1) {
+                      ref
+                          .read(studentHomeworkProvider(scope).notifier)
+                          .refresh();
+                    } else if (value == 2) {
+                      ref
+                          .read(studentResultsProvider(scope).notifier)
+                          .refresh();
+                    } else if (value == 3) {
+                      ref
+                          .read(studentCommunicationsProvider(scope).notifier)
+                          .refresh();
+                    }
+                  });
+                }),
+          ),
+        ));
+  }
+
+  Widget _moreFeature(
+      StudentProfileState profile, AppSession session, CacheScope scope) {
+    void back() => setState(() => moreDestination = null);
+    final destination = moreDestination;
+    if (destination == _MoreDestination.profile) {
+      return StudentProfileScreen(
+        state: profile,
+        contextInfo: session.context!,
+        onBack: back,
+        onRetry: ref.read(studentProfileProvider(scope).notifier).refresh,
+      );
+    }
+    if (destination == _MoreDestination.context) {
+      return StudentContextScreen(
+        current: session.context!,
+        contexts: session.contexts,
+        offline: session.offline,
+        onBack: back,
+        onSelect: (item) async {
+          await ref.read(sessionProvider.notifier).selectContext(item);
+          if (mounted) setState(() => moreDestination = null);
+        },
+      );
+    }
+    if (destination == _MoreDestination.history) {
+      return StudentAcademicHistoryScreen(
+        state: profile,
+        onBack: back,
+        onRetry: ref.read(studentProfileProvider(scope).notifier).refresh,
+      );
+    }
+    if (destination == _MoreDestination.appearance) {
+      return AppearanceSettings(onBack: back);
+    }
+    if (destination == _MoreDestination.help) {
+      return StudentHelpScreen(
+        onBack: back,
+        onSupport: () => setState(() {
+          selectedIndex = 3;
+          moreDestination = null;
+        }),
+      );
+    }
+    if (destination == _MoreDestination.about) {
+      return StudentAboutScreen(onBack: back);
+    }
+    return StudentMoreScreen(
+      studentName: session.user?.fullName ?? '',
+      schoolName: session.context?.schoolName ?? '',
+      canChangeContext: session.contexts.length > 1,
+      onProfile: () =>
+          setState(() => moreDestination = _MoreDestination.profile),
+      onContext: () =>
+          setState(() => moreDestination = _MoreDestination.context),
+      onHistory: () =>
+          setState(() => moreDestination = _MoreDestination.history),
+      onAppearance: () =>
+          setState(() => moreDestination = _MoreDestination.appearance),
+      onHelp: () => setState(() => moreDestination = _MoreDestination.help),
+      onAbout: () => setState(() => moreDestination = _MoreDestination.about),
+      onLogout: () => ref.read(sessionProvider.notifier).logout(),
     );
   }
 
@@ -577,15 +678,22 @@ class _StudentShellState extends ConsumerState<StudentShell> {
 }
 
 class AppearanceSettings extends ConsumerWidget {
-  const AppearanceSettings({super.key});
+  const AppearanceSettings({super.key, this.onBack});
+  final VoidCallback? onBack;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(fontProvider);
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.x4),
       children: [
-        Text('إعدادات المظهر',
-            style: Theme.of(context).textTheme.headlineMedium),
+        Row(children: [
+          if (onBack != null)
+            IconButton(
+                onPressed: onBack, icon: const Icon(Icons.arrow_forward)),
+          Expanded(
+              child: Text('إعدادات المظهر',
+                  style: Theme.of(context).textTheme.headlineMedium)),
+        ]),
         const SizedBox(height: AppSpacing.x6),
         const Text('خط التطبيق'),
         const SizedBox(height: AppSpacing.x2),
@@ -603,12 +711,6 @@ class AppearanceSettings extends ConsumerWidget {
                           },
                         ))
                     .toList())),
-        const SizedBox(height: AppSpacing.x6),
-        TextButton.icon(
-          onPressed: () => ref.read(sessionProvider.notifier).logout(),
-          icon: const Icon(Icons.logout),
-          label: const Text('تسجيل الخروج'),
-        ),
       ],
     );
   }
