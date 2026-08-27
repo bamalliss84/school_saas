@@ -24,7 +24,7 @@
 | Homework | Codex | ✅ DONE | Functional closure accepted |
 | Results | Codex | ✅ DONE | Functional closure accepted; ExamType metadata normalization remains controlled follow-up |
 | Attendance | Codex | ✅ DONE | Functional + technical acceptance; do not rebuild |
-| Communications V1 | Codex | 🟢 ACTIVE | **Current Codex task** |
+| Communications V1 | Codex | ✅ DONE | Supervisor runtime accepted on Android Emulator |
 | More/Profile + Context UX | Codex | 🔴 TODO | after Communications |
 | Timetable UI Closure | Codex | 🔴 TODO | existing backend/Flutter; visual/runtime closure only |
 | Student Final Regression | Codex | 🔴 TODO | final pilot gate |
@@ -142,16 +142,15 @@ Only one Backend-changing integration window should be active at a time.
 
 ### Codex
 Current:
-**Student Communications V1**
+**More/Profile + Context UX**
 
-Required handoff to Supervisor:
-- changed files
-- Backend changes
-- tests
-- flutter analyze/test
-- device screenshots/video
-- online/offline/deep links
-- status recommendation
+Communications V1 closure:
+- ✅ Supervisor runtime accepted on Android Emulator
+- ✅ online recovery and cached offline behavior
+- ✅ School Support creation UI and existing conversation rows
+- ✅ Arabic RTL, keyboard handling, and no observed RenderFlex overflow
+
+Next Codex task remains subject to its documented dependencies and gates.
 
 ### Antigravity
 Current:

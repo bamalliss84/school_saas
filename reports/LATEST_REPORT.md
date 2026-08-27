@@ -1,5 +1,39 @@
 # Latest Acceptance Report
 
+## Mobile Student Communications — offline recovery and support entry layout
+
+**Decision: STUDENT COMMUNICATIONS V1 / SCHOOL SUPPORT CLOSED — ✅ SUPERVISOR ACCEPTED.**
+
+- Root cause: Communications had no independent Internet-status source. A transport failure to the Backend marked both the session and cached Communications snapshot offline. The emulator network is currently Android `VALIDATED`, and `10.0.2.2:8000` is reachable, so the visible banner was stale state from an earlier Backend transport failure rather than current Internet loss.
+- Recovery: when a real successful API response changes the session from offline to online, Student Shell now refreshes Communications. Only a successful Communications refresh replaces the cached `offline: true` snapshot; no connectivity/link event fakes online state.
+- Safety: cached reads and offline/historical support restrictions remain unchanged. Support creation stays blocked while the effective Communications/session state is offline.
+- Responsive UI: at widths below 360 logical pixels or text scale above 125%, the Messages title and support action stack vertically; a fixed spacing separates the header/action group from banners and conversation rows.
+- Focused tests added for online banner absence, offline banner presence, state recovery, and 320x480 RTL/150% header separation while retaining teacher/support rows. Existing support restriction and row tests remain.
+- Backend changed: NO. Migration: NONE. Commit/push: NOT RUN.
+- `flutter analyze --no-pub`: PASS — no issues found (13.4s).
+- `flutter test --no-pub`: PASS — 78 tests passed.
+- `git diff --check`: PASS (line-ending conversion warnings only; no whitespace errors).
+- Emulator diagnostics: Android reports the active Wi-Fi network as `INTERNET` + `VALIDATED`; airplane mode is off; TCP reachability to `10.0.2.2:8000` succeeds. ICMP ping is blocked/unanswered and was not treated as authoritative Internet evidence.
+- Supervisor Android Emulator runtime acceptance: PASS. Backend/login/online Communications/recovery, existing School Support and teacher conversations, support entry/sheet, Arabic RTL fields, attachment and submit controls, floating labels, keyboard-safe submit action, and visual overflow checks all passed. Existing offline and historical restrictions remain unchanged.
+- Closure commit attempt: Git created verified commit object `b049dffe675f1258784fb8d24d6759a87e69b38e` with the intended eight files and correct parent, but this environment refused to move `refs/heads/agent/codex-mobile` (`fatal: couldn't set`); the focused files remain staged and the branch still points to `2634f77`.
+
+## Student Communications V1 Closure — implementation handoff
+
+**Verification status: CLOSED / SUPERVISOR ACCEPTED**
+
+- الفرع: `agent/codex-mobile`. تمت معاينة `design/student_v1/student_communications_v1.jpg` بصريًا واعتماد كثافة Nano، الرأس الداكن، البطاقات، فقاعات الرسائل، نموذج/حالة دعم المدرسة، وحالات loading/empty/error/offline.
+- Notifications: قائمة/فلتر غير المقروء/badge/read/read-all، مع بقاء المقروء والتاريخي قابلين للفتح دون mutation تاريخية، وwhitelist للروابط المدعومة مع fallback آمن.
+- Announcements: قائمة/تفاصيل/receipt read state/metadata المرفقات/inquiry gating وإنشاء محادثة الاستفسار، مع منع الاستفسار التاريخي والأوفلاين.
+- Messages: قائمة/عداد غير المقروء/تفاصيل/توقيت/حالة تحميل وخطأ/كاش أوفلاين/تعطيل composer أوفلاين وتاريخيًا/إرسال نص ومرفقات دون queue أوفلاين.
+- School Support: الفئات المدعومة، إنشاء الطلب، عرضه ضمن التاريخ، الحالة العربية، التفاصيل/ردود المدرسة، الرد، وإرفاق الملفات. عند نجاح الإنشاء وفشل المرفق تظهر partial-success message ولا يُلغى الطلب.
+- Cache: استخدم `CachedContexts` الحالي بنطاق user + membership + academic year، مع resource منفصل لكل conversation؛ لا Drift schema change.
+- Backend changes: NONE. Existing APIs were sufficient.
+- Migrations: NONE.
+- More/Profile وHome/Homework/Results/Attendance و`web_portal/`: لم تُنفذ فيها وظائف جديدة.
+- `flutter analyze`: PASS — no issues.
+- `flutter test`: PASS — 78 tests.
+- Android Emulator runtime: SUPERVISOR PASS for online/offline recovery, support creation UI, RTL, keyboard handling, existing rows, and no visible RenderFlex overflow.
+
 ## Sprint 5B.2 — Student Homework
 
 - Baseline `56cf542`; Flutter-only Student Homework implementation. Backend production files and migrations unchanged.

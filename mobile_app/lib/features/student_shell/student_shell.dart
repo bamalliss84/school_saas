@@ -52,29 +52,31 @@ final studentHomeworkProvider = StateNotifierProvider.autoDispose
 final studentResultsProvider = StateNotifierProvider.autoDispose
     .family<ResultsController, ResultsState, CacheScope>((ref, scope) {
   final controller = ResultsController(
-    StudentResultsRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    StudentResultsRepository(
+        ref.read(apiProvider).dio, ref.read(databaseProvider)),
     scope,
   );
   Future<void>.microtask(controller.load);
   return controller;
 });
-
 
 final studentAttendanceProvider = StateNotifierProvider.autoDispose
     .family<AttendanceController, AttendanceState, CacheScope>((ref, scope) {
   final controller = AttendanceController(
-    StudentAttendanceRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    StudentAttendanceRepository(
+        ref.read(apiProvider).dio, ref.read(databaseProvider)),
     scope,
   );
   Future<void>.microtask(controller.load);
   return controller;
 });
 
-
 final studentCommunicationsProvider = StateNotifierProvider.autoDispose
-    .family<CommunicationsController, CommunicationsState, CacheScope>((ref, scope) {
+    .family<CommunicationsController, CommunicationsState, CacheScope>(
+        (ref, scope) {
   final controller = CommunicationsController(
-    StudentCommunicationsRepository(ref.read(apiProvider).dio, ref.read(databaseProvider)),
+    StudentCommunicationsRepository(
+        ref.read(apiProvider).dio, ref.read(databaseProvider)),
     scope,
   );
   Future<void>.microtask(controller.load);
@@ -83,23 +85,33 @@ final studentCommunicationsProvider = StateNotifierProvider.autoDispose
 
 class StudentBottomNavigation extends StatelessWidget {
   const StudentBottomNavigation(
-      {super.key, required this.selectedIndex, required this.onSelected});
+      {super.key,
+      required this.selectedIndex,
+      required this.onSelected,
+      this.messageCount = 0});
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final int messageCount;
   @override
   Widget build(BuildContext context) => NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: onSelected,
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
               icon: Icon(Icons.home_outlined), label: 'الرئيسية'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.assignment_outlined), label: 'الواجبات'),
-          NavigationDestination(
+          const NavigationDestination(
               icon: Icon(Icons.bar_chart_outlined), label: 'النتائج'),
           NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline), label: 'الرسائل'),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'المزيد'),
+              icon: Badge(
+                isLabelVisible: messageCount > 0,
+                label: Text(messageCount > 99 ? '99+' : '$messageCount'),
+                child: const Icon(Icons.chat_bubble_outline),
+              ),
+              label: 'الرسائل'),
+          const NavigationDestination(
+              icon: Icon(Icons.more_horiz), label: 'المزيد'),
         ],
       );
 }
@@ -117,6 +129,32 @@ class _StudentShellState extends ConsumerState<StudentShell> {
   bool showCommunicationsCenter = false;
 
   @override
+  void initState() {
+    super.initState();
+    ref.listenManual<bool>(
+      sessionProvider.select((session) => session.offline),
+      (previous, offline) {
+        if (previous == true && !offline) {
+          final session = ref.read(sessionProvider);
+          final context = session.context;
+          final user = session.user;
+          if (context == null || user == null) return;
+          final scope = CacheScope(
+            localUserKey: 'user:${user.id}',
+            membershipId: context.membershipId,
+            academicYearKey: context.academicYearId?.toString() ??
+                context.academicYearName ??
+                '',
+          );
+          Future<void>.microtask(() => ref
+              .read(studentCommunicationsProvider(scope).notifier)
+              .refresh());
+        }
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final scope = CacheScope(
@@ -130,9 +168,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final homework = ref.watch(studentHomeworkProvider(scope));
     final results = ref.watch(studentResultsProvider(scope));
     final communications = ref.watch(studentCommunicationsProvider(scope));
-    final attendance = showAttendance
-        ? ref.watch(studentAttendanceProvider(scope))
-        : null;
+    final attendance =
+        showAttendance ? ref.watch(studentAttendanceProvider(scope)) : null;
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -143,7 +180,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               notificationCount: communications is CommunicationsReady
                   ? communications.data.badges.notifications
                   : 0,
-              onNotifications: () => setState(() => showCommunicationsCenter = true)),
+              onNotifications: () =>
+                  setState(() => showCommunicationsCenter = true)),
           if (session.status == SessionStatus.historical)
             HistoricalContextBanner(context: session.context),
           if (session.offline) const OfflineCacheBanner(),
@@ -161,18 +199,23 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                   : selectedIndex == 4
                       ? const AppearanceSettings()
                       : selectedIndex == 0
-                          ? _studentFeature(timetable, attendance, session, scope)
+                          ? _studentFeature(
+                              timetable, attendance, session, scope)
                           : selectedIndex == 1
                               ? _homeworkFeature(homework, session, scope)
                               : selectedIndex == 2
                                   ? _resultsFeature(results, session, scope)
-                                  : _messagesFeature(communications, session, scope)),
+                                  : _messagesFeature(
+                                      communications, session, scope)),
         ]),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: StudentBottomNavigation(
             selectedIndex: selectedIndex,
+            messageCount: communications is CommunicationsReady
+                ? communications.data.badges.conversations
+                : 0,
             onSelected: (value) {
               if (value == 1) {
                 ref.read(studentHomeworkProvider(scope).notifier).closeDetail();
@@ -193,7 +236,9 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                 } else if (value == 2) {
                   ref.read(studentResultsProvider(scope).notifier).refresh();
                 } else if (value == 3) {
-                  ref.read(studentCommunicationsProvider(scope).notifier).refresh();
+                  ref
+                      .read(studentCommunicationsProvider(scope).notifier)
+                      .refresh();
                 }
               });
             }),
@@ -203,26 +248,46 @@ class _StudentShellState extends ConsumerState<StudentShell> {
 
   Future<void> _openNotification(
       CommunicationNotification item, CacheScope scope) async {
-    final communications = ref.read(studentCommunicationsProvider(scope).notifier);
+    final communications =
+        ref.read(studentCommunicationsProvider(scope).notifier);
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    if (!item.isRead) {
-      try { await communications.readNotification(item.id); } catch (_) {}
+    final historical =
+        ref.read(sessionProvider).status == SessionStatus.historical;
+    if (!item.isRead && !historical) {
+      try {
+        await communications.readNotification(item.id);
+      } catch (_) {}
     }
     final action = item.action;
     final route = action?['route']?.toString();
-    final params = action?['params'] is Map ? Map<String, dynamic>.from(action!['params'] as Map) : const <String, dynamic>{};
+    final params = action?['params'] is Map
+        ? Map<String, dynamic>.from(action!['params'] as Map)
+        : const <String, dynamic>{};
     if (!mounted) return;
     if (route == null || route.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('لا توجد تفاصيل إضافية لهذا الإشعار.')));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('لا توجد تفاصيل إضافية لهذا الإشعار.')));
       return;
     }
     if (route == 'homework_detail') {
       final id = (params['homework_id'] as num?)?.toInt();
       if (id != null) {
-        setState(() { selectedIndex = 1; showCommunicationsCenter = false; });
+        setState(() {
+          selectedIndex = 1;
+          showCommunicationsCenter = false;
+        });
         await ref.read(studentHomeworkProvider(scope).notifier).open(id);
       }
+      return;
+    }
+    if (route == 'homework_submission') {
+      setState(() {
+        selectedIndex = 1;
+        showCommunicationsCenter = false;
+      });
+      messenger.showSnackBar(
+          const SnackBar(content: Text('افتح الواجب لمراجعة حالة التسليم.')));
       return;
     }
     if (route == 'result_detail') {
@@ -231,7 +296,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       if (id != null && state is ResultsReady) {
         final matches = state.data.items.where((e) => e.id == id);
         if (matches.isNotEmpty) {
-          setState(() { selectedIndex = 2; showCommunicationsCenter = false; });
+          setState(() {
+            selectedIndex = 2;
+            showCommunicationsCenter = false;
+          });
           ref.read(studentResultsProvider(scope).notifier).open(matches.first);
         }
       }
@@ -244,8 +312,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         final matches = state.data.announcements.where((e) => e.id == id);
         if (matches.isNotEmpty) {
           final announcement = matches.first;
-          if (!announcement.isRead) {
-            try { await communications.readAnnouncement(announcement.id); } catch (_) {}
+          if (!announcement.isRead && !historical) {
+            try {
+              await communications.readAnnouncement(announcement.id);
+            } catch (_) {}
           }
           if (!mounted) return;
           await navigator.push(MaterialPageRoute<void>(
@@ -253,8 +323,14 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               body: SafeArea(
                 child: StudentAnnouncementDetailScreen(
                   item: announcement,
-                  historical: false,
+                  historical: historical,
                   onBack: () => navigator.pop(),
+                  onInquire: announcement.canInquire && !historical
+                      ? () async {
+                          await communications.inquire(announcement.id);
+                          if (navigator.canPop()) navigator.pop();
+                        }
+                      : null,
                 ),
               ),
             ),
@@ -262,7 +338,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           return;
         }
       }
-      messenger.showSnackBar(const SnackBar(content: Text('تعذر فتح تفاصيل الإعلان.')));
+      messenger.showSnackBar(
+          const SnackBar(content: Text('تعذر فتح تفاصيل الإعلان.')));
       return;
     }
     if (route == 'conversation_detail' || route == 'school_support_detail') {
@@ -271,19 +348,41 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       if (id != null && state is CommunicationsReady) {
         final matches = state.data.conversations.where((e) => e.id == id);
         if (matches.isNotEmpty) {
-          setState(() { selectedIndex = 3; showCommunicationsCenter = false; });
+          setState(() {
+            selectedIndex = 3;
+            showCommunicationsCenter = false;
+          });
           await communications.openConversation(matches.first);
         }
       }
       return;
     }
-    messenger.showSnackBar(const SnackBar(content: Text('هذا الإشعار لا يحتوي على وجهة مدعومة.')));
+    if (route == 'school_home') {
+      setState(() {
+        selectedIndex = 0;
+        showCommunicationsCenter = false;
+      });
+      return;
+    }
+    if (route == 'conversation_start') {
+      setState(() {
+        selectedIndex = 3;
+        showCommunicationsCenter = false;
+      });
+      messenger.showSnackBar(
+          const SnackBar(content: Text('اختر محادثة متاحة لبدء التواصل.')));
+      return;
+    }
+    messenger.showSnackBar(
+        const SnackBar(content: Text('هذا الإشعار لا يحتوي على وجهة مدعومة.')));
   }
 
   Widget _communicationsCenter(
       CommunicationsState state, AppSession session, CacheScope scope) {
     if (state is CommunicationsLoading) return const AppSkeletonCard();
-    if (state is CommunicationsFailure) return AppErrorState(message: state.message);
+    if (state is CommunicationsFailure) {
+      return AppErrorState(message: state.message);
+    }
     final ready = state as CommunicationsReady;
     final controller = ref.read(studentCommunicationsProvider(scope).notifier);
     return StudentCommunicationsCenter(
@@ -293,13 +392,30 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       onOpenNotification: (item) => _openNotification(item, scope),
       onReadAll: controller.readAll,
       onReadAnnouncement: controller.readAnnouncement,
+      onInquireAnnouncement: (announcement) async {
+        final id = await controller.inquire(announcement.id);
+        final current = ref.read(studentCommunicationsProvider(scope));
+        if (current is CommunicationsReady) {
+          final matches =
+              current.data.conversations.where((item) => item.id == id);
+          if (matches.isNotEmpty) {
+            setState(() {
+              selectedIndex = 3;
+              showCommunicationsCenter = false;
+            });
+            await controller.openConversation(matches.first);
+          }
+        }
+      },
     );
   }
 
   Widget _messagesFeature(
       CommunicationsState state, AppSession session, CacheScope scope) {
     if (state is CommunicationsLoading) return const AppSkeletonCard();
-    if (state is CommunicationsFailure) return AppErrorState(message: state.message);
+    if (state is CommunicationsFailure) {
+      return AppErrorState(message: state.message);
+    }
     final ready = state as CommunicationsReady;
     final controller = ref.read(studentCommunicationsProvider(scope).notifier);
     if (ready.selectedConversation != null) {
@@ -308,6 +424,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         messages: ready.messages,
         historical: session.status == SessionStatus.historical,
         offline: ready.data.offline || session.offline,
+        loading: ready.busy,
+        error: ready.detailError,
         onBack: controller.closeConversation,
         onSend: controller.send,
       );
@@ -317,11 +435,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       offline: ready.data.offline || session.offline,
       historical: session.status == SessionStatus.historical,
       onOpen: controller.openConversation,
-      onSupport: () => showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => SchoolSupportSheet(onSubmit: controller.createSupport),
-      ),
+      onCreateSupport: controller.createSupport,
     );
   }
 
@@ -403,8 +517,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     ]);
   }
 
-  Widget _studentFeature(
-      TimetableState state, AttendanceState? attendance,
+  Widget _studentFeature(TimetableState state, AttendanceState? attendance,
       AppSession session, CacheScope scope) {
     if (showAttendance) {
       final controller = ref.read(studentAttendanceProvider(scope).notifier);
