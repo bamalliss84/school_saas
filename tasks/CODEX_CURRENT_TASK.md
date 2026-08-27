@@ -7,17 +7,18 @@ Read:
 - existing Student closure/API/architecture docs referenced by the handoff.
 
 ## CURRENT TASK
-**M1.2 — Student More / Profile + Context UX**
+**M1.3 — Student Timetable UI Closure — CLOSED / SUPERVISOR ACCEPTED**
 
-Execute only the existing Student fifth-tab closure:
-- read-only profile from `students/me/profile/`
-- canonical context display/switching from `auth/contexts/`
-- academic history from `students/me/academic-history/`
-- scoped offline cache
-- historical read-only UX
-- Appearance, Help, About, and existing Logout integration
-- compact/150%/RTL regression and tests
+Reuse the existing Backend and Flutter Timetable implementation. Close only:
+- Today/Week visual and ordering behavior
+- Backend-authoritative Current/Next presentation
+- configured, empty-day, no-next, error, and cached-offline states
+- membership/year cache isolation and recovery
+- historical view-only UX
+- compact 320×480, 150% text, long Arabic labels, and RTL
+- Home-to-Timetable and Android Back behavior
+- focused automated verification and Android runtime handoff
 
-Do not start Timetable closure or Teacher App automatically.
+Do not modify Backend unless a proven contract gap exists. Do not start Student final regression or Teacher App automatically.
 
-At completion return the required Supervisor handoff and STOP.
+M1.3 is complete. Do not start M1.4 Student App Final Regression until explicitly authorized.

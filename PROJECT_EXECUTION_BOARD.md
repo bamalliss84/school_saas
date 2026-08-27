@@ -26,7 +26,7 @@
 | Attendance | Codex | ✅ DONE | Functional + technical acceptance; do not rebuild |
 | Communications V1 | Codex | ✅ DONE | Supervisor runtime accepted on Android Emulator |
 | More/Profile + Context UX | Codex | ✅ DONE | Supervisor runtime accepted: multi-context selection/current identification, historical switching/banner/read-only enforcement, and topbar refresh |
-| Timetable UI Closure | Codex | 🔴 TODO | existing backend/Flutter; visual/runtime closure only |
+| Timetable UI Closure | Codex | ✅ DONE | Supervisor runtime accepted on Android Medium Phone, including responsive RTL Week selector |
 | Student Final Regression | Codex | 🔴 TODO | final pilot gate |
 
 ### Student App final target
@@ -142,7 +142,13 @@ Only one Backend-changing integration window should be active at a time.
 
 ### Codex
 Current:
-**No Mobile task active — M1.2 Supervisor accepted; awaiting authorization to start M1.3.**
+**No Mobile task active — M1.3 Supervisor accepted; awaiting authorization to start M1.4 Student App Final Regression.**
+
+M1.3 closure:
+- ✅ Today/Week ordering, Current/Next, and distinct empty states
+- ✅ scoped cached offline recovery and membership/year isolation
+- ✅ historical view-only, RTL, 320×480 at 150%, and nested Back handling
+- ✅ Supervisor Android Medium Phone runtime acceptance, including all seven fully visible RTL weekday chips with no clipping/overflow
 
 M1.2 More/Profile + Context UX closure:
 - ✅ Supervisor runtime accepted

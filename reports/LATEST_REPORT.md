@@ -1,5 +1,24 @@
 # Latest Acceptance Report
 
+## M1.3 — Student Timetable UI Closure
+
+**Decision: M1.3 CLOSED / ✅ SUPERVISOR ACCEPTED.**
+
+- Baseline: `e92c28e02a2645a3dade83365d600a8dacfef1d2` on `agent/codex-mobile`; the existing accepted Timetable presentation work was retained and extended. Unrelated Results and generated registrant changes remain untouched.
+- Existing production `timetable/today/`, `week/`, `current/`, and `next/` feeds and the existing scoped Drift cache remain unchanged; no Backend or migration change was needed.
+- Today: entries and periods are deterministically ordered by period sequence/id. Only Backend-authoritative Current/Next IDs receive the corresponding visual emphasis; finished entries remain restrained.
+- Week: days are ordered by date, the actual Today date is selected/identified, empty selected days are explicit, and the horizontally scrolling day selector remains compact.
+- Empty states distinguish an unconfigured timetable, a configured day with no lessons, no current lesson, and no next lesson. Transport/API failures keep the existing controlled error behavior; no unsupported publication state was invented because the Timetable contract has no publication field.
+- Offline/cache: existing user + membership + academic-year scoping is preserved. Focused coverage verifies cached fallback and that a successful refresh clears controller offline state.
+- Historical: the shared shell banner remains authoritative; the full timetable also identifies the previous-year view as view-only and exposes no mutation controls.
+- Navigation: the full timetable has an explicit Back action, and Student Shell intercepts Android Back for Timetable and other existing nested destinations before allowing the shell to exit.
+- Responsive: long Arabic subject, teacher, classroom, section, period, and time metadata use bounded flexible layout; 320×480 at 150% text scale has focused no-overflow coverage.
+- Responsive runtime fix: the fixed-height horizontal weekday strip was replaced by an RTL wrapping selector so every full Arabic day chip and selected/check state remains visible and reachable without shrinking labels.
+- Focused Timetable tests: 17 PASS, including exact 320×480/150% RTL viewport-bound checks for all seven weekday chips. Full `flutter test --no-pub`: PASS — 103 tests.
+- `dart format`: PASS on the four M1.3 Dart files. `flutter analyze --no-pub`: PASS — no issues found.
+- Supervisor Android Medium Phone runtime acceptance: PASS. Today/Week presentation, RTL wrapping, selected current day, and the responsive weekday-selector recheck have no visible clipping or overflow.
+- Backend changed: NO. Migration: NO. Commit/push: NOT RUN.
+
 ## M1.2 — Student More / Profile + Context UX
 
 **Decision: M1.2 CLOSED / ✅ SUPERVISOR ACCEPTED.**

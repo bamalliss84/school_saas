@@ -190,10 +190,21 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         selectedIndex == 4 ? ref.watch(studentProfileProvider(scope)) : null;
     final attendance =
         showAttendance ? ref.watch(studentAttendanceProvider(scope)) : null;
+    final hasNestedDestination = showTimetable ||
+        showAttendance ||
+        showCommunicationsCenter ||
+        (selectedIndex == 4 && moreDestination != null);
     return PopScope(
-        canPop: !(selectedIndex == 4 && moreDestination != null),
+        canPop: !hasNestedDestination,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && selectedIndex == 4 && moreDestination != null) {
+          if (didPop) return;
+          if (showTimetable) {
+            setState(() => showTimetable = false);
+          } else if (showAttendance) {
+            setState(() => showAttendance = false);
+          } else if (showCommunicationsCenter) {
+            setState(() => showCommunicationsCenter = false);
+          } else if (selectedIndex == 4 && moreDestination != null) {
             setState(() => moreDestination = null);
           }
         },
@@ -661,6 +672,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     if (showTimetable) {
       return StudentTimetableScreen(
           data: ready.data,
+          historical: session.status == SessionStatus.historical,
+          onBack: () => setState(() => showTimetable = false),
           onRefresh: () =>
               ref.read(studentTimetableProvider(scope).notifier).refresh());
     }
