@@ -27,10 +27,12 @@
 | Communications V1 | Codex | ✅ DONE | Supervisor runtime accepted on Android Emulator |
 | More/Profile + Context UX | Codex | ✅ DONE | Supervisor runtime accepted: multi-context selection/current identification, historical switching/banner/read-only enforcement, and topbar refresh |
 | Timetable UI Closure | Codex | ✅ DONE | Supervisor runtime accepted on Android Medium Phone, including responsive RTL Week selector |
-| Student Final Regression | Codex | 🔴 TODO | final pilot gate |
+| Student Final Regression | Codex | ✅ DONE | M1.4 Supervisor runtime accepted, including Results state/navigation recovery |
 
 ### Student App final target
 `STUDENT APP V1 CLOSED — READY FOR SCHOOL PILOT`
+
+**Status: ✅ CLOSED / DONE — SUPERVISOR ACCEPTED**
 
 ---
 
@@ -142,7 +144,15 @@ Only one Backend-changing integration window should be active at a time.
 
 ### Codex
 Current:
-**No Mobile task active — M1.3 Supervisor accepted; awaiting authorization to start M1.4 Student App Final Regression.**
+**Student Mobile V1: ✅ CLOSED / DONE — SUPERVISOR ACCEPTED. Teacher App M2 is the next official Mobile milestone and has not started.**
+
+M1.4 review:
+- ✅ authentication/session/context and scoped offline architecture retained
+- ✅ Home, Timetable, Homework, Results, Attendance, Communications, and More/Profile integration reviewed
+- ✅ historical read-only and user/membership/academic-year isolation retained
+- ✅ nested Android Back corrected for Homework, Results, Conversations, and Attendance detail
+- ✅ Results refresh no longer flashes stale values; first-tap detail and Back navigation are reliable
+- ✅ final Supervisor online/offline/recovery/context-switch journey accepted
 
 M1.3 closure:
 - ✅ Today/Week ordering, Current/Next, and distinct empty states

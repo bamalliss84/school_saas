@@ -13,19 +13,19 @@
 
 | الجزء | Backend | Flutter الحالي | الحالة الحالية | ما بقي للإغلاق |
 |---|---|---|---|---|
-| Session / Context / Historical | قوي وموجود | موجود ومختبر | ✅ مغلق تقريبًا | Final cross-feature regression فقط |
-| الرئيسية | Timetable APIs موجودة | موجودة فعليًا | ✅ موجود | Smoke نهائي مع Features الجديدة |
-| الجدول الدراسي | Today / Week / Current / Next موجودة | موجود كامل + Offline cache | 🟠 Closure | مراجعة UI النهائية + small/150% + Offline smoke |
-| الواجبات | قوي جدًا | submission modes + attachments + offline draft | ✅ CLOSED وظيفيًا | Final regression فقط |
-| النتائج | نشر + ExamType + Historical | فلترة + Offline + details | 🟠 Closure خفيف | ExamType الديناميكي كمرجع Backend + final UI regression |
+| Session / Context / Historical | قوي وموجود | موجود ومختبر | ✅ CLOSED | M1.4 Supervisor accepted |
+| الرئيسية | Timetable APIs موجودة | موجودة فعليًا | ✅ CLOSED | M1.4 Supervisor accepted |
+| الجدول الدراسي | Today / Week / Current / Next موجودة | موجود كامل + Offline cache | ✅ CLOSED | M1.3 Supervisor runtime accepted |
+| الواجبات | قوي جدًا | submission modes + attachments + offline draft | ✅ CLOSED | M1.4 Supervisor accepted |
+| النتائج | نشر + ExamType + Historical | فلترة + Offline + details | ✅ CLOSED | Runtime state/navigation regression accepted |
 | الحضور | موجود ومؤسس | Summary + filters + details + Offline | ✅ CLOSED عمليًا | نقطة وقت تسجيل المتأخر تُراجع فقط إذا كان Backend يرسلها |
-| الإشعارات | APIs كاملة | منفذة ضمن Communications V1 RC | 🟠 IMPLEMENTED / TEST PENDING | List/read-all/badge/cache + deep-link dispatcher |
-| الإعلانات | APIs كاملة + Read + Attachments | منفذة ضمن Communications V1 RC | 🟠 IMPLEMENTED / TEST PENDING | list/detail/read/attachments/cache/inquiry |
-| الرسائل | Conversations/Messages/Read/Attachments موجودة | Bottom tab Placeholder | 🔴 REMAINING | conversation list/detail/send/read/cache/attachments |
-| School Support | create/list/detail/reply/status Backend موجود | غير منفذ | 🔴 REMAINING | create request + track status + school replies + cache |
-| More / Profile | Profile + Schools + Academic History موجودة | حاليًا Appearance + Logout فقط | 🔴 REMAINING | Profile / Current School / Help / About / More navigation |
-| تغيير المدرسة / السجل السابق | Backend + Session foundation موجود | Context Screen موجودة | 🟠 CLOSURE | UX مطابق للتصميم + states + final regression |
-| Help / About | لا يحتاج Backend أساسي | غير مكتمل | 🟠 بسيط | Static/product info + help navigation |
+| الإشعارات | APIs كاملة | منفذة ضمن Communications V1 | ✅ CLOSED | Supervisor accepted |
+| الإعلانات | APIs كاملة + Read + Attachments | منفذة ضمن Communications V1 | ✅ CLOSED | Supervisor accepted |
+| الرسائل | Conversations/Messages/Read/Attachments موجودة | list/detail/send/read/cache/attachments | ✅ CLOSED | Supervisor accepted |
+| School Support | create/list/detail/reply/status Backend موجود | منفذ ومختبر على Android Emulator | ✅ CLOSED | Supervisor accepted |
+| More / Profile | Profile + Schools + Academic History موجودة | Profile / school / history / context / help / about | ✅ CLOSED | M1.2 Supervisor accepted |
+| تغيير المدرسة / السجل السابق | Backend + Session foundation موجود | Multi-context + historical read-only | ✅ CLOSED | M1.2 Supervisor accepted |
+| Help / About | لا يحتاج Backend أساسي | مكتمل | ✅ CLOSED | M1.4 Supervisor accepted |
 | Native Push Firebase/APNs | Extension points موجودة | غير منفذ | 🟡 DEFERRED | يمكن بعد V1 Pilot إذا كانت In-App notifications كافية |
 
 ## Official design references
@@ -58,5 +58,5 @@
 - Attendance V1: online filters/details + states + responsive 150% + offline cache — accepted on emulator and tests.
 
 ## Current next work
-**Communications V1 Mapping is the active step.**  
-No Flutter implementation starts until `COMMUNICATIONS_V1_MAPPING.md` is accepted.
+**Student Mobile V1 is ✅ CLOSED / DONE — SUPERVISOR ACCEPTED and ready for school pilot.**
+The next official Mobile milestone is **Teacher App V1 / M2**, now unblocked by Student V1 closure; it has not started.

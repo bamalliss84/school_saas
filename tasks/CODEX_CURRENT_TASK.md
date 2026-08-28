@@ -7,18 +7,16 @@ Read:
 - existing Student closure/API/architecture docs referenced by the handoff.
 
 ## CURRENT TASK
-**M1.3 — Student Timetable UI Closure — CLOSED / SUPERVISOR ACCEPTED**
+**M1.4 — Student App Final Regression: ✅ CLOSED / DONE / SUPERVISOR ACCEPTED**
 
-Reuse the existing Backend and Flutter Timetable implementation. Close only:
-- Today/Week visual and ordering behavior
-- Backend-authoritative Current/Next presentation
-- configured, empty-day, no-next, error, and cached-offline states
-- membership/year cache isolation and recovery
-- historical view-only UX
-- compact 320×480, 150% text, long Arabic labels, and RTL
-- Home-to-Timetable and Android Back behavior
-- focused automated verification and Android runtime handoff
+Review the accepted Student V1 journey as one integrated application:
+- login/session restoration/logout and context selection
+- Home, Timetable, Homework, Results, Attendance, Communications, and More/Profile
+- current and historical multi-context isolation
+- genuine offline cached reads and real API recovery
+- historical read-only restrictions
+- RTL, compact/150%, keyboard, bottom-navigation, and nested Back behavior
 
-Do not modify Backend unless a proven contract gap exists. Do not start Student final regression or Teacher App automatically.
+Apply only proven minimal Student Mobile regression fixes. Do not modify Backend or start Teacher App.
 
-M1.3 is complete. Do not start M1.4 Student App Final Regression until explicitly authorized.
+Student Mobile V1 is officially CLOSED / DONE and ready for school pilot. Teacher App V1 / M2 is the next official Mobile milestone and is unblocked, but must not start without a new task authorization.

@@ -1,5 +1,23 @@
 # Latest Acceptance Report
 
+## M1.4 — Student App Final Regression
+
+**Decision: M1.4 CLOSED / ✅ SUPERVISOR ACCEPTED. STUDENT MOBILE V1 OFFICIALLY CLOSED / DONE — READY FOR SCHOOL PILOT.**
+
+- Baseline: `365d64c65e7813346139e2d72662c17da25ed701` on `agent/codex-mobile`; M1.2 and M1.3 remain closed/accepted. Existing unstaged Results and generated registrant changes were preserved and excluded.
+- Reviewed the integrated Student journey across authentication/session restoration/logout, context selection, Home/Timetable/Attendance, Homework, Results, Communications/School Support, and More/Profile/History/Appearance/Help/About.
+- Multi-context: the accepted `demo_student_a_01` current Noor 2025/2026 and historical Future 2024/2025 contexts remain selected through membership IDs. Feature cache scope remains local user + membership + academic year; Student Shell is keyed by membership and does not reuse the prior context UI.
+- Offline/recovery: no connectivity-only online shortcut was introduced. Transport failures continue to drive cached/offline behavior; only a successful real API response invokes connection restoration. Offline mutations remain blocked by the accepted feature rules.
+- Historical: shared historical state/banner remains authoritative. Homework submission/editing, Support creation/reply, announcement inquiry, and other mutations remain unavailable; read-only domain views remain accessible.
+- Regression found/fixed: Student Shell Android system Back did not treat open Homework detail, Result detail, or Message/Support conversation as nested destinations, and Attendance detail Back skipped its list. The shell now closes the active feature detail first, matching each existing explicit Back action, without changing routing, business state, APIs, caches, or permissions.
+- Results runtime recheck regression: the Results provider is eagerly loaded and tab selection can request a refresh while that load is still active. The controller previously emitted cached rows before refresh and allowed concurrent load completions to replace the same `ResultsReady` state, which could flash older same-scope grades and clear/override a just-selected detail. Results loads are now coalesced, online initial load remains a proper loading state until fresh data arrives, exact-scope cache is used only as an offline fallback, and refresh completion preserves the current filters/detail selection.
+- Results cache audit: the Drift primary key and provider family both use local user + membership + academic year; no cross-context key defect or Backend contract defect was found.
+- Supervisor runtime recheck: PASS. No grade-value flashing; Result detail opens on the first tap; Back returns to the same list state; current/historical contexts remain isolated; offline exact-scope cache and online recovery are accepted.
+- Static responsive review retained accepted bounded/scrollable layouts for RTL, narrow widths, 150% text, keyboard-safe Support, fixed bottom navigation, and the accepted M1.3 wrapping weekday selector. No additional layout defect was proven statically.
+- Final staged diff check initially found two Markdown trailing spaces in the roadmap status line; they were removed and the check was rerun successfully.
+- Backend changed: NO. Migration: NO. Flutter/Dart analyze and tests: NOT RUN by explicit Supervisor restriction. Push: NOT RUN.
+- Next official Mobile milestone: Teacher App V1 / M2. The Student V1 completion gate is satisfied, so M2 is unblocked but has not started.
+
 ## M1.3 — Student Timetable UI Closure
 
 **Decision: M1.3 CLOSED / ✅ SUPERVISOR ACCEPTED.**

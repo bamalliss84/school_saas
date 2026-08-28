@@ -41,15 +41,34 @@ class ResultsController extends StateNotifier<ResultsState> {
   ResultsController(this.repository, this.scope) : super(const ResultsLoading());
   final StudentResultsRepository repository;
   final CacheScope scope;
+  Future<void>? _inFlight;
 
   Future<void> load() async {
+    final active = _inFlight;
+    if (active != null) {
+      await active;
+      return;
+    }
+    final operation = _loadOnce();
+    _inFlight = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_inFlight, operation)) _inFlight = null;
+    }
+  }
+
+  Future<void> _loadOnce() async {
     final cached = await repository.read(scope);
-    if (cached != null) state = ResultsReady(cached);
     try {
       final fresh = await repository.refresh(scope);
       final current = state;
       state = current is ResultsReady ? current.copyWith(data: fresh) : ResultsReady(fresh);
     } catch (error) {
+      final current = state;
+      if (isOfflineEligibleError(error) && current is ResultsReady) {
+        return;
+      }
       if (cached != null && isOfflineEligibleError(error)) {
         state = ResultsReady(cached);
       } else {

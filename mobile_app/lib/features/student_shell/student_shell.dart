@@ -190,9 +190,21 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         selectedIndex == 4 ? ref.watch(studentProfileProvider(scope)) : null;
     final attendance =
         showAttendance ? ref.watch(studentAttendanceProvider(scope)) : null;
+    final homeworkDetailOpen = selectedIndex == 1 &&
+        homework is HomeworkReady &&
+        homework.detail is! HomeworkDetailClosed;
+    final resultDetailOpen = selectedIndex == 2 &&
+        results is ResultsReady &&
+        results.selected != null;
+    final conversationDetailOpen = selectedIndex == 3 &&
+        communications is CommunicationsReady &&
+        communications.selectedConversation != null;
     final hasNestedDestination = showTimetable ||
         showAttendance ||
         showCommunicationsCenter ||
+        homeworkDetailOpen ||
+        resultDetailOpen ||
+        conversationDetailOpen ||
         (selectedIndex == 4 && moreDestination != null);
     return PopScope(
         canPop: !hasNestedDestination,
@@ -201,9 +213,21 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           if (showTimetable) {
             setState(() => showTimetable = false);
           } else if (showAttendance) {
-            setState(() => showAttendance = false);
+            if (attendance is AttendanceReady && attendance.selected != null) {
+              ref.read(studentAttendanceProvider(scope).notifier).close();
+            } else {
+              setState(() => showAttendance = false);
+            }
           } else if (showCommunicationsCenter) {
             setState(() => showCommunicationsCenter = false);
+          } else if (homeworkDetailOpen) {
+            ref.read(studentHomeworkProvider(scope).notifier).closeDetail();
+          } else if (resultDetailOpen) {
+            ref.read(studentResultsProvider(scope).notifier).close();
+          } else if (conversationDetailOpen) {
+            ref
+                .read(studentCommunicationsProvider(scope).notifier)
+                .closeConversation();
           } else if (selectedIndex == 4 && moreDestination != null) {
             setState(() => moreDestination = null);
           }
