@@ -247,7 +247,7 @@ class SessionController extends StateNotifier<AppSession> {
     if (localUserKey != null) await purgeUserData(localUserKey);
     await snapshotStore.clear();
     state = const AppSession(SessionStatus.sessionExpired,
-        message: 'انتهت الجلسة، سجّل الدخول مجددًا');
+        message: 'انتهت صلاحية تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى للمتابعة.');
   }
 
   Future<void> logout() async {

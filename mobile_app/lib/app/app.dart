@@ -14,6 +14,7 @@ import '../core/storage/session_snapshot_store.dart';
 import '../features/authentication/data/auth_repository.dart';
 import '../features/school_context/data/context_repository.dart';
 import '../features/student_shell/student_shell.dart';
+import '../features/teacher_shell/teacher_shell.dart';
 import 'session/app_session.dart';
 import 'session/session_controller.dart';
 
@@ -126,6 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(sessionProvider);
+    final expired = state.status == SessionStatus.sessionExpired;
     return Scaffold(
         body: SafeArea(
             child: Center(
@@ -135,11 +137,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         constraints: const BoxConstraints(maxWidth: 420),
                         child:
                             Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.school_rounded, size: 72),
+                          Icon(
+                            expired
+                                ? Icons.error_outline
+                                : Icons.school_rounded,
+                            size: 72,
+                            color: expired
+                                ? Theme.of(context).colorScheme.error
+                                : null,
+                          ),
                           const SizedBox(height: 16),
-                          Text('مدرستي',
-                              style:
-                                  Theme.of(context).textTheme.headlineMedium),
+                          Text(
+                            expired ? 'انتهت جلسة تسجيل الدخول' : 'مدرستي',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                          if (expired) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'انتهت صلاحية تسجيل الدخول.\nيرجى تسجيل الدخول مرة أخرى للمتابعة.',
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                           const SizedBox(height: 32),
                           TextField(
                               controller: username,
@@ -153,7 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               decoration: const InputDecoration(
                                   labelText: 'كلمة المرور')),
                           const SizedBox(height: 16),
-                          if (state.message != null)
+                          if (state.message != null && !expired)
                             Text(state.message!,
                                 style: TextStyle(
                                     color:
@@ -215,6 +234,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     final role = school?.role ?? '';
     if (role == 'student') {
       return StudentShell(key: ValueKey(school?.membershipId));
+    }
+    if (role == 'teacher') {
+      return TeacherShell(key: ValueKey(school?.membershipId));
     }
     final labels = switch (role) {
       'student' => ['الرئيسية', 'الجدول', 'الواجبات', 'النتائج', 'الإشعارات'],
