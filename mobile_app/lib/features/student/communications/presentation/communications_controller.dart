@@ -52,11 +52,21 @@ class CommunicationsController extends StateNotifier<CommunicationsState> {
   final StudentCommunicationsRepository repo;
   final CacheScope scope;
   Future<void> load() async {
+    final cached = await repo.read(scope);
+    if (cached != null) {
+      state = CommunicationsReady(cached);
+    }
     try {
-      state = CommunicationsReady(await repo.load(scope));
+      final fresh = await repo.refresh(scope);
+      final current = state;
+      state = current is CommunicationsReady
+          ? current.copyWith(data: fresh)
+          : CommunicationsReady(fresh);
     } catch (e) {
-      state =
-          CommunicationsFailure(failureMessage(e, 'تعذر تحميل بيانات التواصل'));
+      if (cached == null || !isOfflineEligibleError(e)) {
+        state = CommunicationsFailure(
+            failureMessage(e, 'تعذر تحميل بيانات التواصل'));
+      }
     }
   }
 

@@ -92,7 +92,8 @@ class SessionController extends StateNotifier<AppSession> {
       final usable = result.contexts
           .where((c) => c.status == 'active' || c.isHistorical)
           .toList();
-      final selected = _usableCurrent(result, usable) ??
+      final serverCurrent = _usableCurrent(result, usable);
+      final selected = serverCurrent ??
           (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
@@ -102,7 +103,12 @@ class SessionController extends StateNotifier<AppSession> {
             user: login.user,
             contexts: usable);
       } else {
-        await selectContext(selected, user: login.user, available: usable);
+        if (serverCurrent?.membershipId == selected.membershipId) {
+          await _activateKnownContext(
+              selected, login.user, usable);
+        } else {
+          await selectContext(selected, user: login.user, available: usable);
+        }
       }
     } on DioException catch (error) {
       final failure = error.error;
@@ -131,6 +137,16 @@ class SessionController extends StateNotifier<AppSession> {
       await contexts.restoreStoredMembership(previousMembershipId);
       rethrow;
     }
+  }
+
+  Future<void> _activateKnownContext(SchoolContext context,
+      AuthenticatedUser user, List<SchoolContext> available) async {
+    await Future.wait([
+      contexts.restoreStoredMembership(context.membershipId),
+      snapshotStore.write(LocalSessionSnapshot(user: user, context: context)),
+    ]);
+    state = AppSession(statusForContext(context),
+        user: user, context: context, contexts: available);
   }
 
   /// Revalidates the current membership after an authenticated 403.

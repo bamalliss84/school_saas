@@ -28,6 +28,7 @@ import '../student/communications/presentation/communications_screens.dart';
 import '../student/student_profile_controller.dart';
 import '../student/student_profile_repository.dart';
 import '../student/student_profile_screens.dart';
+import '../student/home/presentation/smart_student_home.dart';
 
 final studentTimetableProvider = StateNotifierProvider.autoDispose
     .family<TimetableController, TimetableState, CacheScope>((ref, scope) {
@@ -164,9 +165,17 @@ class _StudentShellState extends ConsumerState<StudentShell> {
                 context.academicYearName ??
                 '',
           );
-          Future<void>.microtask(() => ref
-              .read(studentCommunicationsProvider(scope).notifier)
-              .refresh());
+          Future<void>.microtask(() async {
+            await Future.wait([
+              ref.read(studentTimetableProvider(scope).notifier).refresh(),
+              ref.read(studentHomeworkProvider(scope).notifier).refresh(),
+              ref.read(studentResultsProvider(scope).notifier).refresh(),
+              ref.read(studentAttendanceProvider(scope).notifier).refresh(),
+              ref
+                  .read(studentCommunicationsProvider(scope).notifier)
+                  .refresh(),
+            ]);
+          });
         }
       },
     );
@@ -188,8 +197,9 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     final communications = ref.watch(studentCommunicationsProvider(scope));
     final profile =
         selectedIndex == 4 ? ref.watch(studentProfileProvider(scope)) : null;
-    final attendance =
-        showAttendance ? ref.watch(studentAttendanceProvider(scope)) : null;
+    final attendance = (selectedIndex == 0 || showAttendance)
+        ? ref.watch(studentAttendanceProvider(scope))
+        : null;
     final homeworkDetailOpen = selectedIndex == 1 &&
         homework is HomeworkReady &&
         homework.detail is! HomeworkDetailClosed;
@@ -690,10 +700,10 @@ class _StudentShellState extends ConsumerState<StudentShell> {
         onBack: () => setState(() => showAttendance = false),
       );
     }
-    if (state is TimetableLoading) return const AppSkeletonCard();
-    if (state is TimetableFailure) return AppErrorState(message: state.message);
-    final ready = state as TimetableReady;
     if (showTimetable) {
+      if (state is TimetableLoading) return const AppSkeletonCard();
+      if (state is TimetableFailure) return AppErrorState(message: state.message);
+      final ready = state as TimetableReady;
       return StudentTimetableScreen(
           data: ready.data,
           historical: session.status == SessionStatus.historical,
@@ -701,15 +711,39 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           onRefresh: () =>
               ref.read(studentTimetableProvider(scope).notifier).refresh());
     }
-    return StudentHomeScreen(
-      data: ready.data,
-      studentName: session.user?.fullName ?? '',
-      schoolName: session.context?.schoolName ?? '',
-      academicYear: session.context?.academicYearName ?? '',
-      onOpenTimetable: () => setState(() => showTimetable = true),
-      onOpenAttendance: () => setState(() => showAttendance = true),
-      onRefresh: () =>
-          ref.read(studentTimetableProvider(scope).notifier).refresh(),
+    return SmartStudentHome(
+      timetable: state,
+      homework: ref.watch(studentHomeworkProvider(scope)),
+      results: ref.watch(studentResultsProvider(scope)),
+      attendance: attendance,
+      communications: ref.watch(studentCommunicationsProvider(scope)),
+      historical: session.status == SessionStatus.historical,
+      onTimetable: () => setState(() => showTimetable = true),
+      onAttendance: () => setState(() => showAttendance = true),
+      onHomework: () => setState(() => selectedIndex = 1),
+      onResults: () => setState(() => selectedIndex = 2),
+      onCommunications: () => setState(() => selectedIndex = 3),
+      onUpdates: () => setState(() => showCommunicationsCenter = true),
+      onRefresh: () async {
+        final operations = <Future<void>>[];
+        if (ref.read(studentTimetableProvider(scope)) is! TimetableLoading) {
+          operations.add(
+              ref.read(studentTimetableProvider(scope).notifier).refresh());
+        }
+        if (ref.read(studentHomeworkProvider(scope)) is! HomeworkLoading) {
+          operations.add(ref.read(studentHomeworkProvider(scope).notifier).refresh());
+        }
+        if (ref.read(studentResultsProvider(scope)) is! ResultsLoading) {
+          operations.add(ref.read(studentResultsProvider(scope).notifier).refresh());
+        }
+        if (ref.read(studentCommunicationsProvider(scope)) is! CommunicationsLoading) {
+          operations.add(ref.read(studentCommunicationsProvider(scope).notifier).refresh());
+        }
+        if (ref.read(studentAttendanceProvider(scope)) is! AttendanceLoading) {
+          operations.add(ref.read(studentAttendanceProvider(scope).notifier).refresh());
+        }
+        await Future.wait(operations);
+      },
     );
   }
 }
