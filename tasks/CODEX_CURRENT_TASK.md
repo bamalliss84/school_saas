@@ -7,23 +7,16 @@ Read:
 - existing Student closure/API/architecture docs referenced by the handoff.
 
 ## CURRENT TASK
-**Student App V1 — Communications V1 Closure**
+**M1.4 — Student App Final Regression: ✅ CLOSED / DONE / SUPERVISOR ACCEPTED**
 
-Audit current implementation first. Do not rebuild accepted domains.
+Review the accepted Student V1 journey as one integrated application:
+- login/session restoration/logout and context selection
+- Home, Timetable, Homework, Results, Attendance, Communications, and More/Profile
+- current and historical multi-context isolation
+- genuine offline cached reads and real API recovery
+- historical read-only restrictions
+- RTL, compact/150%, keyboard, bottom-navigation, and nested Back behavior
 
-Execute only Communications V1:
-- Notifications
-- Announcements
-- Messages
-- School Support
-- deep links
-- offline cached reads
-- correct mutation restrictions
-- historical restrictions
-- tenant/context cache isolation
-- compact/150% regression
-- tests/runtime acceptance
+Apply only proven minimal Student Mobile regression fixes. Do not modify Backend or start Teacher App.
 
-Do not start More/Profile automatically.
-
-At completion return the required Supervisor handoff and STOP.
+Student Mobile V1 is officially CLOSED / DONE and ready for school pilot. Teacher App V1 / M2 is the next official Mobile milestone and is unblocked, but must not start without a new task authorization.

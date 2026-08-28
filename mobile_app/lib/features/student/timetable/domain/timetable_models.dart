@@ -84,22 +84,40 @@ class WeekTimetable {
   const WeekTimetable({required this.weekStart, required this.days});
   final DateTime weekStart;
   final List<TimetableDay> days;
-  factory WeekTimetable.fromJson(Map<String, dynamic> json) => WeekTimetable(
+  factory WeekTimetable.fromJson(Map<String, dynamic> json) {
+    final days = (json['days'] as List? ?? const [])
+        .map((e) => TimetableDay.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return WeekTimetable(
       weekStart: DateTime.parse(json['week_start'].toString()),
-      days: (json['days'] as List? ?? const [])
-          .map(
-              (e) => TimetableDay.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList());
+      days: days,
+    );
+  }
 }
 
-List<TimetableEntryModel> _entries(Object? value) =>
-    (value as List? ?? const [])
-        .map((e) =>
-            TimetableEntryModel.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-List<TimetablePeriod> _periods(Object? value) => (value as List? ?? const [])
-    .map((e) => TimetablePeriod.fromJson(Map<String, dynamic>.from(e as Map)))
-    .toList();
+List<TimetableEntryModel> _entries(Object? value) {
+  final entries = (value as List? ?? const [])
+      .map((e) =>
+          TimetableEntryModel.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList()
+    ..sort((a, b) {
+      final sequence = a.period.sequence.compareTo(b.period.sequence);
+      return sequence != 0 ? sequence : a.id.compareTo(b.id);
+    });
+  return entries;
+}
+
+List<TimetablePeriod> _periods(Object? value) {
+  final periods = (value as List? ?? const [])
+      .map((e) => TimetablePeriod.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList()
+    ..sort((a, b) {
+      final sequence = a.sequence.compareTo(b.sequence);
+      return sequence != 0 ? sequence : a.id.compareTo(b.id);
+    });
+  return periods;
+}
 
 TimetableEntryModel? nullableEntry(Map<String, dynamic> json, String key) {
   final value = json[key];

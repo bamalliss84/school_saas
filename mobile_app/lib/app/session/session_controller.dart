@@ -47,7 +47,9 @@ class SessionController extends StateNotifier<AppSession> {
           (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
-          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          usable.isEmpty
+              ? SessionStatus.unavailable
+              : SessionStatus.needsContext,
           contexts: usable,
         );
         return;
@@ -90,7 +92,8 @@ class SessionController extends StateNotifier<AppSession> {
       final usable = result.contexts
           .where((c) => c.status == 'active' || c.isHistorical)
           .toList();
-      final selected = _usableCurrent(result, usable) ??
+      final serverCurrent = _usableCurrent(result, usable);
+      final selected = serverCurrent ??
           (usable.length == 1 ? usable.single : null);
       if (selected == null) {
         state = AppSession(
@@ -100,7 +103,12 @@ class SessionController extends StateNotifier<AppSession> {
             user: login.user,
             contexts: usable);
       } else {
-        await selectContext(selected, user: login.user, available: usable);
+        if (serverCurrent?.membershipId == selected.membershipId) {
+          await _activateKnownContext(
+              selected, login.user, usable);
+        } else {
+          await selectContext(selected, user: login.user, available: usable);
+        }
       }
     } on DioException catch (error) {
       final failure = error.error;
@@ -115,14 +123,30 @@ class SessionController extends StateNotifier<AppSession> {
 
   Future<void> selectContext(SchoolContext context,
       {AuthenticatedUser? user, List<SchoolContext>? available}) async {
-    await contexts.select(context);
-    final resolvedUser = user ?? state.user ?? await auth.me();
-    await snapshotStore.write(
-        LocalSessionSnapshot(user: resolvedUser, context: context));
+    final previousMembershipId = await contexts.storedMembershipId();
+    try {
+      await contexts.select(context);
+      final resolvedUser = user ?? state.user ?? await auth.me();
+      await snapshotStore
+          .write(LocalSessionSnapshot(user: resolvedUser, context: context));
+      state = AppSession(statusForContext(context),
+          user: resolvedUser,
+          context: context,
+          contexts: available ?? state.contexts);
+    } catch (_) {
+      await contexts.restoreStoredMembership(previousMembershipId);
+      rethrow;
+    }
+  }
+
+  Future<void> _activateKnownContext(SchoolContext context,
+      AuthenticatedUser user, List<SchoolContext> available) async {
+    await Future.wait([
+      contexts.restoreStoredMembership(context.membershipId),
+      snapshotStore.write(LocalSessionSnapshot(user: user, context: context)),
+    ]);
     state = AppSession(statusForContext(context),
-        user: resolvedUser,
-        context: context,
-        contexts: available ?? state.contexts);
+        user: user, context: context, contexts: available);
   }
 
   /// Revalidates the current membership after an authenticated 403.
@@ -146,8 +170,8 @@ class SessionController extends StateNotifier<AppSession> {
       }
       if (current != null) {
         if (state.user != null) {
-          await snapshotStore.write(
-              LocalSessionSnapshot(user: state.user!, context: current));
+          await snapshotStore
+              .write(LocalSessionSnapshot(user: state.user!, context: current));
         }
         return false;
       }
@@ -160,7 +184,9 @@ class SessionController extends StateNotifier<AppSession> {
         await selectContext(next, available: usable);
       } else {
         state = AppSession(
-          usable.isEmpty ? SessionStatus.unavailable : SessionStatus.needsContext,
+          usable.isEmpty
+              ? SessionStatus.unavailable
+              : SessionStatus.needsContext,
           user: state.user,
           contexts: usable,
           message: usable.isEmpty
