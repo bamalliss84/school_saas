@@ -2,13 +2,17 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '../pages/LoginPage';
 import { ContextSelectionPage } from '../pages/ContextSelectionPage';
-import { DashboardPlaceholderPage } from '../pages/DashboardPlaceholderPage';
+import { DashboardPage } from '../pages/DashboardPage';
+import { SystemStatesShowcasePage } from '../pages/SystemStatesShowcasePage';
+import { ResponsiveSystemShowcasePage } from '../pages/ResponsiveSystemShowcasePage';
 import { UnauthorizedPage } from '../pages/UnauthorizedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { AppShell } from '../components/layout/AppShell';
 import { AuthGuard } from './AuthGuard';
 import { SchoolAdminGuard } from './SchoolAdminGuard';
 import { ContextGuard } from './ContextGuard';
+import { ClassesPage } from '../pages/ClassesPage';
+import { SubjectsPage } from '../pages/SubjectsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Sparkles } from 'lucide-react';
@@ -79,8 +83,10 @@ export const AppRoutes: React.FC = () => {
         }
       >
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard/*" element={<DashboardPlaceholderPage />} />
-        <Route path="/dashboard" element={<DashboardPlaceholderPage />} />
+        <Route path="/dashboard/*" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/system-states" element={<SystemStatesShowcasePage />} />
+        <Route path="/responsive-system" element={<ResponsiveSystemShowcasePage />} />
 
         {/* People routes */}
         <Route
@@ -126,46 +132,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="/people" element={<Navigate to="/students" replace />} />
 
         {/* Academic routes */}
-        <Route
-          path="/classes/*"
-          element={
-            <ModulePlaceholder
-              title="الفصول والشعب (Classes & Sections)"
-              phase="Phase W4"
-              description="إدارة المراحل، الصفوف الدراسية، والشعب الأكاديمية."
-            />
-          }
-        />
-        <Route
-          path="/classes"
-          element={
-            <ModulePlaceholder
-              title="الفصول والشعب (Classes & Sections)"
-              phase="Phase W4"
-              description="إدارة المراحل، الصفوف الدراسية، والشعب الأكاديمية."
-            />
-          }
-        />
-        <Route
-          path="/subjects/*"
-          element={
-            <ModulePlaceholder
-              title="المواد الدراسية (Subject Management)"
-              phase="Phase W4"
-              description="المناهج، المواد الدراسية، والخطط التعليمية."
-            />
-          }
-        />
-        <Route
-          path="/subjects"
-          element={
-            <ModulePlaceholder
-              title="المواد الدراسية (Subject Management)"
-              phase="Phase W4"
-              description="المناهج، المواد الدراسية، والخطط التعليمية."
-            />
-          }
-        />
+        <Route path="/classes/*" element={<ClassesPage />} />
+        <Route path="/classes" element={<ClassesPage />} />
+        <Route path="/subjects/*" element={<SubjectsPage />} />
+        <Route path="/subjects" element={<SubjectsPage />} />
         <Route path="/academic" element={<Navigate to="/classes" replace />} />
 
         {/* Timetable */}
