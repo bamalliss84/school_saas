@@ -26,37 +26,39 @@ def _student_base_queryset():
     )
 
 
-def students_for_user(user):
+def students_for_user(user, request=None):
     """Scope students by tenant and role before any object lookup."""
     queryset = _student_base_queryset()
 
     if not user or not user.is_authenticated:
         return queryset.none()
 
-    if user.role == 'super_admin':
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+    if role == 'super_admin':
         return queryset
 
-    if not user.school_id:
+    if not school:
         return queryset.none()
 
-    queryset = queryset.filter(enrollments__school_id=user.school_id).distinct()
+    queryset = queryset.filter(enrollments__school_id=school.id).distinct()
 
-    if user.role == 'school_admin':
+    if role == 'school_admin':
         return queryset
 
-    if user.role == 'teacher':
-        teacher = Teacher.objects.filter(user=user).first()
+    if role == 'teacher':
+        teacher = Teacher.objects.filter(user=user, school=school).first() or Teacher.objects.filter(user=user).first()
         if teacher is None:
             return queryset.none()
 
         assignments = teacher.assignments.filter(
             is_current=True,
-            school_id=user.school_id,
+            school=school,
         )
-        if user.academic_year_id:
-            assignments = assignments.filter(
-                academic_year_id=user.academic_year_id,
-            )
+        if academic_year:
+            assignments = assignments.filter(academic_year=academic_year)
 
         enrollment_scope = Q()
         for assignment in assignments.only(
@@ -78,56 +80,63 @@ def students_for_user(user):
             return queryset.none()
         return queryset.filter(enrollment_scope).distinct()
 
-    if user.role == 'parent':
+    if role == 'parent':
         return queryset.filter(
             guardians__parent__user=user,
-            enrollments__school_id=user.school_id,
+            enrollments__school_id=school.id,
         ).distinct()
 
-    if user.role == 'student':
-        return queryset.filter(user=user, enrollments__school_id=user.school_id).distinct()
+    if role == 'student':
+        return queryset.filter(user=user, enrollments__school_id=school.id).distinct()
 
     return queryset.none()
 
-def get_teacher_assignments_for_user(user):
+
+def get_teacher_assignments_for_user(user, request=None):
     queryset = TeacherAssignment.objects.select_related(
         'teacher', 'school', 'academic_year', 'classroom', 'section', 'subject',
     )
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(school=school)
+    if role == 'school_admin':
         return queryset
-    if user.role != 'teacher':
+    if role != 'teacher':
         return queryset.none()
     return queryset.filter(teacher__user=user)
 
 
-def user_can_manage_teacher_assignment(user, assignment):
+def user_can_manage_teacher_assignment(user, assignment, request=None):
     if not user or not user.is_authenticated:
         return False
-    if user.role == 'super_admin':
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    if role == 'super_admin':
         return True
-    if not user.school_id or assignment.school_id != user.school_id:
+    if not school or assignment.school_id != school.id:
         return False
-    if user.role == 'school_admin':
+    if role == 'school_admin':
         return True
-    return user.role == 'teacher' and assignment.teacher.user_id == user.id
+    return role == 'teacher' and assignment.teacher.user_id == user.id
 
 
-def get_accessible_student_enrollments_for_user(user):
+def get_accessible_student_enrollments_for_user(user, request=None):
     queryset = StudentEnrollment.objects.select_related(
         'student', 'school', 'academic_year', 'classroom', 'section',
     )
-    student_ids = students_for_user(user).values('pk')
+    student_ids = students_for_user(user, request=request).values('pk')
     return queryset.filter(student_id__in=student_ids)
 
 
-def get_attendance_queryset_for_user(user):
+def get_attendance_queryset_for_user(user, request=None):
     queryset = Attendance.objects.select_related(
         'student_enrollment', 'student_enrollment__student',
         'student_enrollment__school', 'student_enrollment__academic_year',
@@ -136,22 +145,26 @@ def get_attendance_queryset_for_user(user):
     )
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(student_enrollment__school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(student_enrollment__school_id=school.id)
+    if role == 'school_admin':
         return queryset
-    if user.role == 'teacher':
+    if role == 'teacher':
         return queryset.filter(
             teacher_assignment__teacher__user=user,
-            teacher_assignment__school_id=user.school_id,
+            teacher_assignment__school_id=school.id,
         )
-    if user.role == 'parent':
+    if role == 'parent':
         return queryset.filter(
             student_enrollment__student__guardians__parent__user=user,
         ).distinct()
-    if user.role == 'student':
+    if role == 'student':
         return queryset.filter(student_enrollment__student__user=user)
     return queryset.none()

@@ -341,15 +341,17 @@ class AcademicTermBriefSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'term_type', 'start_date', 'end_date')
 
 
-def _validate_teacher_assignment_for_write(user, assignment, attendance_date):
-    if user.role != 'teacher':
+def _validate_teacher_assignment_for_write(user, assignment, attendance_date, request=None):
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    if role != 'teacher':
         return
+    active_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
     if (
-        not user_can_manage_teacher_assignment(user, assignment)
+        not user_can_manage_teacher_assignment(user, assignment, request=request)
         or not assignment.is_current
         or (
-            user.academic_year_id
-            and assignment.academic_year_id != user.academic_year_id
+            active_year
+            and assignment.academic_year_id != active_year.id
         )
         or (assignment.start_date and attendance_date < assignment.start_date)
         or (assignment.end_date and attendance_date > assignment.end_date)
@@ -391,8 +393,17 @@ class AttendanceSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        request = self.context['request']
-        user = request.user
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        if request:
+            from .context import require_writable_context
+            require_writable_context(request)
+
+        role = getattr(request, 'active_role', None) or (user.role if user else None)
+        school = getattr(request, 'active_school', None) or (user.school if user else None)
+        active_year = getattr(request, 'active_academic_year', None) or (user.academic_year if user else None)
+
         instance = self.instance
         enrollment = attrs.get(
             'student_enrollment',
@@ -407,7 +418,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'attendance_date', instance.attendance_date if instance else None,
         )
 
-        if user.role not in ('super_admin', 'school_admin', 'teacher'):
+        if role not in ('super_admin', 'school_admin', 'teacher'):
             raise serializers.ValidationError('Attendance cannot be managed by this role.')
         if enrollment is None or term is None:
             return attrs
@@ -422,7 +433,9 @@ class AttendanceSerializer(serializers.ModelSerializer):
             enrollment.status != 'active' or not enrollment.is_current
         ):
             raise serializers.ValidationError('Student enrollment must be active and current.')
-        if user.role != 'super_admin' and enrollment.school_id != user.school_id:
+        if role != 'super_admin' and school and enrollment.school_id != school.id:
+            raise serializers.ValidationError('Invalid attendance relationships.')
+        if active_year and enrollment.academic_year_id != active_year.id:
             raise serializers.ValidationError('Invalid attendance relationships.')
         if term.school_id != enrollment.school_id or term.academic_year_id != enrollment.academic_year_id:
             raise serializers.ValidationError('Invalid attendance relationships.')
@@ -436,12 +449,12 @@ class AttendanceSerializer(serializers.ModelSerializer):
                 or assignment.section_id != enrollment.section_id
             ):
                 raise serializers.ValidationError('Invalid attendance relationships.')
-            if not user_can_manage_teacher_assignment(user, assignment):
+            if not user_can_manage_teacher_assignment(user, assignment, request=request):
                 raise serializers.ValidationError('Invalid attendance relationships.')
             _validate_teacher_assignment_for_write(
-                user, assignment, attendance_date,
+                user, assignment, attendance_date, request=request,
             )
-        elif user.role == 'teacher':
+        elif role == 'teacher':
             raise serializers.ValidationError('Teacher assignment is required.')
 
         if enrollment and attendance_date:
@@ -469,11 +482,23 @@ class BulkAttendanceSerializer(serializers.Serializer):
     students = BulkAttendanceStudentSerializer(many=True, allow_empty=False)
 
     def validate(self, attrs):
-        user = self.context['request'].user
-        assignment = get_teacher_assignments_for_user(user).filter(
+        request = self.context['request']
+        user = request.user
+
+        from .context import require_writable_context
+        require_writable_context(request)
+
+        role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+        school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+        active_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+        assignment = get_teacher_assignments_for_user(user, request=request).filter(
             pk=attrs['teacher_assignment_id'],
         ).first()
-        if assignment is None or user.role not in ('super_admin', 'school_admin', 'teacher'):
+        if assignment is None or role not in ('super_admin', 'school_admin', 'teacher'):
+            raise serializers.ValidationError('Invalid attendance scope.')
+
+        if active_year and assignment.academic_year_id != active_year.id:
             raise serializers.ValidationError('Invalid attendance scope.')
 
         term = AcademicTerm.objects.filter(
@@ -484,7 +509,7 @@ class BulkAttendanceSerializer(serializers.Serializer):
         if term is None:
             raise serializers.ValidationError('Invalid attendance scope.')
         _validate_teacher_assignment_for_write(
-            user, assignment, attrs['attendance_date'],
+            user, assignment, attrs['attendance_date'], request=request,
         )
         if not (term.start_date <= attrs['attendance_date'] <= term.end_date):
             raise serializers.ValidationError('Attendance date must be inside the academic term.')

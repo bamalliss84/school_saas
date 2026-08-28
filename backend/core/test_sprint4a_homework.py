@@ -42,10 +42,14 @@ class SprintFourAHomeworkTests(APITestCase):
         return publish_homework(homework=homework or self.make_homework(), actor=self.teacher_user)
 
     def submission(self, homework=None):
-        return create_submission_draft(
+        sub = create_submission_draft(
             homework=homework or self.publish(), student_enrollment=self.enrollment,
             actor=self.student_user,
         )
+        sub.answer = 'Sample Answer'
+        sub.save(update_fields=('answer',))
+        return sub
+
 
     def test_01_unauthenticated_is_401(self):
         self.assertEqual(self.client.get('/api/v1/homework/').status_code, 401)

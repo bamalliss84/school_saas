@@ -160,8 +160,12 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
 
 class HomeworkSerializer(serializers.ModelSerializer):
     school = serializers.PrimaryKeyRelatedField(read_only=True)
+    academic_year = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicYear.objects.all(), required=False,
+    )
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     classroom_id = serializers.IntegerField(source='teacher_assignment.classroom_id', read_only=True)
+
     section_id = serializers.IntegerField(source='teacher_assignment.section_id', read_only=True)
     subject_id = serializers.IntegerField(source='teacher_assignment.subject_id', read_only=True)
     subject_name = serializers.CharField(source='teacher_assignment.subject.name', read_only=True)
@@ -286,12 +290,18 @@ class HomeworkSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context['request']
+        from .context import require_writable_context
+        require_writable_context(request)
+
         assignment = attrs.get('teacher_assignment', getattr(self.instance, 'teacher_assignment', None))
         year = attrs.get('academic_year', getattr(self.instance, 'academic_year', None))
+        if assignment and not year:
+            year = assignment.academic_year
+            attrs['academic_year'] = year
         term = attrs.get('academic_term', getattr(self.instance, 'academic_term', None))
         if not assignment or not year or not term:
             raise serializers.ValidationError('Homework relationships are required.')
-        if not user_can_manage_teacher_assignment(request.user, assignment):
+        if not user_can_manage_teacher_assignment(request.user, assignment, request=request):
             raise serializers.ValidationError('Teacher assignment is outside your scope.')
         if (
             assignment.academic_year_id != year.pk
@@ -305,6 +315,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
         if publish_at and due_date and due_date < publish_at:
             raise serializers.ValidationError({'due_date': 'Due date cannot precede publish time.'})
         return attrs
+
 
     def create(self, validated_data):
         return create_homework(
