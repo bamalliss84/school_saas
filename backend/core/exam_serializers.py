@@ -158,14 +158,19 @@ class ExamResultSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
-        user = self.context['request'].user
+        request = self.context.get('request')
+        user = request.user if request else self.context['request'].user
+        if request:
+            from .context import require_writable_context
+            require_writable_context(request)
+
         exam = attrs.get('exam', getattr(self.instance, 'exam', None))
         enrollment = attrs.get(
             'student_enrollment', getattr(self.instance, 'student_enrollment', None),
         )
-        if not exams_for_user(user).filter(pk=exam.pk).exists():
+        if not exams_for_user(user, request=request).filter(pk=exam.pk).exists():
             raise serializers.ValidationError('Exam is outside your scope.')
-        if not get_accessible_student_enrollments_for_user(user).filter(pk=enrollment.pk).exists():
+        if not get_accessible_student_enrollments_for_user(user, request=request).filter(pk=enrollment.pk).exists():
             raise serializers.ValidationError('Student enrollment is outside your scope.')
         assignment = exam.teacher_assignment
         if (
@@ -225,9 +230,13 @@ class BulkGradeSerializer(serializers.Serializer):
     results = BulkGradeItemSerializer(many=True, allow_empty=False)
 
     def validate(self, attrs):
-        user = self.context['request'].user
+        request = self.context['request']
+        user = request.user
+        from .context import require_writable_context
+        require_writable_context(request)
+
         exam = attrs['exam']
-        if not exams_for_user(user).filter(pk=exam.pk).exists():
+        if not exams_for_user(user, request=request).filter(pk=exam.pk).exists():
             raise serializers.ValidationError({'exam': 'Exam is outside your scope.'})
         seen = set()
         assignment = exam.teacher_assignment
@@ -236,7 +245,7 @@ class BulkGradeSerializer(serializers.Serializer):
             if enrollment.pk in seen:
                 raise serializers.ValidationError({'results': 'Duplicate students are not allowed.'})
             seen.add(enrollment.pk)
-            if not get_accessible_student_enrollments_for_user(user).filter(pk=enrollment.pk).exists():
+            if not get_accessible_student_enrollments_for_user(user, request=request).filter(pk=enrollment.pk).exists():
                 raise serializers.ValidationError({'results': 'Student is outside your scope.'})
             if (
                 enrollment.school_id != exam.school_id
@@ -253,6 +262,7 @@ class BulkGradeSerializer(serializers.Serializer):
             if score is not None and (score < 0 or score > exam.total_marks):
                 raise serializers.ValidationError({'results': 'Score is outside the allowed range.'})
         return attrs
+
 
     @transaction.atomic
     def create(self, validated_data):

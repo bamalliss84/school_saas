@@ -202,6 +202,20 @@ class ParentChildrenAPIView(generics.ListAPIView):
         ).order_by('student__full_name')
 
 
+from .teacher_views import (
+    TeacherAssignmentStudentsAPIView,
+    TeacherAssignmentsAPIView,
+    TeacherClassesAPIView,
+    TeacherMeProfileAPIView,
+    TeacherStudentsAPIView,
+    TeacherSubjectsAPIView,
+    _current_assignments_for_request,
+    _get_active_academic_year,
+    _get_active_school,
+    _get_teacher_for_request,
+)
+
+
 def _teacher_for_user(user):
     try:
         return Teacher.objects.get(user=user)
@@ -223,87 +237,6 @@ def _current_assignments_for_user(user):
     return queryset
 
 
-class TeacherAssignmentsAPIView(generics.ListAPIView):
-    serializer_class = TeacherAssignmentSerializer
-    permission_classes = [IsActiveSchoolUser, IsTeacher]
-
-    @extend_schema(parameters=[TeacherAssignmentQuerySerializer])
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return TeacherAssignment.objects.none()
-        query = TeacherAssignmentQuerySerializer(data=self.request.query_params)
-        query.is_valid(raise_exception=True)
-        params = query.validated_data
-        teacher = _teacher_for_user(self.request.user)
-        queryset = TeacherAssignment.objects.filter(
-            teacher=teacher,
-            school_id=self.request.user.school_id,
-        )
-        if params.get('current'):
-            queryset = _current_assignments_for_user(self.request.user)
-        field_filters = {
-            'academic_year_id': 'academic_year_id',
-            'classroom_id': 'classroom_id',
-            'section_id': 'section_id',
-            'subject_id': 'subject_id',
-        }
-        for parameter, field in field_filters.items():
-            if parameter in params:
-                queryset = queryset.filter(**{field: params[parameter]})
-        if params.get('date'):
-            selected_date = params['date']
-            queryset = queryset.filter(
-                Q(start_date__isnull=True) | Q(start_date__lte=selected_date),
-                Q(end_date__isnull=True) | Q(end_date__gte=selected_date),
-            )
-        return queryset.select_related(
-            'school', 'academic_year', 'classroom', 'section', 'subject',
-        ).order_by(params['ordering'], 'id')
-
-class TeacherClassesAPIView(generics.ListAPIView):
-    serializer_class = TeacherClassSerializer
-    permission_classes = [IsActiveSchoolUser, IsTeacher]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return TeacherAssignment.objects.none()
-        assignments = _current_assignments_for_user(self.request.user)
-        unique_ids = assignments.values('classroom_id', 'section_id').annotate(
-            first_id=Min('id'),
-        ).values('first_id')
-        return TeacherAssignment.objects.filter(
-            pk__in=Subquery(unique_ids),
-        ).select_related('classroom', 'section').order_by(
-            'classroom__name', 'section__name',
-        )
-
-
-class TeacherStudentsAPIView(generics.ListAPIView):
-    serializer_class = StudentListSerializer
-    permission_classes = [IsActiveSchoolUser, IsTeacher]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Student.objects.none()
-        _teacher_for_user(self.request.user)
-        return students_for_user(self.request.user).order_by('full_name')
-
-
-class TeacherSubjectsAPIView(generics.ListAPIView):
-    serializer_class = SubjectBriefSerializer
-    permission_classes = [IsActiveSchoolUser, IsTeacher]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Subject.objects.none()
-        assignments = _current_assignments_for_user(self.request.user)
-        return Subject.objects.filter(
-            teacher_assignments__in=assignments,
-        ).distinct().order_by('name')
-
 class AttendanceListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = AttendanceSerializer
 
@@ -321,7 +254,7 @@ class AttendanceListCreateAPIView(generics.ListCreateAPIView):
         query = AttendanceListQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
-        queryset = get_attendance_queryset_for_user(self.request.user)
+        queryset = get_attendance_queryset_for_user(self.request.user, request=self.request)
         field_filters = {
             'attendance_date': 'attendance_date',
             'student_id': 'student_enrollment__student_id',
@@ -348,6 +281,12 @@ class AttendanceListCreateAPIView(generics.ListCreateAPIView):
             )
         return queryset.order_by(params['ordering'], 'id')
 
+    def perform_create(self, serializer):
+        from .context import require_writable_context
+        require_writable_context(self.request)
+        serializer.save()
+
+
 class AttendanceDetailAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = AttendanceSerializer
 
@@ -358,7 +297,12 @@ class AttendanceDetailAPIView(generics.RetrieveUpdateAPIView):
         return [permission() for permission in classes]
 
     def get_queryset(self):
-        return get_attendance_queryset_for_user(self.request.user)
+        return get_attendance_queryset_for_user(self.request.user, request=self.request)
+
+    def perform_update(self, serializer):
+        from .context import require_writable_context
+        require_writable_context(self.request)
+        serializer.save()
 
 
 class BulkAttendanceAPIView(APIView):
@@ -370,6 +314,9 @@ class BulkAttendanceAPIView(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request):
+        from .context import require_writable_context
+        require_writable_context(request)
+
         serializer = BulkAttendanceSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         from .services.attendance import save_bulk_attendance
@@ -388,6 +335,7 @@ class BulkAttendanceAPIView(APIView):
                 result['records'], many=True, context={'request': request},
             ).data,
         }, status=status.HTTP_200_OK)
+
 
 
 def _date_range(queryset, params):

@@ -6,18 +6,21 @@ from .models import (
 )
 
 
-def _enrollment_scope(user, membership=None):
+def _enrollment_scope(user, membership=None, school=None):
     membership = membership or getattr(user, '_active_membership', None)
-    queryset = StudentEnrollment.objects.filter(school_id=user.school_id)
+    school_id = school.id if school else user.school_id
+    queryset = StudentEnrollment.objects.filter(school_id=school_id)
     if not membership or membership.status == 'active':
         queryset = queryset.filter(is_current=True, status='active')
     elif membership.status != 'historical':
         return queryset.none()
-    if user.role == 'student':
+    role = membership.role if membership else user.role
+    if role == 'student':
         return queryset.filter(student__user=user)
-    if user.role == 'parent':
+    if role == 'parent':
         return queryset.filter(student__guardians__parent__user=user).distinct()
     return queryset.none()
+
 
 
 def homework_for_user(user, request=None):
@@ -33,20 +36,28 @@ def homework_for_user(user, request=None):
     )
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(school=school)
+    if role == 'school_admin':
         return queryset
-    if user.role == 'teacher':
-        return queryset.filter(teacher_assignment__teacher__user=user)
-    if user.role not in ('student', 'parent'):
+    if role == 'teacher':
+        qs = queryset.filter(teacher_assignment__teacher__user=user)
+        if academic_year:
+            qs = qs.filter(academic_year=academic_year)
+        return qs
+    if role not in ('student', 'parent'):
         return queryset.none()
-    membership = getattr(request, 'active_membership', None) if request else None
+    membership = getattr(request, 'active_membership', None) if request else getattr(user, '_active_membership', None)
     scope = Q()
-    for enrollment in _enrollment_scope(user, membership).only(
+    for enrollment in _enrollment_scope(user, membership, school=school).only(
         'academic_year_id', 'classroom_id', 'section_id',
     ):
         scope |= Q(
@@ -74,35 +85,47 @@ def submissions_for_user(user, request=None):
     ))
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(homework__school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(homework__school=school)
+    if role == 'school_admin':
         return queryset
-    if user.role == 'teacher':
-        return queryset.filter(homework__teacher_assignment__teacher__user=user)
+    if role == 'teacher':
+        qs = queryset.filter(homework__teacher_assignment__teacher__user=user)
+        if academic_year:
+            qs = qs.filter(homework__academic_year=academic_year)
+        return qs
     membership = getattr(request, 'active_membership', None) if request else getattr(user, '_active_membership', None)
     if membership and membership.status == 'historical':
         queryset = queryset.filter(homework__status__in=('published', 'closed'))
-    if user.role == 'student':
+    if role == 'student':
         return queryset.filter(
             student_enrollment__student__user=user,
-            student_enrollment__school_id=user.school_id,
+            student_enrollment__school=school,
         )
-    if user.role == 'parent':
+    if role == 'parent':
         return queryset.filter(
             student_enrollment__student__guardians__parent__user=user,
-            student_enrollment__school_id=user.school_id,
+            student_enrollment__school=school,
         ).distinct()
     return queryset.none()
 
 
-def homework_logs_for_user(user):
+def homework_logs_for_user(user, request=None):
     queryset = HomeworkActionLog.objects.select_related('school', 'actor')
-    if not user or not user.is_authenticated or user.role not in ('super_admin', 'school_admin'):
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    if not user or not user.is_authenticated or role not in ('super_admin', 'school_admin'):
         return queryset.none()
-    if user.role == 'super_admin':
+    if role == 'super_admin':
         return queryset
-    return queryset.filter(school_id=user.school_id)
+    if not school:
+        return queryset.none()
+    return queryset.filter(school=school)

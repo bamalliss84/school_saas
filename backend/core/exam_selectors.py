@@ -3,18 +3,20 @@ from django.db.models import Prefetch
 from .models import Exam, ExamResult, ExamResultLog, ExamType
 
 
-def exam_types_for_user(user):
+def exam_types_for_user(user, request=None):
     queryset = ExamType.objects.select_related('school')
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    return queryset.filter(school_id=user.school_id)
+    return queryset.filter(school=school)
 
 
-def exams_for_user(user):
+def exams_for_user(user, request=None):
     results = ExamResult.objects.select_related(
         'student_enrollment__student', 'graded_by', 'approved_by', 'published_by',
     )
@@ -25,22 +27,30 @@ def exams_for_user(user):
     ).prefetch_related(Prefetch('results', queryset=results))
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(school=school)
+    if role == 'school_admin':
         return queryset
-    if user.role == 'teacher':
-        return queryset.filter(teacher_assignment__teacher__user=user)
-    if user.role == 'parent':
+    if role == 'teacher':
+        qs = queryset.filter(teacher_assignment__teacher__user=user)
+        if academic_year:
+            qs = qs.filter(academic_year=academic_year)
+        return qs
+    if role == 'parent':
         return queryset.filter(
             results__workflow_status='approved',
             results__is_published=True,
             results__student_enrollment__student__guardians__parent__user=user,
         ).distinct()
-    if user.role == 'student':
+    if role == 'student':
         return queryset.filter(
             results__workflow_status='approved',
             results__is_published=True,
@@ -49,7 +59,7 @@ def exams_for_user(user):
     return queryset.none()
 
 
-def exam_results_for_user(user):
+def exam_results_for_user(user, request=None):
     queryset = ExamResult.objects.select_related(
         'exam__school', 'exam__academic_year', 'exam__academic_term',
         'exam__exam_type', 'exam__teacher_assignment__teacher',
@@ -61,22 +71,30 @@ def exam_results_for_user(user):
     )
     if not user or not user.is_authenticated:
         return queryset.none()
-    if user.role == 'super_admin':
+
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+
+    if role == 'super_admin':
         return queryset
-    if not user.school_id:
+    if not school:
         return queryset.none()
-    queryset = queryset.filter(exam__school_id=user.school_id)
-    if user.role == 'school_admin':
+    queryset = queryset.filter(exam__school=school)
+    if role == 'school_admin':
         return queryset
-    if user.role == 'teacher':
-        return queryset.filter(exam__teacher_assignment__teacher__user=user)
-    if user.role == 'parent':
+    if role == 'teacher':
+        qs = queryset.filter(exam__teacher_assignment__teacher__user=user)
+        if academic_year:
+            qs = qs.filter(exam__academic_year=academic_year)
+        return qs
+    if role == 'parent':
         return queryset.filter(
             workflow_status='approved',
             is_published=True,
             student_enrollment__student__guardians__parent__user=user,
         ).distinct()
-    if user.role == 'student':
+    if role == 'student':
         return queryset.filter(
             workflow_status='approved',
             is_published=True,
@@ -85,9 +103,10 @@ def exam_results_for_user(user):
     return queryset.none()
 
 
-def exam_result_logs_for_user(user):
-    result_ids = exam_results_for_user(user).values('pk')
-    if user.role in ('parent', 'student'):
+def exam_result_logs_for_user(user, request=None):
+    result_ids = exam_results_for_user(user, request=request).values('pk')
+    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    if role in ('parent', 'student'):
         return ExamResultLog.objects.none()
     return ExamResultLog.objects.filter(exam_result_id__in=result_ids).select_related(
         'exam_result', 'changed_by', 'published_by',
