@@ -53,6 +53,10 @@ class IsSchoolAdmin(RolePermission):
     allowed_roles = ('school_admin',)
 
 
+class IsSchoolAdminOrSuperAdmin(RolePermission):
+    allowed_roles = ('super_admin', 'school_admin')
+
+
 class IsTeacher(RolePermission):
     allowed_roles = ('teacher',)
 
