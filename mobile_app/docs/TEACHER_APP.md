@@ -108,3 +108,30 @@ Roster search is local over the already-loaded student name and student code, wi
 ### API Gaps
 
 No API gap blocks the assignment and roster foundation. There is no dedicated authorized teacher-facing full student-detail contract in M2.3, so the UI intentionally exposes only roster-safe fields and does not open a student profile.
+
+## M2.4 — Teacher Attendance
+
+**Status:** CLOSED — Runtime Accepted.
+
+### Read and Mutation Endpoints
+
+- Roster read: `GET teachers/me/assignments/<assignment_id>/students/?date=YYYY-MM-DD`
+- Atomic mutation: `POST attendance/bulk/`
+
+The roster remains the canonical source for students and existing date-scoped attendance. The bulk request contains `teacher_assignment_id`, `attendance_date`, and only changed student entries with `student_enrollment_id`, `status`, and optional `note`. Academic term resolution is server-owned; Mobile does not fetch, infer, or send `academic_term_id`.
+
+### Statuses and Upsert
+
+The exact supported statuses are `present`, `absent`, `late`, and `excused`, displayed as حاضر، غائب، متأخر، وبعذر. One explicit bulk save is atomic and performs server-side upsert, so existing attendance is corrected without creating duplicate daily records.
+
+### Draft and Classroom Workflow
+
+Status and note changes remain local until Save. Unchanged students are not sent. Save is disabled without changes and while a request is in progress. «الجميع حاضر» modifies the local draft only and still requires one explicit Save. After success, the canonical roster is refreshed and the draft is cleared. Leaving with changes requires confirmation.
+
+### Notes, Dates, and Errors
+
+Notes are optional and edited through a compact keyboard-safe bottom sheet. Every fresh attendance-screen entry intentionally defaults to local today; a previously selected date is not persisted. Teachers may explicitly select another date without client-side academic-term inference, and reopening a saved date retrieves its canonical attendance. Backend date and scope validation errors are mapped to concise Arabic messages; rejected saves keep the local draft intact.
+
+### Context, History, and Offline Behavior
+
+Attendance state is scoped by local user, membership, academic year, assignment, and date. Context changes clear selection and drafts. Historical contexts remain read-only and do not expose attendance editing or saving. Mutations require the network; no offline write queue or speculative synchronization was introduced.

@@ -30,11 +30,36 @@ class TeacherShell extends ConsumerStatefulWidget {
 class _TeacherShellState extends ConsumerState<TeacherShell> {
   int selectedIndex = 0;
   _TeacherDestination? destination;
+  bool attendanceDirty = false;
 
-  void _selectTab(int index) => setState(() {
-        selectedIndex = index;
-        destination = null;
-      });
+  Future<void> _selectTab(int index) async {
+    if (index == selectedIndex) return;
+    if (selectedIndex == 2 && attendanceDirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('لديك تغييرات غير محفوظة'),
+          content: const Text('هل تريد تجاهل مسودة الحضور؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('متابعة التعديل'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('تجاهل التغييرات'),
+            ),
+          ],
+        ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    setState(() {
+      selectedIndex = index;
+      destination = null;
+      attendanceDirty = false;
+    });
+  }
 
   void _open(_TeacherDestination value) => setState(() => destination = value);
 
@@ -83,7 +108,7 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        onDestinationSelected: _selectTab,
+        onDestinationSelected: (index) => _selectTab(index),
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -172,7 +197,12 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
         ),
       2 => TeacherStudentsScreen(
           scope: timetableScope,
-          historical: session.status == SessionStatus.historical,
+          historical: !session.canWrite,
+          onDirtyChanged: (value) {
+            if (attendanceDirty != value) {
+              setState(() => attendanceDirty = value);
+            }
+          },
         ),
       3 => const TeacherFutureFeature(
           title: 'المهام والتقييم',

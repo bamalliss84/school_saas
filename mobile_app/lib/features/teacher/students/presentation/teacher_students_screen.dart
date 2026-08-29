@@ -5,6 +5,7 @@ import '../../../../core/design_system/components.dart';
 import '../../../../core/design_system/role_visual_tokens.dart';
 import '../../../../core/design_system/tokens.dart';
 import '../../../../core/local_database/app_database.dart';
+import '../../attendance/presentation/teacher_attendance_screen.dart';
 import '../domain/teacher_students_models.dart';
 import 'teacher_students_controller.dart';
 
@@ -13,10 +14,12 @@ class TeacherStudentsScreen extends ConsumerStatefulWidget {
     super.key,
     required this.scope,
     required this.historical,
+    required this.onDirtyChanged,
   });
 
   final CacheScope scope;
   final bool historical;
+  final ValueChanged<bool> onDirtyChanged;
 
   @override
   ConsumerState<TeacherStudentsScreen> createState() =>
@@ -25,22 +28,41 @@ class TeacherStudentsScreen extends ConsumerStatefulWidget {
 
 class _TeacherStudentsScreenState extends ConsumerState<TeacherStudentsScreen> {
   TeacherAssignmentSummary? selectedAssignment;
+  bool attendanceMode = false;
 
   @override
   void didUpdateWidget(covariant TeacherStudentsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.scope != widget.scope) selectedAssignment = null;
+    if (oldWidget.scope != widget.scope) {
+      attendanceMode = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onDirtyChanged(false);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final selected = selectedAssignment;
     if (selected != null) {
+      if (attendanceMode) {
+        return TeacherAttendanceScreen(
+          scope: widget.scope,
+          assignment: selected,
+          initialDate: DateTime.now(),
+          onDirtyChanged: widget.onDirtyChanged,
+          onBack: () => setState(() => attendanceMode = false),
+        );
+      }
       return _RosterView(
         scope: widget.scope,
         assignment: selected,
         historical: widget.historical,
         onBack: () => setState(() => selectedAssignment = null),
+        onAttendance: widget.historical
+            ? null
+            : () => setState(() => attendanceMode = true),
       );
     }
     final assignments = ref.watch(teacherAssignmentsProvider(widget.scope));
@@ -211,12 +233,14 @@ class _RosterView extends ConsumerStatefulWidget {
     required this.assignment,
     required this.historical,
     required this.onBack,
+    required this.onAttendance,
   });
 
   final CacheScope scope;
   final TeacherAssignmentSummary assignment;
   final bool historical;
   final VoidCallback onBack;
+  final VoidCallback? onAttendance;
 
   @override
   ConsumerState<_RosterView> createState() => _RosterViewState();
@@ -259,6 +283,7 @@ class _RosterViewState extends ConsumerState<_RosterView> {
               historical: widget.historical,
               query: query,
               onSearch: (value) => setState(() => query = value),
+              onAttendance: widget.onAttendance,
             ),
           ),
         ),
@@ -296,12 +321,14 @@ class _RosterList extends StatelessWidget {
     required this.historical,
     required this.query,
     required this.onSearch,
+    required this.onAttendance,
   });
 
   final TeacherAssignmentRoster roster;
   final bool historical;
   final String query;
   final ValueChanged<String> onSearch;
+  final VoidCallback? onAttendance;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +362,13 @@ class _RosterList extends StatelessWidget {
                 'حالة حضور مسجلة لـ ${roster.recordedCount} طالب — للعرض فقط',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+            if (onAttendance != null) ...[
+              const SizedBox(height: AppSpacing.x3),
+              AppPrimaryButton(
+                label: 'تسجيل الحضور',
+                onPressed: onAttendance,
+              ),
+            ],
           ]),
         ),
         const SizedBox(height: AppSpacing.x3),
