@@ -331,6 +331,10 @@ class BulkAttendanceAPIView(APIView):
             'created': result['created'],
             'updated': result['updated'],
             'total': result['total'],
+            'academic_term': {
+                'id': serializer.validated_data['academic_term'].id,
+                'name': serializer.validated_data['academic_term'].name,
+            },
             'records': AttendanceSerializer(
                 result['records'], many=True, context={'request': request},
             ).data,

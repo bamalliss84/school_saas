@@ -478,7 +478,7 @@ class BulkAttendanceStudentSerializer(serializers.Serializer):
 class BulkAttendanceSerializer(serializers.Serializer):
     teacher_assignment_id = serializers.IntegerField(min_value=1)
     attendance_date = serializers.DateField()
-    academic_term_id = serializers.IntegerField(min_value=1)
+    academic_term_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     students = BulkAttendanceStudentSerializer(many=True, allow_empty=False)
 
     def validate(self, attrs):
@@ -501,18 +501,39 @@ class BulkAttendanceSerializer(serializers.Serializer):
         if active_year and assignment.academic_year_id != active_year.id:
             raise serializers.ValidationError('Invalid attendance scope.')
 
-        term = AcademicTerm.objects.filter(
-            pk=attrs['academic_term_id'],
-            school_id=assignment.school_id,
-            academic_year_id=assignment.academic_year_id,
-        ).first()
-        if term is None:
-            raise serializers.ValidationError('Invalid attendance scope.')
+        attendance_date = attrs['attendance_date']
+
         _validate_teacher_assignment_for_write(
-            user, assignment, attrs['attendance_date'], request=request,
+            user, assignment, attendance_date, request=request,
         )
-        if not (term.start_date <= attrs['attendance_date'] <= term.end_date):
-            raise serializers.ValidationError('Attendance date must be inside the academic term.')
+
+        # Server-side AcademicTerm resolution
+        matching_terms = list(
+            AcademicTerm.objects.filter(
+                school_id=assignment.school_id,
+                academic_year_id=assignment.academic_year_id,
+                start_date__lte=attendance_date,
+                end_date__gte=attendance_date,
+            )
+        )
+        if len(matching_terms) == 0:
+            raise serializers.ValidationError(
+                'No academic term covers the specified attendance date.'
+            )
+        if len(matching_terms) > 1:
+            raise serializers.ValidationError(
+                'Multiple academic terms cover the specified attendance date; configuration is ambiguous.'
+            )
+
+        resolved_term = matching_terms[0]
+
+        # Backward compatibility for optional academic_term_id:
+        supplied_term_id = attrs.get('academic_term_id')
+        if supplied_term_id is not None:
+            if supplied_term_id != resolved_term.id:
+                raise serializers.ValidationError(
+                    'Supplied academic_term_id does not match the active academic term for the given attendance date.'
+                )
 
         enrollment_ids = [item['student_enrollment_id'] for item in attrs['students']]
         if len(enrollment_ids) != len(set(enrollment_ids)):
@@ -541,6 +562,6 @@ class BulkAttendanceSerializer(serializers.Serializer):
             resolved_students.append({**item, 'student_enrollment': enrollment})
 
         attrs['teacher_assignment'] = assignment
-        attrs['academic_term'] = term
+        attrs['academic_term'] = resolved_term
         attrs['students'] = resolved_students
         return attrs
