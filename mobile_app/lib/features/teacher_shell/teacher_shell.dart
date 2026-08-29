@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart';
 import '../../app/session/app_session.dart';
 import '../../core/design_system/components.dart';
+import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../teacher/profile/teacher_profile.dart';
+import '../teacher/students/presentation/teacher_students_screen.dart';
+import '../teacher/timetable/presentation/teacher_timetable_controller.dart';
+import '../teacher/timetable/presentation/teacher_timetable_screen.dart';
 import 'teacher_context.dart';
 import 'teacher_home.dart';
 import 'teacher_more.dart';
@@ -47,6 +51,16 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
     }
     final profile =
         ref.watch(teacherProfileProvider(contextInfo.membershipId));
+    final user = session.user;
+    if (user == null) return const SizedBox.shrink();
+    final timetableScope = CacheScope(
+      localUserKey: 'user:${user.id}',
+      membershipId: contextInfo.membershipId,
+      academicYearKey: contextInfo.academicYearId?.toString() ??
+          contextInfo.academicYearName ??
+          '',
+    );
+    final timetable = ref.watch(teacherTimetableProvider(timetableScope));
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
@@ -56,7 +70,15 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
           ],
           if (session.status == SessionStatus.historical)
             TeacherHistoricalBanner(contextInfo: contextInfo),
-          Expanded(child: _page(session, contextInfo, profile)),
+          Expanded(
+            child: _page(
+              session,
+              contextInfo,
+              profile,
+              timetableScope,
+              timetable,
+            ),
+          ),
         ]),
       ),
       bottomNavigationBar: NavigationBar(
@@ -85,8 +107,13 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
     );
   }
 
-  Widget _page(AppSession session, SchoolContext contextInfo,
-      AsyncValue<TeacherProfile> profile) {
+  Widget _page(
+    AppSession session,
+    SchoolContext contextInfo,
+    AsyncValue<TeacherProfile> profile,
+    CacheScope timetableScope,
+    TeacherTimetableState timetable,
+  ) {
     if (destination != null) {
       return switch (destination!) {
         _TeacherDestination.context => TeacherContextScreen(
@@ -132,21 +159,21 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
       0 => TeacherHomeFoundation(
           session: session,
           profile: profile.asData?.value,
+          timetable: timetable,
           onContext: () => _open(_TeacherDestination.context),
-          onSchedule: () => _selectTab(1),
-          onAttendance: session.canWrite ? () => _selectTab(2) : null,
-          onTasks: session.canWrite ? () => _selectTab(3) : null,
+          onProfile: () => _open(_TeacherDestination.profile),
         ),
-      1 => const TeacherFutureFeature(
-          title: 'جدولي',
-          message: 'سيظهر جدولك الدراسي هنا',
-          detail: 'سترتب حصص اليوم والأسبوع في هذه الصفحة.',
-          icon: Icons.calendar_month_outlined),
-      2 => const TeacherFutureFeature(
-          title: 'الطلاب والحضور',
-          message: 'طلاب حصصك وحضورهم سيظهرون هنا',
-          detail: 'ستتمكن من عرض الطلاب وتسجيل الحضور في مرحلة لاحقة.',
-          icon: Icons.groups_outlined),
+      1 => TeacherTimetableScreen(
+          state: timetable,
+          historical: session.status == SessionStatus.historical,
+          onRefresh: ref
+              .read(teacherTimetableProvider(timetableScope).notifier)
+              .refresh,
+        ),
+      2 => TeacherStudentsScreen(
+          scope: timetableScope,
+          historical: session.status == SessionStatus.historical,
+        ),
       3 => const TeacherFutureFeature(
           title: 'المهام والتقييم',
           message: 'ستظهر المهام والتقييمات هنا',
