@@ -163,6 +163,9 @@ class HomeworkSerializer(serializers.ModelSerializer):
     academic_year = serializers.PrimaryKeyRelatedField(
         queryset=AcademicYear.objects.all(), required=False,
     )
+    academic_term = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicTerm.objects.all(), required=False,
+    )
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     classroom_id = serializers.IntegerField(source='teacher_assignment.classroom_id', read_only=True)
 
@@ -209,7 +212,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request:
             return None
-        active_role = getattr(request, 'active_role', None)
+        active_role = getattr(request, 'active_role', None) or getattr(request.user, 'role', None)
         if active_role == 'student':
             return next((item for item in obj.submissions.all() if item.student_enrollment.student.user_id == request.user.id), None)
         if active_role == 'parent':
@@ -243,7 +246,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
 
     def _can_manage(self, obj):
         request = self.context.get('request')
-        return bool(request and user_can_manage_teacher_assignment(request.user, obj.teacher_assignment))
+        return bool(request and user_can_manage_teacher_assignment(request.user, obj.teacher_assignment, request=request))
 
     def get_can_edit(self, obj) -> bool:
         return self._can_manage(obj) and obj.status == 'draft'
@@ -256,8 +259,9 @@ class HomeworkSerializer(serializers.ModelSerializer):
 
     def get_can_submit(self, obj) -> bool:
         request = self.context.get('request')
+        role = getattr(request, 'active_role', None) or getattr(getattr(request, 'user', None), 'role', None)
         return bool(
-            request and request.user.role == 'student'
+            request and role == 'student'
             and obj.status == 'published' and obj.submission_type != 'none'
         )
 
@@ -298,22 +302,61 @@ class HomeworkSerializer(serializers.ModelSerializer):
         if assignment and not year:
             year = assignment.academic_year
             attrs['academic_year'] = year
-        term = attrs.get('academic_term', getattr(self.instance, 'academic_term', None))
-        if not assignment or not year or not term:
+
+        if not assignment or not year:
             raise serializers.ValidationError('Homework relationships are required.')
+
         if not user_can_manage_teacher_assignment(request.user, assignment, request=request):
             raise serializers.ValidationError('Teacher assignment is outside your scope.')
-        if (
-            assignment.academic_year_id != year.pk
-            or term.school_id != assignment.school_id
-            or term.academic_year_id != year.pk
-            or not assignment.is_current
-        ):
+
+        active_school = getattr(request, 'active_school', None)
+        if active_school and assignment.school_id != active_school.id:
+            raise serializers.ValidationError('Teacher assignment is outside your scope.')
+
+        active_year = getattr(request, 'active_academic_year', None)
+        if active_year and assignment.academic_year_id != active_year.id:
+            raise serializers.ValidationError('Teacher assignment is outside your scope.')
+
+        if assignment.academic_year_id != year.pk or not assignment.is_current:
             raise serializers.ValidationError('Invalid homework relationships.')
+
         due_date = attrs.get('due_date', getattr(self.instance, 'due_date', None))
+        if not due_date:
+            raise serializers.ValidationError({'due_date': 'Due date is required.'})
+
         publish_at = attrs.get('publish_at', getattr(self.instance, 'publish_at', None))
         if publish_at and due_date and due_date < publish_at:
             raise serializers.ValidationError({'due_date': 'Due date cannot precede publish time.'})
+
+        # Server-side AcademicTerm resolution
+        target_date = due_date.date() if hasattr(due_date, 'date') else due_date
+        matching_terms = list(
+            AcademicTerm.objects.filter(
+                school_id=assignment.school_id,
+                academic_year_id=year.pk,
+                start_date__lte=target_date,
+                end_date__gte=target_date,
+            )
+        )
+        if len(matching_terms) == 0:
+            raise serializers.ValidationError(
+                {'academic_term': 'No academic term covers the specified homework due date.'}
+            )
+        if len(matching_terms) > 1:
+            raise serializers.ValidationError(
+                {'academic_term': 'Multiple academic terms cover the specified homework due date; configuration is ambiguous.'}
+            )
+
+        resolved_term = matching_terms[0]
+
+        supplied_term = attrs.get('academic_term')
+        if supplied_term is not None:
+            if supplied_term.pk != resolved_term.pk:
+                raise serializers.ValidationError(
+                    {'academic_term': 'Supplied academic_term does not match the active academic term for the given due date.'}
+                )
+
+        attrs['academic_term'] = resolved_term
         return attrs
 
 
@@ -383,3 +426,44 @@ class HomeworkActionLogSerializer(serializers.ModelSerializer):
             'user_agent', 'created_at',
         )
         read_only_fields = fields
+
+
+class HomeworkStudentStatusItemSerializer(serializers.Serializer):
+    student_enrollment_id = serializers.IntegerField()
+    student_id = serializers.IntegerField()
+    student_name = serializers.CharField()
+    student_code = serializers.CharField()
+    homework_id = serializers.IntegerField()
+    submission_id = serializers.IntegerField(allow_null=True)
+    status = serializers.ChoiceField(choices=(
+        'not_started', 'draft', 'submitted', 'graded', 'returned',
+    ))
+    submitted_at = serializers.DateTimeField(allow_null=True)
+    is_late = serializers.BooleanField()
+    grade = serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True)
+    max_grade = serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True)
+    teacher_note = serializers.CharField(allow_blank=True)
+    can_grade = serializers.BooleanField()
+    can_return = serializers.BooleanField()
+
+
+class HomeworkStudentStatusQuerySerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        required=False, choices=('not_started', 'draft', 'submitted', 'graded', 'returned'),
+    )
+    search = serializers.CharField(required=False, allow_blank=True)
+
+
+class HomeworkStudentStatusResponseSerializer(serializers.Serializer):
+    homework_id = serializers.IntegerField()
+    title = serializers.CharField()
+    max_grade = serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True)
+    due_date = serializers.DateTimeField()
+    total_students = serializers.IntegerField()
+    submitted_count = serializers.IntegerField()
+    graded_count = serializers.IntegerField()
+    returned_count = serializers.IntegerField()
+    draft_count = serializers.IntegerField()
+    not_started_count = serializers.IntegerField()
+    pending_grading_count = serializers.IntegerField()
+    students = HomeworkStudentStatusItemSerializer(many=True)

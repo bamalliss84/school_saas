@@ -101,6 +101,8 @@ class SprintFourAApiCoverageTests(APITestCase):
         submission = create_submission_draft(
             homework=homework, student_enrollment=self.enrollment, actor=self.student_user,
         )
+        submission.answer = 'My Answer'
+        submission.save(update_fields=('answer',))
         self.auth(self.student_user)
         response = self.client.post(f'/api/v1/homework-submissions/{submission.pk}/final-submit/')
         self.assertEqual(response.status_code, 200)
