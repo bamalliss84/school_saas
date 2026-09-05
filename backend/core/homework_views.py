@@ -9,11 +9,13 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .context import require_writable_context
 from .homework_selectors import homework_for_user, submissions_for_user
 from .homework_serializers import (
     AttachmentUploadSerializer, BulkGradeSubmissionsSerializer,
     BulkHomeworkSerializer, GradeSubmissionSerializer, HomeworkAttachmentSerializer,
     HomeworkQuerySerializer, HomeworkReportQuerySerializer, HomeworkSerializer,
+    HomeworkStudentStatusQuerySerializer, HomeworkStudentStatusResponseSerializer,
     HomeworkSubmissionSerializer,
     ReturnSubmissionSerializer, SubmissionAnswerSerializer,
     SubmissionAttachmentSerializer, SubmissionQuerySerializer,
@@ -24,7 +26,7 @@ from .models import (
     StudentEnrollment,
 )
 from .permissions import IsActiveSchoolUser
-from .selectors import students_for_user
+from .selectors import students_for_user, user_can_manage_teacher_assignment
 from .services.homework import (
     add_homework_attachment, add_submission_attachment, bulk_close_homework,
     bulk_grade_submissions, bulk_publish_homework, close_homework,
@@ -36,8 +38,13 @@ from .services.homework import (
 MANAGER_ROLES = ('super_admin', 'school_admin', 'teacher')
 
 
-def _require_role(user, roles):
-    if user.role not in roles:
+def _require_role(target, roles):
+    role = (
+        getattr(target, 'active_role', None)
+        or getattr(target, 'role', None)
+        or getattr(getattr(target, 'user', None), 'role', None)
+    )
+    if role not in roles:
         raise PermissionDenied('You do not have permission for this action.')
 
 
@@ -70,13 +77,27 @@ def _filter_homework(queryset, params, user):
         )
     if params.get('has_submission') is not None:
         own = Q(submissions__isnull=False)
-        if user.role == 'student':
+        role = getattr(user, '_active_membership', None)
+        user_role = role.role if role else getattr(user, 'role', None)
+        if user_role == 'student':
             own &= Q(submissions__student_enrollment__student__user=user)
         queryset = queryset.filter(own) if params['has_submission'] else queryset.exclude(own)
     if params.get('submission_status'):
         queryset = queryset.filter(submissions__status=params['submission_status'])
-        if user.role == 'student':
+        role = getattr(user, '_active_membership', None)
+        user_role = role.role if role else getattr(user, 'role', None)
+        if user_role == 'student':
             queryset = queryset.filter(submissions__student_enrollment__student__user=user)
+    if params.get('graded') is not None:
+        if params['graded']:
+            queryset = queryset.filter(submissions__status='graded')
+        else:
+            queryset = queryset.exclude(submissions__status='graded')
+    if params.get('pending_grading') is not None:
+        if params['pending_grading']:
+            queryset = queryset.filter(submissions__status='submitted')
+        else:
+            queryset = queryset.exclude(submissions__status='submitted')
     return queryset.distinct().order_by(params['ordering'])
 
 
@@ -96,7 +117,8 @@ class HomeworkListCreateAPIView(generics.ListCreateAPIView):
         return _filter_homework(homework_for_user(self.request.user, self.request), query.validated_data, self.request.user)
 
     def create(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         return super().create(request, *args, **kwargs)
 
 
@@ -109,11 +131,13 @@ class HomeworkDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         return homework_for_user(self.request.user, self.request)
 
     def update(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         homework = self.get_object()
         if homework.status != 'draft' or homework.submissions.exists():
             raise ValidationError('Only empty draft homework can be deleted.')
@@ -127,7 +151,8 @@ class HomeworkActionAPIView(APIView):
 
     @extend_schema(request=None, responses={200: HomeworkSerializer})
     def post(self, request, pk):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         homework = generics.get_object_or_404(homework_for_user(request.user, request), pk=pk)
         result = self.service_action(homework=homework, actor=request.user, request=request)
         return Response(HomeworkSerializer(result, context={'request': request}).data)
@@ -148,7 +173,8 @@ class BulkHomeworkActionAPIView(APIView):
 
     @extend_schema(request=BulkHomeworkSerializer, responses={200: HomeworkSerializer(many=True)})
     def post(self, request):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         payload = BulkHomeworkSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         ids = payload.validated_data['homework_ids']
@@ -173,7 +199,8 @@ class HomeworkSubmissionCreateAPIView(APIView):
 
     @extend_schema(request=None, responses={200: HomeworkSubmissionSerializer})
     def post(self, request, pk):
-        _require_role(request.user, ('student',))
+        _require_role(request, ('student',))
+        require_writable_context(request)
         homework = generics.get_object_or_404(homework_for_user(request.user, request), pk=pk)
         enrollment = StudentEnrollment.objects.filter(
             student__user=request.user, is_current=True, status='active',
@@ -202,7 +229,8 @@ class HomeworkSubmissionDetailAPIView(generics.RetrieveUpdateAPIView):
         return submissions_for_user(self.request.user, self.request)
 
     def update(self, request, *args, **kwargs):
-        _require_role(request.user, ('student',))
+        _require_role(request, ('student',))
+        require_writable_context(request)
         submission = self.get_object()
         payload = SubmissionAnswerSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
@@ -219,7 +247,8 @@ class FinalSubmitAPIView(APIView):
 
     @extend_schema(request=None, responses={200: HomeworkSubmissionSerializer})
     def post(self, request, pk):
-        _require_role(request.user, ('student',))
+        _require_role(request, ('student',))
+        require_writable_context(request)
         submission = generics.get_object_or_404(submissions_for_user(request.user, request), pk=pk)
         saved = final_submit_homework(submission=submission, actor=request.user, request=request)
         return Response(HomeworkSubmissionSerializer(saved, context={'request': request}).data)
@@ -231,7 +260,8 @@ class ReturnSubmissionAPIView(APIView):
 
     @extend_schema(request=ReturnSubmissionSerializer, responses={200: HomeworkSubmissionSerializer})
     def post(self, request, pk):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         submission = generics.get_object_or_404(submissions_for_user(request.user, request), pk=pk)
         payload = ReturnSubmissionSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
@@ -248,7 +278,8 @@ class GradeSubmissionAPIView(APIView):
 
     @extend_schema(request=GradeSubmissionSerializer, responses={200: HomeworkSubmissionSerializer})
     def post(self, request, pk):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         submission = generics.get_object_or_404(submissions_for_user(request.user, request), pk=pk)
         payload = GradeSubmissionSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
@@ -265,7 +296,8 @@ class BulkGradeSubmissionsAPIView(APIView):
 
     @extend_schema(request=BulkGradeSubmissionsSerializer, responses={200: HomeworkSubmissionSerializer(many=True)})
     def post(self, request):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
         payload = BulkGradeSubmissionsSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         submitted = payload.validated_data['items']
@@ -293,7 +325,7 @@ class HomeworkSubmissionsAPIView(generics.ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        _require_role(self.request.user, MANAGER_ROLES)
+        _require_role(self.request, MANAGER_ROLES)
         homework = generics.get_object_or_404(homework_for_user(self.request.user, self.request), pk=self.kwargs['pk'])
         return submissions_for_user(self.request.user, self.request).filter(homework=homework)
 
@@ -357,17 +389,18 @@ class AttachmentAPIView(APIView):
 
     @extend_schema(request=AttachmentUploadSerializer, responses={201: HomeworkAttachmentSerializer(many=True)})
     def post(self, request, pk):
+        require_writable_context(request)
         parent = self._parent(request, pk)
         payload = AttachmentUploadSerializer(data={'files': request.FILES.getlist('files')})
         payload.is_valid(raise_exception=True)
         if self.kind == 'homework':
-            _require_role(request.user, MANAGER_ROLES)
+            _require_role(request, MANAGER_ROLES)
             created = add_homework_attachment(
                 homework=parent, files=payload.validated_data['files'], actor=request.user, request=request,
             )
             serializer = HomeworkAttachmentSerializer
         else:
-            _require_role(request.user, ('student',))
+            _require_role(request, ('student',))
             created = add_submission_attachment(
                 submission=parent, files=payload.validated_data['files'], actor=request.user, request=request,
             )
@@ -389,7 +422,9 @@ class AttachmentDeleteAPIView(APIView):
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request, pk, attachment_id):
+        require_writable_context(request)
         if self.kind == 'homework':
+            _require_role(request, MANAGER_ROLES)
             parent = generics.get_object_or_404(homework_for_user(request.user, request), pk=pk)
             attachment = generics.get_object_or_404(
                 HomeworkAttachment.objects.filter(homework=parent), pk=attachment_id,
@@ -448,10 +483,133 @@ class HomeworkSummaryAPIView(APIView):
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request, pk):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
         homework = generics.get_object_or_404(homework_for_user(request.user, request), pk=pk)
         return Response(_homework_summary(homework))
 
+
+class HomeworkStudentStatusAPIView(APIView):
+    permission_classes = (IsActiveSchoolUser,)
+    throttle_scope = 'reports'
+
+    @extend_schema(
+        parameters=[HomeworkStudentStatusQuerySerializer],
+        responses={200: HomeworkStudentStatusResponseSerializer},
+    )
+    def get(self, request, pk):
+        _require_role(request, MANAGER_ROLES)
+        homework = generics.get_object_or_404(homework_for_user(request.user, request), pk=pk)
+        assignment = homework.teacher_assignment
+
+        query = HomeworkStudentStatusQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        status_filter = query.validated_data.get('status')
+        search_query = query.validated_data.get('search', '').strip().lower()
+
+        enrollments = list(
+            StudentEnrollment.objects.filter(
+                school_id=homework.school_id,
+                academic_year_id=homework.academic_year_id,
+                classroom_id=assignment.classroom_id,
+                section_id=assignment.section_id,
+                is_current=True,
+                status='active',
+            ).select_related('student').order_by('student__full_name', 'student_id')
+        )
+
+        submissions_map = {
+            sub.student_enrollment_id: sub
+            for sub in homework.submissions.all().select_related('student_enrollment', 'graded_by')
+        }
+
+        can_manage = user_can_manage_teacher_assignment(request.user, assignment, request=request)
+
+        submitted_count = 0
+        graded_count = 0
+        returned_count = 0
+        draft_count = 0
+        not_started_count = 0
+        pending_grading_count = 0
+
+        student_rows = []
+        for enrollment in enrollments:
+            sub = submissions_map.get(enrollment.id)
+            if sub is None:
+                status_val = 'not_started'
+                sub_id = None
+                sub_at = None
+                is_late_val = False
+                grade_val = None
+                note_val = ''
+                can_grade_val = False
+                can_return_val = False
+                not_started_count += 1
+            else:
+                status_val = sub.status
+                sub_id = sub.id
+                sub_at = sub.submitted_at
+                is_late_val = sub.is_late
+                grade_val = sub.grade
+                note_val = sub.teacher_note
+                can_grade_val = bool(sub.status == 'submitted' and homework.max_grade is not None and can_manage)
+                can_return_val = bool(sub.status in ('submitted', 'graded') and can_manage)
+
+                if status_val == 'submitted':
+                    submitted_count += 1
+                    pending_grading_count += 1
+                elif status_val == 'graded':
+                    submitted_count += 1
+                    graded_count += 1
+                elif status_val == 'returned':
+                    submitted_count += 1
+                    returned_count += 1
+                elif status_val == 'draft':
+                    draft_count += 1
+
+            row = {
+                'student_enrollment_id': enrollment.id,
+                'student_id': enrollment.student_id,
+                'student_name': enrollment.student.full_name,
+                'student_code': enrollment.student.student_code,
+                'homework_id': homework.id,
+                'submission_id': sub_id,
+                'status': status_val,
+                'submitted_at': sub_at,
+                'is_late': is_late_val,
+                'grade': grade_val,
+                'max_grade': homework.max_grade,
+                'teacher_note': note_val,
+                'can_grade': can_grade_val,
+                'can_return': can_return_val,
+            }
+
+            if status_filter and row['status'] != status_filter:
+                continue
+            if search_query:
+                name_match = search_query in row['student_name'].lower()
+                code_match = search_query in row['student_code'].lower()
+                if not (name_match or code_match):
+                    continue
+
+            student_rows.append(row)
+
+        response_data = {
+            'homework_id': homework.id,
+            'title': homework.title,
+            'max_grade': homework.max_grade,
+            'due_date': homework.due_date,
+            'total_students': len(enrollments),
+            'submitted_count': submitted_count,
+            'graded_count': graded_count,
+            'returned_count': returned_count,
+            'draft_count': draft_count,
+            'not_started_count': not_started_count,
+            'pending_grading_count': pending_grading_count,
+            'students': student_rows,
+        }
+
+        serializer = HomeworkStudentStatusResponseSerializer(response_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 def _filter_report_queryset(queryset, params):
@@ -468,13 +626,15 @@ def _filter_report_queryset(queryset, params):
     if params.get('date_to'):
         queryset = queryset.filter(homework__created_at__lte=params['date_to'])
     return queryset
+
+
 class StudentHomeworkSummaryAPIView(APIView):
     permission_classes = (IsActiveSchoolUser,)
     throttle_scope = 'reports'
 
     @extend_schema(parameters=[HomeworkReportQuerySerializer], responses={200: OpenApiTypes.OBJECT})
     def get(self, request, student_id):
-        student = generics.get_object_or_404(students_for_user(request.user), pk=student_id)
+        student = generics.get_object_or_404(students_for_user(request.user, request), pk=student_id)
         query = HomeworkReportQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
@@ -494,7 +654,7 @@ class ClassHomeworkSummaryAPIView(APIView):
 
     @extend_schema(parameters=[HomeworkReportQuerySerializer], responses={200: OpenApiTypes.OBJECT})
     def get(self, request, classroom_id):
-        _require_role(request.user, MANAGER_ROLES)
+        _require_role(request, MANAGER_ROLES)
         classroom = generics.get_object_or_404(
             Classroom.objects.filter(pk__in=homework_for_user(request.user, request).values('teacher_assignment__classroom_id')),
             pk=classroom_id,
@@ -516,7 +676,8 @@ class StudentOwnHomeworkAPIView(HomeworkListCreateAPIView):
     http_method_names = ('get', 'head', 'options')
 
     def get_queryset(self):
-        if self.request.user.role != 'student':
+        role = getattr(self.request, 'active_role', None) or getattr(self.request.user, 'role', None)
+        if role != 'student':
             raise PermissionDenied('Student access is required.')
         return super().get_queryset()
 
@@ -525,8 +686,8 @@ class ParentChildHomeworkAPIView(HomeworkListCreateAPIView):
     http_method_names = ('get', 'head', 'options')
 
     def get_queryset(self):
-        _require_role(self.request.user, ('parent',))
-        student = generics.get_object_or_404(students_for_user(self.request.user), pk=self.kwargs['student_id'])
+        _require_role(self.request, ('parent',))
+        student = generics.get_object_or_404(students_for_user(self.request.user, self.request), pk=self.kwargs['student_id'])
         membership = getattr(self.request, 'active_membership', None)
         if membership is None:
             raise PermissionDenied('An active school context is required.')
@@ -547,16 +708,19 @@ class TeacherOwnHomeworkAPIView(HomeworkListCreateAPIView):
     http_method_names = ('get', 'head', 'options')
 
     def get_queryset(self):
-        if self.request.user.role != 'teacher':
+        role = getattr(self.request, 'active_role', None) or getattr(self.request.user, 'role', None)
+        if role != 'teacher':
             raise PermissionDenied('Teacher access is required.')
         return super().get_queryset()
+
+
 class HomeworkDashboardAPIView(APIView):
     permission_classes = (IsActiveSchoolUser,)
     throttle_scope = 'homework_dashboard'
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
-        role = request.active_role
+        role = getattr(request, 'active_role', None) or getattr(request.user, 'role', None)
         queryset = homework_for_user(request.user, request)
         now = timezone.now()
         if role == 'teacher':

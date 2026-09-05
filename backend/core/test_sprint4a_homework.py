@@ -22,7 +22,14 @@ from .services.homework import (
 
 class SprintFourAHomeworkTests(APITestCase):
     password = test_sprint3_exams.SprintThreeExamPlatformTests.password
-    setUpTestData = classmethod(test_sprint3_exams.SprintThreeExamPlatformTests.setUpTestData.__func__)
+
+    @classmethod
+    def setUpTestData(cls):
+        test_sprint3_exams.SprintThreeExamPlatformTests.setUpTestData.__func__(cls)
+        cls.term.end_date = cls.year.end_date
+        cls.term.save(update_fields=['end_date'])
+        cls.other_term.end_date = cls.other_year.end_date
+        cls.other_term.save(update_fields=['end_date'])
 
     def auth(self, user=None):
         self.client.force_authenticate(user=user or self.teacher_user)
