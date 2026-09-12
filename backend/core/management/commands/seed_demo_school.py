@@ -1,4 +1,4 @@
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -100,47 +100,63 @@ class Command(BaseCommand):
                 'timezone': 'Asia/Aden', 'language': 'ar',
             },
         )
+        today = timezone.localdate()
+        current_start_year = today.year if today.month >= 9 else today.year - 1
+        prev_start_year = current_start_year - 1
+
         years = {}
         for key, year_name, start, end, active in (
-            ('previous', 'DEMO 2024/2025', date(2024, 9, 1), date(2025, 6, 30), False),
-            ('current', 'DEMO 2025/2026', date(2025, 9, 1), date(2026, 8, 31), True),
+            ('previous', f'DEMO {prev_start_year}/{prev_start_year + 1}', date(prev_start_year, 9, 1), date(prev_start_year + 1, 8, 31), False),
+            ('current', f'DEMO {current_start_year}/{current_start_year + 1}', date(current_start_year, 9, 1), date(current_start_year + 1, 8, 31), True),
         ):
             years[key], _ = AcademicYear.objects.update_or_create(
                 school=school, name=year_name,
                 defaults={'start_date': start, 'end_date': end, 'is_active': active},
             )
+
         terms = {}
-        for key, year in years.items():
-            terms[key], _ = AcademicTerm.objects.update_or_create(
-                school=school, academic_year=year, term_type='term_1',
-                defaults={
-                    'name': f'DEMO Term 1 {key}', 'start_date': year.start_date,
-                    'end_date': min(year.end_date, year.start_date + timedelta(days=119)),
-                    'is_active': key == 'current',
-                },
-            )
-        current_year = years['current']
-        terms['current_2'], _ = AcademicTerm.objects.update_or_create(
-            school=school, academic_year=current_year, term_type='term_2',
+        # Previous Year Term 1
+        terms['previous'], _ = AcademicTerm.objects.update_or_create(
+            school=school, academic_year=years['previous'], term_type='term_1',
             defaults={
-                'name': 'DEMO Term 2 current',
-                'start_date': max(current_year.start_date, date(2026, 1, 1)),
-                'end_date': min(current_year.end_date, date(2026, 4, 30)),
+                'name': 'DEMO Term 1 previous',
+                'start_date': date(prev_start_year, 9, 1),
+                'end_date': date(prev_start_year, 12, 31),
                 'is_active': False,
             },
         )
-        terms['current_3'], _ = AcademicTerm.objects.update_or_create(
-            school=school, academic_year=current_year, term_type='term_3',
-            defaults={
-                'name': 'DEMO Term 3 current',
-                'start_date': max(current_year.start_date, date(2026, 5, 1)),
-                'end_date': current_year.end_date,
-                'is_active': True,
-            },
+
+        # Current Year Terms (Term 1: Sept-Dec, Term 2: Jan-Apr, Term 3: May-Aug)
+        current_year = years['current']
+        term_defs = (
+            ('current', 'term_1', 'DEMO Term 1 current', date(current_start_year, 9, 1), date(current_start_year, 12, 31)),
+            ('current_2', 'term_2', 'DEMO Term 2 current', date(current_start_year + 1, 1, 1), date(current_start_year + 1, 4, 30)),
+            ('current_3', 'term_3', 'DEMO Term 3 current', date(current_start_year + 1, 5, 1), date(current_start_year + 1, 8, 31)),
         )
+        active_term_found = False
+        for term_key, term_type, term_name, start_d, end_d in term_defs:
+            is_active_term = (start_d <= today <= end_d)
+            if is_active_term:
+                active_term_found = True
+            terms[term_key], _ = AcademicTerm.objects.update_or_create(
+                school=school, academic_year=current_year, term_type=term_type,
+                defaults={
+                    'name': term_name,
+                    'start_date': start_d,
+                    'end_date': end_d,
+                    'is_active': is_active_term,
+                },
+            )
+
+        # Guarantee exactly one term is marked active for current year
+        if not active_term_found:
+            terms['current'].is_active = True
+            terms['current'].save(update_fields=['is_active'])
+
+        active_term_pk = next(terms[k].pk for k in ('current', 'current_2', 'current_3') if terms[k].is_active)
         AcademicTerm.objects.filter(
             school=school, academic_year=current_year,
-        ).exclude(pk=terms['current_3'].pk).update(is_active=False)
+        ).exclude(pk=active_term_pk).update(is_active=False)
         classrooms, sections = {}, {}
         for year_key, year in years.items():
             for grade in (6, 7):
@@ -425,50 +441,68 @@ class Command(BaseCommand):
         attendance_enrollment = StudentEnrollment.objects.get(
             student__user__username='demo_student_a_01', academic_year=year_a,
         )
-        attendance_specs = (
-            (date(2026, 8, 2), 'present', 'حضور منتظم.'),
-            (date(2026, 8, 3), 'present', ''),
-            (date(2026, 8, 4), 'late', 'تأخر عن بداية اليوم الدراسي.'),
-            (date(2026, 8, 5), 'present', ''),
-            (date(2026, 8, 6), 'absent', 'غياب بدون عذر مسجل.'),
-            (date(2026, 8, 9), 'present', ''),
-            (date(2026, 8, 10), 'excused', 'غياب بعذر معتمد من المدرسة.'),
-            (date(2026, 8, 11), 'present', ''),
-            (date(2026, 8, 12), 'late', 'تأخر بسيط.'),
-            (date(2026, 8, 13), 'present', ''),
-            (date(2026, 8, 16), 'present', ''),
-            (date(2026, 8, 17), 'present', ''),
-            (date(2026, 8, 18), 'present', ''),
-            (date(2026, 8, 19), 'absent', 'غياب بدون عذر مسجل.'),
-            (date(2026, 8, 20), 'present', ''),
+        active_term_a = next(
+            (t for t in (a['terms']['current'], a['terms']['current_2'], a['terms']['current_3']) if t.is_active),
+            a['terms']['current'],
         )
-        for attendance_date, attendance_status, attendance_note in attendance_specs:
+        base_attendance_date = active_term_a.start_date + timedelta(days=1)
+        attendance_specs = (
+            (0, 'present', 'حضور منتظم.'),
+            (1, 'present', ''),
+            (2, 'late', 'تأخر عن بداية اليوم الدراسي.'),
+            (3, 'present', ''),
+            (4, 'absent', 'غياب بدون عذر مسجل.'),
+            (7, 'present', ''),
+            (8, 'excused', 'غياب بعذر معتمد من المدرسة.'),
+            (9, 'present', ''),
+            (10, 'late', 'تأخر بسيط.'),
+            (11, 'present', ''),
+            (14, 'present', ''),
+            (15, 'present', ''),
+            (16, 'present', ''),
+            (17, 'absent', 'غياب بدون عذر مسجل.'),
+            (18, 'present', ''),
+        )
+        for day_offset, attendance_status, attendance_note in attendance_specs:
+            attendance_date = base_attendance_date + timedelta(days=day_offset)
             Attendance.objects.update_or_create(
                 student_enrollment=attendance_enrollment,
                 attendance_date=attendance_date,
                 defaults={
                     'teacher_assignment': assignments['a_math'],
-                    'academic_term': a['terms']['current_3'],
+                    'academic_term': active_term_a,
                     'status': attendance_status,
                     'note': f'DEMO attendance V1 | {attendance_note}',
                 },
             )
 
+        active_term_b = next(
+            (t for t in (b['terms']['current'], b['terms']['current_2'], b['terms']['current_3']) if t.is_active),
+            b['terms']['current'],
+        )
+        hw_due_a = min(
+            timezone.now() + timedelta(days=7),
+            timezone.make_aware(datetime.combine(active_term_a.end_date, time.max)),
+        )
+        hw_due_b = min(
+            timezone.now() + timedelta(days=7),
+            timezone.make_aware(datetime.combine(active_term_b.end_date, time.max)),
+        )
         homework, _ = Homework.objects.update_or_create(
             teacher_assignment=assignments['a_math'], title='DEMO Published Mathematics Homework',
             defaults={
-                'school': school_a, 'academic_year': year_a, 'academic_term': a['terms']['current'],
+                'school': school_a, 'academic_year': year_a, 'academic_term': active_term_a,
                 'description': 'DEMO homework', 'submission_type': 'text', 'status': 'published',
-                'published_at': timezone.now(), 'due_date': timezone.now() + timedelta(days=7),
+                'published_at': timezone.now(), 'due_date': hw_due_a,
                 'max_grade': Decimal('10'), 'created_by': teacher_a_user,
             },
         )
         Homework.objects.update_or_create(
             teacher_assignment=assignments['b_math'], title='DEMO School B Mathematics Homework',
             defaults={
-                'school': school_b, 'academic_year': year_b, 'academic_term': b['terms']['current'],
+                'school': school_b, 'academic_year': year_b, 'academic_term': active_term_b,
                 'description': 'DEMO School B homework', 'submission_type': 'text_and_attachment', 'status': 'published',
-                'published_at': timezone.now(), 'due_date': timezone.now() + timedelta(days=7),
+                'published_at': timezone.now(), 'due_date': hw_due_b,
                 'max_grade': Decimal('10'), 'created_by': multi_user,
             },
         )
@@ -492,15 +526,19 @@ class Command(BaseCommand):
                 'اكتب ملخص الحل ثم أرفق صورة أو PDF يوضح خطوات الحل كاملة.',
             ),
         )
+        hw_due_modes = min(
+            timezone.now() + timedelta(days=10),
+            timezone.make_aware(datetime.combine(active_term_a.end_date, time.max)),
+        )
         for demo_title, submission_type, description in homework_submission_modes:
             Homework.objects.update_or_create(
                 teacher_assignment=assignments['a_math'], title=demo_title,
                 defaults={
                     'school': school_a, 'academic_year': year_a,
-                    'academic_term': a['terms']['current'],
+                    'academic_term': active_term_a,
                     'description': description, 'submission_type': submission_type,
                     'status': 'published', 'published_at': timezone.now(),
-                    'due_date': timezone.now() + timedelta(days=10),
+                    'due_date': hw_due_modes,
                     'max_grade': None if submission_type == 'none' else Decimal('10'),
                     'created_by': teacher_a_user,
                 },
@@ -524,36 +562,38 @@ class Command(BaseCommand):
             result_student = StudentEnrollment.objects.get(
                 student__user__username='demo_student_a_01', academic_year=year_a,
             )
+            term_1_start = a['terms']['current'].start_date
+            term_2_start = a['terms']['current_2'].start_date
             result_specs = (
                 # title, exam type, assignment, term, date, max marks, score, remarks, published
                 (
                     'DEMO Published Quiz', 'DEMO_QUIZ', assignments['a_math'],
-                    a['terms']['current'], date(2025, 10, 15), '20', '18',
+                    a['terms']['current'], term_1_start + timedelta(days=44), '20', '18',
                     'DEMO quiz feedback: بداية ممتازة.', True,
                 ),
                 (
                     'DEMO Monthly Mathematics', 'DEMO_MONTHLY', assignments['a_math'],
-                    a['terms']['current'], date(2025, 10, 22), '20', '18',
+                    a['terms']['current'], term_1_start + timedelta(days=51), '20', '18',
                     'استمر على هذا المستوى في الاختبارات الشهرية.', True,
                 ),
                 (
                     'DEMO Midterm Science', 'DEMO_MID', assignments['a_science_g6'],
-                    a['terms']['current'], date(2025, 11, 5), '50', '42',
+                    a['terms']['current'], term_1_start + timedelta(days=65), '50', '42',
                     'فهم جيد للمفاهيم العلمية، راجع الأسئلة التطبيقية.', True,
                 ),
                 (
                     'DEMO Term Arabic', 'DEMO_TERM', assignments['a_arabic_g6'],
-                    a['terms']['current'], date(2025, 11, 19), '30', '27',
+                    a['terms']['current'], term_1_start + timedelta(days=79), '30', '27',
                     'أداء متميز في القراءة والقواعد.', True,
                 ),
                 (
                     'DEMO Final Mathematics', 'DEMO_FINAL', assignments['a_math'],
-                    a['terms']['current_2'], date(2026, 3, 15), '100', '86',
+                    a['terms']['current_2'], term_2_start + timedelta(days=73), '100', '86',
                     'نتيجة نهائية قوية مع فرصة لتحسين مسائل الهندسة.', True,
                 ),
                 (
                     'DEMO Unpublished Mathematics Result', 'DEMO_QUIZ', assignments['a_math'],
-                    a['terms']['current_2'], date(2026, 3, 22), '20', '17',
+                    a['terms']['current_2'], term_2_start + timedelta(days=80), '20', '17',
                     'هذه النتيجة للاختبار فقط ويجب ألا تظهر للطالب.', False,
                 ),
             )
@@ -594,7 +634,8 @@ class Command(BaseCommand):
             title='DEMO Historical Mathematics Quiz',
             defaults={
                 'school': school_a, 'academic_year': a['years']['previous'],
-                'created_by': teacher_a_user, 'exam_date': date(2024, 10, 20),
+                'created_by': teacher_a_user,
+                'exam_date': a['terms']['previous'].start_date + timedelta(days=49),
                 'total_marks': Decimal('20'), 'status': 'published',
             },
         )
