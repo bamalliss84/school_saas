@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from .management.commands.seed_demo_school import DEMO_PASSWORD
-from .models import Attendance, SchoolMembership
+from .models import AcademicYear, Attendance, SchoolMembership
 
 
 @override_settings(DEBUG=True)
@@ -34,10 +34,11 @@ class Phase2StudentAttendanceTests(TestCase):
 
     def test_student_own_attendance_contract_and_statuses(self):
         self.login_and_select('demo_student_a_01', 'DEMO_NOOR')
+        active_year = AcademicYear.objects.get(school__code='DEMO_NOOR', is_active=True)
         response = self.client.get('/api/v1/students/me/attendance/')
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['student']['full_name'], 'DEMO Student A 01')
-        self.assertEqual(response.data['academic_year']['name'], 'DEMO 2025/2026')
+        self.assertEqual(response.data['academic_year']['name'], active_year.name)
         self.assertGreaterEqual(response.data['total_records'], 15)
         self.assertGreater(response.data['present_count'], 0)
         self.assertGreater(response.data['absent_count'], 0)
@@ -51,14 +52,20 @@ class Phase2StudentAttendanceTests(TestCase):
 
     def test_student_own_attendance_filters_without_widening_scope(self):
         self.login_and_select('demo_student_a_01', 'DEMO_NOOR')
+        records = list(Attendance.objects.filter(
+            student_enrollment__student__user__username='demo_student_a_01',
+            note__startswith='DEMO attendance V1 |',
+        ).order_by('attendance_date'))
+        self.assertGreaterEqual(len(records), 8)
+        filter_dates = [r.attendance_date.isoformat() for r in records[5:8]]
         response = self.client.get('/api/v1/students/me/attendance/', {
-            'date_from': '2026-08-10', 'date_to': '2026-08-12',
+            'date_from': filter_dates[0], 'date_to': filter_dates[-1],
         })
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data['total_records'], 3)
+        self.assertEqual(response.data['total_records'], len(filter_dates))
         self.assertEqual(
             {row['attendance_date'] for row in response.data['records']},
-            {'2026-08-10', '2026-08-11', '2026-08-12'},
+            set(filter_dates),
         )
 
     def test_student_own_attendance_is_read_only(self):
@@ -97,12 +104,13 @@ class Phase2StudentAttendanceTests(TestCase):
 
     def test_historical_student_attendance_is_scoped_to_historical_membership(self):
         self.login_and_select('demo_student_transferred', 'DEMO_NOOR')
+        prev_year = AcademicYear.objects.get(school__code='DEMO_NOOR', is_active=False)
         response = self.client.get('/api/v1/students/me/attendance/')
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data['academic_year']['name'], 'DEMO 2024/2025')
+        self.assertEqual(response.data['academic_year']['name'], prev_year.name)
         expected_ids = set(Attendance.objects.filter(
             student_enrollment__student__user__username='demo_student_transferred',
             student_enrollment__school__code='DEMO_NOOR',
-            student_enrollment__academic_year__name='DEMO 2024/2025',
+            student_enrollment__academic_year=prev_year,
         ).values_list('pk', flat=True))
         self.assertEqual({row['id'] for row in response.data['records']}, expected_ids)
