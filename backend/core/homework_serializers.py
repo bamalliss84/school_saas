@@ -33,7 +33,7 @@ class HomeworkQuerySerializer(serializers.Serializer):
         required=False, choices=HomeworkSubmission.STATUS_CHOICES,
     )
     completion_status = serializers.ChoiceField(required=False, choices=(
-        'not_started', 'draft', 'submitted', 'returned', 'graded', 'overdue', 'closed_without_submission',
+        'not_started', 'draft', 'submitted', 'returned', 'graded', 'reviewed', 'overdue', 'closed_without_submission', 'view_only',
     ))
     graded = OptionalBooleanField(required=False)
     pending_grading = OptionalBooleanField(required=False)
@@ -129,8 +129,12 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
 
     def _owns(self, obj):
         request = self.context.get('request')
+        role = (
+            getattr(request, 'active_role', None)
+            or getattr(getattr(request, 'user', None), 'role', None)
+        ) if request else None
         return bool(
-            request and request.user.role == 'student'
+            request and role == 'student'
             and obj.student_enrollment.student.user_id == request.user.id
         )
 
@@ -144,14 +148,18 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return bool(
             request and obj.status == 'submitted'
-            and user_can_manage_teacher_assignment(request.user, obj.homework.teacher_assignment)
+            and user_can_manage_teacher_assignment(request.user, obj.homework.teacher_assignment, request=request)
             and obj.homework.max_grade is not None
         )
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
-        if request and request.user.role == 'parent' and instance.status not in ('graded', 'returned'):
+        role = (
+            getattr(request, 'active_role', None)
+            or getattr(getattr(request, 'user', None), 'role', None)
+        ) if request else None
+        if request and role == 'parent' and instance.status not in ('graded', 'reviewed', 'returned'):
             data['grade'] = None
             data['teacher_note'] = ''
             data['graded_at'] = None
@@ -260,10 +268,11 @@ class HomeworkSerializer(serializers.ModelSerializer):
     def get_can_submit(self, obj) -> bool:
         request = self.context.get('request')
         role = getattr(request, 'active_role', None) or getattr(getattr(request, 'user', None), 'role', None)
-        return bool(
-            request and role == 'student'
-            and obj.status == 'published' and obj.submission_type != 'none'
-        )
+        if not (request and role == 'student' and obj.status == 'published' and getattr(obj, 'submission_type', 'text') != 'none'):
+            return False
+        flags = self._completion(obj)
+        return bool(flags['can_create_draft'] or flags['can_final_submit'])
+
 
     def _completion(self, obj):
         request = self.context.get('request')
@@ -393,6 +402,10 @@ class ReturnSubmissionSerializer(serializers.Serializer):
     teacher_note = serializers.CharField(required=False, allow_blank=True, default='')
 
 
+class ReviewSubmissionSerializer(ReturnSubmissionSerializer):
+    pass
+
+
 class GradeSubmissionSerializer(ReturnSubmissionSerializer):
     grade = serializers.DecimalField(max_digits=7, decimal_places=2)
 
@@ -436,7 +449,7 @@ class HomeworkStudentStatusItemSerializer(serializers.Serializer):
     homework_id = serializers.IntegerField()
     submission_id = serializers.IntegerField(allow_null=True)
     status = serializers.ChoiceField(choices=(
-        'not_started', 'draft', 'submitted', 'graded', 'returned',
+        'not_started', 'draft', 'submitted', 'graded', 'reviewed', 'returned',
     ))
     submitted_at = serializers.DateTimeField(allow_null=True)
     is_late = serializers.BooleanField()
@@ -444,12 +457,13 @@ class HomeworkStudentStatusItemSerializer(serializers.Serializer):
     max_grade = serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True)
     teacher_note = serializers.CharField(allow_blank=True)
     can_grade = serializers.BooleanField()
+    can_review = serializers.BooleanField()
     can_return = serializers.BooleanField()
 
 
 class HomeworkStudentStatusQuerySerializer(serializers.Serializer):
     status = serializers.ChoiceField(
-        required=False, choices=('not_started', 'draft', 'submitted', 'graded', 'returned'),
+        required=False, choices=('not_started', 'draft', 'submitted', 'graded', 'reviewed', 'returned'),
     )
     search = serializers.CharField(required=False, allow_blank=True)
 
@@ -462,6 +476,7 @@ class HomeworkStudentStatusResponseSerializer(serializers.Serializer):
     total_students = serializers.IntegerField()
     submitted_count = serializers.IntegerField()
     graded_count = serializers.IntegerField()
+    reviewed_count = serializers.IntegerField()
     returned_count = serializers.IntegerField()
     draft_count = serializers.IntegerField()
     not_started_count = serializers.IntegerField()

@@ -1770,6 +1770,7 @@ class HomeworkSubmission(models.Model):
         ('draft', 'Draft'),
         ('submitted', 'Submitted'),
         ('graded', 'Graded'),
+        ('reviewed', 'Reviewed'),
         ('returned', 'Returned'),
     )
 

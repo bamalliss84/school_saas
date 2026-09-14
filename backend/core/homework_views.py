@@ -17,7 +17,7 @@ from .homework_serializers import (
     HomeworkQuerySerializer, HomeworkReportQuerySerializer, HomeworkSerializer,
     HomeworkStudentStatusQuerySerializer, HomeworkStudentStatusResponseSerializer,
     HomeworkSubmissionSerializer,
-    ReturnSubmissionSerializer, SubmissionAnswerSerializer,
+    ReturnSubmissionSerializer, ReviewSubmissionSerializer, SubmissionAnswerSerializer,
     SubmissionAttachmentSerializer, SubmissionQuerySerializer,
 )
 from .models import (
@@ -32,7 +32,7 @@ from .services.homework import (
     bulk_grade_submissions, bulk_publish_homework, close_homework,
     create_submission_draft, delete_homework_attachment,
     delete_submission_attachment, final_submit_homework, grade_submission,
-    publish_homework, return_submission, update_submission_draft,
+    publish_homework, return_submission, review_submission, update_submission_draft,
 )
 
 MANAGER_ROLES = ('super_admin', 'school_admin', 'teacher')
@@ -272,6 +272,24 @@ class ReturnSubmissionAPIView(APIView):
         return Response(HomeworkSubmissionSerializer(saved, context={'request': request}).data)
 
 
+class ReviewSubmissionAPIView(APIView):
+    permission_classes = (IsActiveSchoolUser,)
+    throttle_scope = 'homework_write'
+
+    @extend_schema(request=ReviewSubmissionSerializer, responses={200: HomeworkSubmissionSerializer})
+    def post(self, request, pk):
+        _require_role(request, MANAGER_ROLES)
+        require_writable_context(request)
+        submission = generics.get_object_or_404(submissions_for_user(request.user, request), pk=pk)
+        payload = ReviewSubmissionSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        saved = review_submission(
+            submission=submission, actor=request.user, request=request,
+            **payload.validated_data,
+        )
+        return Response(HomeworkSubmissionSerializer(saved, context={'request': request}).data)
+
+
 class GradeSubmissionAPIView(APIView):
     permission_classes = (IsActiveSchoolUser,)
     throttle_scope = 'homework_write'
@@ -459,15 +477,16 @@ def _homework_summary(homework):
         draft=Count('id', filter=Q(status='draft')),
         submitted=Count('id', filter=Q(status='submitted')),
         graded=Count('id', filter=Q(status='graded')),
+        reviewed=Count('id', filter=Q(status='reviewed')),
         returned=Count('id', filter=Q(status='returned')),
         late=Count('id', filter=Q(submitted_at__gt=homework.due_date)),
         average_grade=Avg('grade'), highest_grade=Max('grade'), lowest_grade=Min('grade'),
     )
-    submitted = stats['submitted'] + stats['graded'] + stats['returned']
+    submitted = stats['submitted'] + stats['graded'] + stats['reviewed'] + stats['returned']
     return {
         'homework_id': homework.pk, 'target_students': target_students,
         'submitted': stats['submitted'], 'not_started': max(target_students - (stats['total'] or 0), 0),
-        'drafts': stats['draft'], 'graded': stats['graded'], 'returned': stats['returned'],
+        'drafts': stats['draft'], 'graded': stats['graded'], 'reviewed': stats['reviewed'], 'returned': stats['returned'],
         'late': stats['late'], 'missing': max(target_students - submitted, 0),
         'completion_rate': round((submitted / target_students * 100), 2) if target_students else 0,
         'grading_progress': round((stats['graded'] / submitted * 100), 2) if submitted else 0,
@@ -526,6 +545,7 @@ class HomeworkStudentStatusAPIView(APIView):
 
         submitted_count = 0
         graded_count = 0
+        reviewed_count = 0
         returned_count = 0
         draft_count = 0
         not_started_count = 0
@@ -542,6 +562,7 @@ class HomeworkStudentStatusAPIView(APIView):
                 grade_val = None
                 note_val = ''
                 can_grade_val = False
+                can_review_val = False
                 can_return_val = False
                 not_started_count += 1
             else:
@@ -552,7 +573,8 @@ class HomeworkStudentStatusAPIView(APIView):
                 grade_val = sub.grade
                 note_val = sub.teacher_note
                 can_grade_val = bool(sub.status == 'submitted' and homework.max_grade is not None and can_manage)
-                can_return_val = bool(sub.status in ('submitted', 'graded') and can_manage)
+                can_review_val = bool(sub.status == 'submitted' and homework.max_grade is None and can_manage)
+                can_return_val = bool(sub.status in ('submitted', 'graded', 'reviewed') and can_manage)
 
                 if status_val == 'submitted':
                     submitted_count += 1
@@ -560,6 +582,9 @@ class HomeworkStudentStatusAPIView(APIView):
                 elif status_val == 'graded':
                     submitted_count += 1
                     graded_count += 1
+                elif status_val == 'reviewed':
+                    submitted_count += 1
+                    reviewed_count += 1
                 elif status_val == 'returned':
                     submitted_count += 1
                     returned_count += 1
@@ -580,6 +605,7 @@ class HomeworkStudentStatusAPIView(APIView):
                 'max_grade': homework.max_grade,
                 'teacher_note': note_val,
                 'can_grade': can_grade_val,
+                'can_review': can_review_val,
                 'can_return': can_return_val,
             }
 
@@ -601,6 +627,7 @@ class HomeworkStudentStatusAPIView(APIView):
             'total_students': len(enrollments),
             'submitted_count': submitted_count,
             'graded_count': graded_count,
+            'reviewed_count': reviewed_count,
             'returned_count': returned_count,
             'draft_count': draft_count,
             'not_started_count': not_started_count,
@@ -643,6 +670,7 @@ class StudentHomeworkSummaryAPIView(APIView):
         return Response({'student_id': student.pk, 'statistics': queryset.aggregate(
             total=Count('id'), submitted=Count('id', filter=Q(status='submitted')),
             graded=Count('id', filter=Q(status='graded')),
+            reviewed=Count('id', filter=Q(status='reviewed')),
             returned=Count('id', filter=Q(status='returned')),
             average_grade=Avg('grade'),
         )})
@@ -667,6 +695,7 @@ class ClassHomeworkSummaryAPIView(APIView):
         return Response({'classroom_id': classroom.pk, 'statistics': queryset.aggregate(
             total=Count('id'), submitted=Count('id', filter=Q(status='submitted')),
             graded=Count('id', filter=Q(status='graded')),
+            reviewed=Count('id', filter=Q(status='reviewed')),
             returned=Count('id', filter=Q(status='returned')),
             average_grade=Avg('grade'),
         )})
@@ -743,7 +772,7 @@ class HomeworkDashboardAPIView(APIView):
                 'overdue_count': sum(item['completion_status'] == 'overdue' for item in data),
                 'returned_count': sum(item['completion_status'] == 'returned' for item in data),
                 'pending_grades_count': sum(item['completion_status'] == 'submitted' for item in data),
-                'next_due_homework': next((item for item in data if item['completion_status'] not in ('graded', 'closed_without_submission')), None),
+                'next_due_homework': next((item for item in data if item['completion_status'] not in ('graded', 'reviewed', 'closed_without_submission')), None),
             })
         submissions = submissions_for_user(request.user, request)
         if role == 'parent':
