@@ -8,6 +8,7 @@ def completion_status(homework, submission=None, *, now=None):
         return 'view_only'
     if submission:
         if submission.status == 'graded': return 'graded'
+        if submission.status == 'reviewed': return 'reviewed'
         if submission.status == 'returned': return 'returned'
         if submission.status == 'submitted': return 'submitted'
         if submission.status == 'draft': return 'overdue' if homework.due_date < now else 'draft'

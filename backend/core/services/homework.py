@@ -71,8 +71,8 @@ def _can_administer_school(user, school_id):
     )
 
 
-def _can_manage_homework(user, homework):
-    return user_can_manage_teacher_assignment(user, homework.teacher_assignment)
+def _can_manage_homework(user, homework, request=None):
+    return user_can_manage_teacher_assignment(user, homework.teacher_assignment, request=request)
 
 
 def _validate_homework_relationships(homework):
@@ -298,10 +298,10 @@ def return_submission(*, submission, actor, teacher_note='', request=None):
     item = HomeworkSubmission.objects.select_for_update().select_related(
         'homework__teacher_assignment__teacher',
     ).get(pk=submission.pk)
-    if not _can_manage_homework(actor, item.homework):
+    if not _can_manage_homework(actor, item.homework, request=request):
         raise PermissionDenied('You cannot return this submission.')
-    if item.status not in ('submitted', 'graded'):
-        raise ValidationError('Only submitted or graded work can be returned.')
+    if item.status not in ('submitted', 'graded', 'reviewed'):
+        raise ValidationError('Only submitted, graded, or reviewed work can be returned.')
     old_status = item.status
     item.status = 'returned'
     item.teacher_note = teacher_note
@@ -323,11 +323,38 @@ def return_submission(*, submission, actor, teacher_note='', request=None):
 
 
 @transaction.atomic
+def review_submission(*, submission, actor, teacher_note='', request=None):
+    item = HomeworkSubmission.objects.select_for_update().select_related(
+        'homework__teacher_assignment__teacher',
+    ).get(pk=submission.pk)
+    if not _can_manage_homework(actor, item.homework, request=request):
+        raise PermissionDenied('You cannot review this submission.')
+    if item.status != 'submitted':
+        raise ValidationError('Only submitted work can be reviewed.')
+    if item.homework.max_grade is not None:
+        raise ValidationError('This homework is graded. Use the grade action instead.')
+    old_status = item.status
+    item.status = 'reviewed'
+    item.grade = None
+    item.teacher_note = teacher_note
+    item.graded_by = actor
+    item.graded_at = timezone.now()
+    item.save()
+    _audit(
+        school_id=item.homework.school_id, actor=actor, action='review',
+        entity_type='submission', entity_id=item.pk, request=request,
+        old_data={'status': old_status},
+        new_data={'status': 'reviewed'},
+    )
+    return item
+
+
+@transaction.atomic
 def grade_submission(*, submission, actor, grade, teacher_note='', request=None):
     item = HomeworkSubmission.objects.select_for_update().select_related(
         'homework__teacher_assignment__teacher',
     ).get(pk=submission.pk)
-    if not _can_manage_homework(actor, item.homework):
+    if not _can_manage_homework(actor, item.homework, request=request):
         raise PermissionDenied('You cannot grade this submission.')
     if item.status != 'submitted':
         raise ValidationError('Only submitted work can be graded.')

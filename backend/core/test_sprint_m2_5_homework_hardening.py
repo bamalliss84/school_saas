@@ -19,6 +19,7 @@ from core.models import (
     HomeworkAttachment,
     HomeworkSubmission,
     HomeworkSubmissionAttachment,
+    Parent,
     School,
     SchoolMembership,
     Section,
@@ -35,6 +36,8 @@ from core.services.homework import (
     final_submit_homework,
     grade_submission,
     publish_homework,
+    return_submission,
+    review_submission,
 )
 
 
@@ -284,6 +287,33 @@ class SprintM25HomeworkHardeningTests(APITestCase):
             section=cls.sec_2,
             is_current=True,
             status='active',
+        )
+
+        # 8. Parent in School A for Student 1
+        cls.parent_user = User.objects.create_user(
+            username='parent_1',
+            email='parent1@saas.local',
+            password=cls.password,
+            first_name='Parent1',
+            last_name='Test',
+            role='parent',
+            school=cls.school_a,
+            academic_year=cls.year_a_curr,
+        )
+        cls.parent_a = Parent.objects.create(
+            school=cls.school_a,
+            user=cls.parent_user,
+            full_name='Parent 1 Test',
+        )
+        cls.mb_parent_a = SchoolMembership.objects.create(
+            user=cls.parent_user, school=cls.school_a, role='parent', status='active', is_default=True,
+        )
+        StudentGuardian.objects.create(
+            student=cls.students[0],
+            parent=cls.parent_a,
+            relationship='father',
+            is_primary=True,
+            can_receive_notifications=True,
         )
 
     def setUp(self):
@@ -689,3 +719,371 @@ class SprintM25HomeworkHardeningTests(APITestCase):
         ids_graded = [row['id'] for row in r_graded.data['results']]
         self.assertIn(hw_graded.pk, ids_graded)
         self.assertNotIn(hw_pending.pk, ids_graded)
+
+    # =========================================================================
+    # 6. UNGRADED HOMEWORK REVIEW LIFECYCLE & CONTRACT
+    # =========================================================================
+
+    def test_13_ungraded_submitted_can_be_reviewed_and_stores_teacher_note_with_null_grade(self):
+        """Ungraded homework submission transitions from submitted to reviewed via /review/."""
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Formative Reading HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Reading completed.',
+        )
+
+        res = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/review/',
+            {'teacher_note': 'Excellent effort on reading notes!'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['status'], 'reviewed')
+        self.assertIsNone(res.data['grade'])
+        self.assertEqual(res.data['teacher_note'], 'Excellent effort on reading notes!')
+        self.assertFalse(res.data['can_edit'])
+        self.assertFalse(res.data['can_submit'])
+        self.assertFalse(res.data['can_grade'])
+
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, 'reviewed')
+        self.assertIsNone(sub.grade)
+        self.assertEqual(sub.teacher_note, 'Excellent effort on reading notes!')
+        self.assertEqual(sub.graded_by, self.teacher_user)
+        self.assertIsNotNone(sub.graded_at)
+
+    def test_14_graded_homework_cannot_use_review_action(self):
+        """Graded homework submission rejects /review/ with HTTP 400."""
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Graded Math HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=Decimal('10.00'),
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Solutions',
+        )
+
+        res = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/review/',
+            {'teacher_note': 'Feedback'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('This homework is graded. Use the grade action instead.', str(res.data))
+
+    def test_15_ungraded_homework_cannot_use_grade_action(self):
+        """Ungraded homework submission rejects /grade/ with HTTP 400."""
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Ungraded Notes HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Notes',
+        )
+
+        res = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/grade/',
+            {'grade': '8.00', 'teacher_note': 'Good'},
+            format='json',
+        )
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('This homework is not graded.', str(res.data))
+
+    def test_16_review_permission_and_isolation(self):
+        """Only authorized teachers/admins in active context can review submissions."""
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Ungraded HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Notes',
+        )
+
+        # 1. Unrelated teacher (Teacher B in School B context) -> 404
+        self.auth_membership(self.teacher_b_user, self.mb_teacher_b_user)
+        res_b = self.client.post(f'/api/v1/homework-submissions/{sub.pk}/review/', {}, format='json')
+        self.assertEqual(res_b.status_code, status.HTTP_404_NOT_FOUND)
+
+        # 2. Student cannot review -> 403
+        mb_stu = SchoolMembership.objects.get(user=self.student_users[0], school=self.school_a)
+        self.auth_membership(self.student_users[0], mb_stu)
+        res_stu = self.client.post(f'/api/v1/homework-submissions/{sub.pk}/review/', {}, format='json')
+        self.assertEqual(res_stu.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Historical context teacher -> 403 (require_writable_context)
+        self.auth_membership(self.teacher_hist_user, self.mb_teacher_hist)
+        res_hist = self.client.post(f'/api/v1/homework-submissions/{sub.pk}/review/', {}, format='json')
+        self.assertEqual(res_hist.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_17_reviewed_submission_cannot_be_edited_or_submitted_by_student(self):
+        """Reviewed submission is locked against student answer updates, final-submit, and attachments."""
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Locked Reviewed HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='reviewed', submitted_at=timezone.now(), answer='Initial Answer',
+            graded_by=self.teacher_user, graded_at=timezone.now(),
+        )
+
+        mb_stu = SchoolMembership.objects.get(user=self.student_users[0], school=self.school_a)
+        self.auth_membership(self.student_users[0], mb_stu)
+
+        # Attempt to edit answer -> 400
+        res_patch = self.client.patch(
+            f'/api/v1/homework-submissions/{sub.pk}/',
+            {'answer': 'Modified Answer'},
+            format='json',
+        )
+        self.assertEqual(res_patch.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Attempt to final-submit -> 400
+        res_submit = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/final-submit/',
+            {},
+            format='json',
+        )
+        self.assertEqual(res_submit.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Attempt to add attachment -> 400
+        file_obj = SimpleUploadedFile('doc.pdf', b'%PDF-1.4 test', content_type='application/pdf')
+        res_att = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/attachments/',
+            {'files': [file_obj]},
+            format='multipart',
+        )
+        self.assertEqual(res_att.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_18_reviewed_can_be_returned_and_resubmitted_and_rereviewed(self):
+        """Teacher can return a reviewed submission; student can revise, resubmit, and teacher can re-review."""
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Iterative Formative HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='reviewed', submitted_at=timezone.now(), answer='Draft 1',
+            graded_by=self.teacher_user, graded_at=timezone.now(),
+        )
+
+        # 1. Teacher returns reviewed submission
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        res_ret = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/return/',
+            {'teacher_note': 'Please expand chapter 2 summary.'},
+            format='json',
+        )
+        self.assertEqual(res_ret.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_ret.data['status'], 'returned')
+        self.assertEqual(res_ret.data['teacher_note'], 'Please expand chapter 2 summary.')
+
+        # 2. Student edits and resubmits
+        mb_stu = SchoolMembership.objects.get(user=self.student_users[0], school=self.school_a)
+        self.auth_membership(self.student_users[0], mb_stu)
+        res_edit = self.client.patch(
+            f'/api/v1/homework-submissions/{sub.pk}/',
+            {'answer': 'Draft 2 with expanded chapter 2.'},
+            format='json',
+        )
+        self.assertEqual(res_edit.status_code, status.HTTP_200_OK)
+        res_sub = self.client.post(f'/api/v1/homework-submissions/{sub.pk}/final-submit/', {}, format='json')
+        self.assertEqual(res_sub.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_sub.data['status'], 'submitted')
+
+        # 3. Teacher reviews revised submission
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        res_rev2 = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/review/',
+            {'teacher_note': 'Much better, approved!'},
+            format='json',
+        )
+        self.assertEqual(res_rev2.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_rev2.data['status'], 'reviewed')
+        self.assertEqual(res_rev2.data['teacher_note'], 'Much better, approved!')
+
+    def test_19_student_status_roster_projection_for_ungraded_homework(self):
+        """Student-status roster correctly reflects can_review, reviewed_count, and reviewed filtering."""
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Roster Ungraded HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        # Student 0 submitted, Student 1 reviewed, Students 2 & 3 not started
+        sub0 = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Sub 0',
+        )
+        sub1 = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[1],
+            status='reviewed', submitted_at=timezone.now(), answer='Sub 1',
+            teacher_note='Well done', graded_by=self.teacher_user, graded_at=timezone.now(),
+        )
+
+        res = self.client.get(f'/api/v1/homework/{hw.pk}/student-status/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['total_students'], 4)
+        self.assertEqual(res.data['submitted_count'], 2)
+        self.assertEqual(res.data['reviewed_count'], 1)
+        self.assertEqual(res.data['graded_count'], 0)
+        self.assertEqual(res.data['not_started_count'], 2)
+
+        students_map = {s['student_id']: s for s in res.data['students']}
+        # Student 0 (submitted): can_review=True, can_grade=False, can_return=True
+        s0 = students_map[self.students[0].pk]
+        self.assertEqual(s0['status'], 'submitted')
+        self.assertTrue(s0['can_review'])
+        self.assertFalse(s0['can_grade'])
+        self.assertTrue(s0['can_return'])
+
+        # Student 1 (reviewed): can_review=False, can_grade=False, can_return=True
+        s1 = students_map[self.students[1].pk]
+        self.assertEqual(s1['status'], 'reviewed')
+        self.assertFalse(s1['can_review'])
+        self.assertFalse(s1['can_grade'])
+        self.assertTrue(s1['can_return'])
+        self.assertEqual(s1['teacher_note'], 'Well done')
+
+        # Filter by status=reviewed -> 1 student
+        res_filt = self.client.get(f'/api/v1/homework/{hw.pk}/student-status/?status=reviewed')
+        self.assertEqual(res_filt.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_filt.data['students']), 1)
+        self.assertEqual(res_filt.data['students'][0]['student_id'], self.students[1].pk)
+
+    def test_20_completion_status_and_visibility_for_student_and_parent(self):
+        """Student and linked parent can view reviewed completion_status and teacher_note."""
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Visibility HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='reviewed', submitted_at=timezone.now(), answer='Student answer',
+            teacher_note='Formative feedback note for student and parent.',
+            graded_by=self.teacher_user, graded_at=timezone.now(),
+        )
+
+        # 1. Student view
+        mb_stu = SchoolMembership.objects.get(user=self.student_users[0], school=self.school_a)
+        self.auth_membership(self.student_users[0], mb_stu)
+        res_stu = self.client.get('/api/v1/students/me/homework/')
+        self.assertEqual(res_stu.status_code, status.HTTP_200_OK)
+        hw_row = next(r for r in res_stu.data['results'] if r['id'] == hw.pk)
+        self.assertEqual(hw_row['completion_status'], 'reviewed')
+        self.assertEqual(hw_row['submission_status'], 'reviewed')
+        self.assertEqual(hw_row['teacher_note'], 'Formative feedback note for student and parent.')
+        self.assertFalse(hw_row['can_edit'])
+        self.assertFalse(hw_row['can_submit'])
+        self.assertFalse(hw_row['can_final_submit'])
+
+        # 2. Parent view
+        self.auth_membership(self.parent_user, self.mb_parent_a)
+        res_par = self.client.get(f'/api/v1/parents/me/children/{self.students[0].pk}/homework/')
+        self.assertEqual(res_par.status_code, status.HTTP_200_OK)
+        par_row = next(r for r in res_par.data['results'] if r['id'] == hw.pk)
+        self.assertEqual(par_row['submission_status'], 'reviewed')
+        self.assertEqual(par_row['teacher_note'], 'Formative feedback note for student and parent.')
+
+        # 3. Direct submission detail view by parent
+        res_sub_par = self.client.get(f'/api/v1/homework-submissions/{sub.pk}/')
+        self.assertEqual(res_sub_par.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_sub_par.data['status'], 'reviewed')
+        self.assertEqual(res_sub_par.data['teacher_note'], 'Formative feedback note for student and parent.')
+
+    def test_21_homework_and_class_summaries_include_reviewed_status(self):
+        """Summary endpoints accurately count reviewed submissions and factor them into completion."""
+        self.auth_membership(self.teacher_user, self.mb_teacher_a)
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Summary HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='reviewed', submitted_at=timezone.now(), answer='Answer 1',
+            teacher_note='Good job', graded_by=self.teacher_user, graded_at=timezone.now(),
+        )
+        HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[1],
+            status='submitted', submitted_at=timezone.now(), answer='Answer 2',
+        )
+
+        # 1. Homework summary endpoint
+        res_hw_sum = self.client.get(f'/api/v1/homework/{hw.pk}/summary/')
+        self.assertEqual(res_hw_sum.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_hw_sum.data['reviewed'], 1)
+        self.assertEqual(res_hw_sum.data['submitted'], 1)
+        self.assertEqual(res_hw_sum.data['target_students'], 4)
+        # completion_rate = (1 submitted + 1 reviewed) / 4 = 50.0%
+        self.assertEqual(res_hw_sum.data['completion_rate'], 50.0)
+
+        # 2. Student summary report endpoint
+        res_stu_sum = self.client.get(f'/api/v1/homework/student/{self.students[0].pk}/summary/')
+        self.assertEqual(res_stu_sum.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_stu_sum.data['statistics']['reviewed'], 1)
+
+        # 3. Classroom summary report endpoint
+        res_cls_sum = self.client.get(f'/api/v1/homework/class/{self.class_10a.pk}/summary/')
+        self.assertEqual(res_cls_sum.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_cls_sum.data['statistics']['reviewed'], 1)
+
+    def test_22_active_context_authority_enforced_in_submission_and_review(self):
+        """Multi-role user authority is derived strictly from active membership context, not legacy user.role."""
+        mb_teacher_b_multirole = SchoolMembership.objects.create(
+            user=self.multirole_user, school=self.school_b, role='teacher', status='active', is_default=False,
+        )
+        hw = Homework.objects.create(
+            school=self.school_a, academic_year=self.year_a_curr, academic_term=self.term_2,
+            teacher_assignment=self.assign_a, title='Multi-Role Authority Test HW',
+            due_date=timezone.now() + timedelta(days=5), max_grade=None,
+            created_by=self.teacher_user, status='published', published_at=timezone.now(),
+        )
+        sub = HomeworkSubmission.objects.create(
+            homework=hw, student_enrollment=self.enrollments[0],
+            status='submitted', submitted_at=timezone.now(), answer='Active context check',
+        )
+
+        # 1. School B Teacher context: cannot review School A homework even though user.role=='school_admin' -> 404
+        self.auth_membership(self.multirole_user, mb_teacher_b_multirole)
+        res_b = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/review/',
+            {'teacher_note': 'Attempt from School B'},
+            format='json',
+        )
+        self.assertEqual(res_b.status_code, status.HTTP_404_NOT_FOUND)
+
+        # 2. Switch to School A Admin context: active context authorizes review
+        self.auth_membership(self.multirole_user, self.mb_admin_a)
+        res_a = self.client.post(
+            f'/api/v1/homework-submissions/{sub.pk}/review/',
+            {'teacher_note': 'Approved by School A Admin'},
+            format='json',
+        )
+        self.assertEqual(res_a.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_a.data['status'], 'reviewed')
+        self.assertEqual(res_a.data['teacher_note'], 'Approved by School A Admin')
