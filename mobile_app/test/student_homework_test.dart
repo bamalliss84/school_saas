@@ -52,6 +52,8 @@ Map<String, dynamic> submissionJson({
   String answer = 'إجابتي',
   bool canEdit = true,
   bool canSubmit = true,
+  String? teacherNote,
+  DateTime? returnedAt,
 }) =>
     {
       'id': id,
@@ -59,8 +61,12 @@ Map<String, dynamic> submissionJson({
       'status': status,
       'can_edit': canEdit,
       'can_submit': canSubmit,
-      'teacher_note': status == 'returned' ? 'راجع السؤال الرابع' : '',
+      'teacher_note': teacherNote ??
+          (status == 'returned' || status == 'reviewed'
+              ? 'راجع السؤال الرابع'
+              : ''),
       'grade': status == 'graded' ? '9' : null,
+      'returned_at': returnedAt?.toIso8601String(),
       'attachments': [
         {
           'id': 7,
@@ -73,10 +79,16 @@ Map<String, dynamic> submissionJson({
     };
 
 class FakeHomeworkRemote implements HomeworkRemoteDataSource {
-  FakeHomeworkRemote({this.fail = false, this.httpStatus, this.submissionRow});
+  FakeHomeworkRemote({
+    this.fail = false,
+    this.httpStatus,
+    this.submissionRow,
+    this.homeworkRow,
+  });
   bool fail;
   int? httpStatus;
   Map<String, dynamic>? submissionRow;
+  Map<String, dynamic>? homeworkRow;
   bool finalSubmitted = false;
 
   void check() {
@@ -94,13 +106,13 @@ class FakeHomeworkRemote implements HomeworkRemoteDataSource {
   @override
   Future<List<Map<String, dynamic>>> list() async {
     check();
-    return [homeworkJson()];
+    return [homeworkRow ?? homeworkJson()];
   }
 
   @override
   Future<Map<String, dynamic>> detail(int homeworkId) async {
     check();
-    return homeworkJson(id: homeworkId);
+    return homeworkRow ?? homeworkJson(id: homeworkId);
   }
 
   @override
@@ -211,6 +223,109 @@ void main() {
     expect((await local.readDraft(scopeOtherUser, 11)).studentNote, isEmpty);
   });
 
+  Future<String> listStatusWithDraft({
+    required String completion,
+    required String submissionType,
+    required bool persistDraft,
+    String answer = 'draft answer',
+  }) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final local = HomeworkLocalDataSource(db);
+    if (persistDraft) {
+      await local.saveDraft(
+        scopeA,
+        11,
+        HomeworkLocalDraft(answer: answer),
+      );
+    }
+    final repo = StudentHomeworkRepository(
+      FakeHomeworkRemote(
+        homeworkRow: homeworkJson(
+          completion: completion,
+          submissionType: submissionType,
+        ),
+      ),
+      local,
+    );
+    return (await repo.refreshList(scopeA)).items.single.completionStatus;
+  }
+
+  test('no persisted local draft leaves student list not started', () async {
+    expect(
+      await listStatusWithDraft(
+        completion: 'not_started',
+        submissionType: 'text',
+        persistDraft: false,
+      ),
+      'not_started',
+    );
+  });
+
+  test('persisted local draft projects student list as draft', () async {
+    expect(
+      await listStatusWithDraft(
+        completion: 'not_started',
+        submissionType: 'text',
+        persistDraft: true,
+      ),
+      'draft',
+    );
+  });
+
+  test('persisted intentionally-empty draft still projects as draft',
+      () async {
+    expect(
+      await listStatusWithDraft(
+        completion: 'not_started',
+        submissionType: 'text',
+        persistDraft: true,
+        answer: '',
+      ),
+      'draft',
+    );
+  });
+
+  test('local draft never overrides authoritative remote lifecycle', () async {
+    for (final status in ['submitted', 'returned', 'graded', 'reviewed']) {
+      expect(
+        await listStatusWithDraft(
+          completion: status,
+          submissionType: 'text',
+          persistDraft: true,
+        ),
+        status,
+      );
+    }
+  });
+
+  test('view-only homework never projects local draft status', () async {
+    expect(
+      await listStatusWithDraft(
+        completion: 'view_only',
+        submissionType: 'none',
+        persistDraft: true,
+      ),
+      'view_only',
+    );
+  });
+
+  test('successful save updates list status immediately', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final remote = FakeHomeworkRemote();
+    final repo = StudentHomeworkRepository(remote, HomeworkLocalDataSource(db));
+    final controller = HomeworkController(repo, scopeA);
+    await controller.load();
+    await controller.open(11);
+    await controller.saveDraft(const HomeworkLocalDraft(answer: 'saved'));
+    controller.closeDetail();
+    expect(
+      (controller.state as HomeworkReady).list.items.single.completionStatus,
+      'draft',
+    );
+  });
+
   test('offline detail falls back to cache and keeps local draft', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -295,6 +410,8 @@ void main() {
   Future<void> pumpHomeworkDetail(
     WidgetTester tester, {
     required String submissionType,
+    HomeworkDetailData? data,
+    Future<void> Function(HomeworkLocalDraft)? onSave,
   }) async {
     await tester.binding.setSurfaceSize(const Size(800, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -304,12 +421,13 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: StudentHomeworkDetailScreen(
-          data: HomeworkDetailData(
-              item, const HomeworkLocalDraft(), DateTime(2026)),
+          data: data ??
+              HomeworkDetailData(
+                  item, const HomeworkLocalDraft(), DateTime(2026)),
           historical: false,
           submitting: false,
           onBack: () {},
-          onSave: (_) async {},
+          onSave: onSave ?? (_) async {},
           onSubmit: () async => false,
           onUploadAttachments: (_) async => false,
           onDeleteAttachment: (_) async => false,
@@ -319,6 +437,190 @@ void main() {
     ));
     await tester.pumpAndSettle();
   }
+
+  HomeworkDetailData returnedDetail({
+    HomeworkLocalDraft? draft,
+    String answer = 'this is my solve',
+    DateTime? returnedAt,
+  }) {
+    final homework = StudentHomework.fromJson(homeworkJson(
+      completion: 'returned',
+      canCreate: false,
+      canSubmit: true,
+    )).withSubmission(HomeworkSubmissionModel.fromJson(submissionJson(
+      status: 'returned',
+      answer: answer,
+      returnedAt: returnedAt,
+    )));
+    return HomeworkDetailData(
+      homework,
+      draft ?? const HomeworkLocalDraft(),
+      DateTime(2026),
+    );
+  }
+
+  String answerFieldText(WidgetTester tester) =>
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text;
+
+  testWidgets('returned submission without local draft prefills remote answer',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(),
+    );
+    expect(answerFieldText(tester), 'this is my solve');
+  });
+
+  testWidgets('returned submission prefers persisted local revision draft',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(
+        draft: HomeworkLocalDraft(
+          answer: 'my revised answer',
+          updatedAt: DateTime(2026),
+        ),
+      ),
+    );
+    expect(answerFieldText(tester), 'my revised answer');
+  });
+
+  testWidgets('returned submission preserves persisted empty revision draft',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(
+        draft: HomeworkLocalDraft(answer: '', updatedAt: DateTime(2026)),
+      ),
+    );
+    expect(answerFieldText(tester), isEmpty);
+  });
+
+  testWidgets('new homework without submission keeps empty answer behavior',
+      (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'text');
+    expect(answerFieldText(tester), isEmpty);
+  });
+
+  testWidgets('mounted detail refreshes on transition into returned lifecycle',
+      (tester) async {
+    await pumpHomeworkDetail(tester, submissionType: 'text');
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(),
+    );
+    expect(answerFieldText(tester), 'this is my solve');
+  });
+
+  testWidgets('ordinary rebuild does not overwrite active student edits',
+      (tester) async {
+    final data = returnedDetail(returnedAt: DateTime(2026, 9, 12));
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: data,
+    );
+    await tester.enterText(find.byType(TextField).first, 'revision in progress');
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: data,
+    );
+    expect(answerFieldText(tester), 'revision in progress');
+  });
+
+  testWidgets('new returnedAt lifecycle refreshes untouched controller',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(
+        answer: 'first submitted answer',
+        returnedAt: DateTime(2026, 9, 12),
+      ),
+    );
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(
+        answer: 'second submitted answer',
+        returnedAt: DateTime(2026, 9, 13),
+      ),
+    );
+    expect(answerFieldText(tester), 'second submitted answer');
+  });
+
+  testWidgets('non-persisted empty placeholder does not mask server answer',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: returnedDetail(draft: const HomeworkLocalDraft(answer: '')),
+    );
+    expect(answerFieldText(tester), 'this is my solve');
+  });
+
+  testWidgets('reviewed homework shows feedback and remains read only',
+      (tester) async {
+    final homework = StudentHomework.fromJson(homeworkJson(
+      completion: 'reviewed',
+      canCreate: false,
+      canSubmit: false,
+      teacherNote: 'أحسنت، تمت مراجعة الإجابة',
+    )).withSubmission(HomeworkSubmissionModel.fromJson(submissionJson(
+      status: 'reviewed',
+      canEdit: false,
+      canSubmit: false,
+      teacherNote: 'أحسنت، تمت مراجعة الإجابة',
+    )));
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      data: HomeworkDetailData(
+        homework,
+        const HomeworkLocalDraft(),
+        DateTime(2026),
+      ),
+    );
+    expect(find.text('تمت المراجعة'), findsWidgets);
+    expect(find.text('أحسنت، تمت مراجعة الإجابة'), findsOneWidget);
+    expect(find.text('إجابتي'), findsNothing);
+    expect(find.text('إرسال الواجب'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+  });
+
+  testWidgets('successful Save Draft shows confirmation without navigating',
+      (tester) async {
+    var saved = false;
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      onSave: (_) async {
+        saved = true;
+      },
+    );
+    await tester.tap(find.text('حفظ كمسودة'));
+    await tester.pump();
+    expect(saved, isTrue);
+    expect(find.text('تم حفظ المسودة'), findsOneWidget);
+    expect(find.text('إجابتي'), findsOneWidget);
+  });
+
+  testWidgets('failed Save Draft does not show success confirmation',
+      (tester) async {
+    await pumpHomeworkDetail(
+      tester,
+      submissionType: 'text',
+      onSave: (_) => Future<void>.error(StateError('save failed')),
+    );
+    await tester.tap(find.text('حفظ كمسودة'));
+    await tester.pump();
+    expect(find.text('تم حفظ المسودة'), findsNothing);
+  });
 
   testWidgets('homework detail labels instructions and teacher attachments',
       (tester) async {

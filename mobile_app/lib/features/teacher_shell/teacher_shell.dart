@@ -8,6 +8,7 @@ import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../teacher/profile/teacher_profile.dart';
 import '../teacher/students/presentation/teacher_students_screen.dart';
+import '../teacher/homework/presentation/teacher_homework_screen.dart';
 import '../teacher/timetable/presentation/teacher_timetable_controller.dart';
 import '../teacher/timetable/presentation/teacher_timetable_screen.dart';
 import 'teacher_context.dart';
@@ -204,11 +205,10 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
             }
           },
         ),
-      3 => const TeacherFutureFeature(
-          title: 'المهام والتقييم',
-          message: 'ستظهر المهام والتقييمات هنا',
-          detail: 'الواجبات والتسليمات والنتائج ستتوفر في المراحل القادمة.',
-          icon: Icons.assignment_outlined),
+      3 => TeacherHomeworkScreen(
+          scope: timetableScope,
+          historical: !session.canWrite,
+        ),
       _ => TeacherMoreScreen(
           session: session,
           profile: profile,

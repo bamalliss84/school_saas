@@ -13,6 +13,7 @@ const homeworkFilters = <String?, String>{
   'draft': 'قيد العمل',
   'submitted': 'تم التسليم',
   'returned': 'أعيد للمراجعة',
+  'reviewed': 'تمت المراجعة',
   'graded': 'تم التصحيح',
   'overdue': 'متأخر',
   'closed_without_submission': 'مغلق',
@@ -122,6 +123,7 @@ class HomeworkStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (status) {
       'graded' => AppColors.success,
+      'reviewed' => AppColors.success,
       'returned' => AppColors.warning,
       'overdue' || 'closed_without_submission' => AppColors.error,
       'submitted' => AppColors.info,
@@ -173,12 +175,29 @@ class _StudentHomeworkDetailScreenState
     extends State<StudentHomeworkDetailScreen> {
   late final TextEditingController answer;
   late final TextEditingController note;
+  late String _lastResolvedAnswer;
 
   @override
   void initState() {
     super.initState();
-    answer = TextEditingController(text: widget.data.draft.answer);
+    _lastResolvedAnswer = _resolvedAnswer(widget.data);
+    answer = TextEditingController(text: _lastResolvedAnswer);
     note = TextEditingController(text: widget.data.draft.studentNote);
+  }
+
+  @override
+  void didUpdateWidget(covariant StudentHomeworkDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final resolvedAnswer = _resolvedAnswer(widget.data);
+    final studentHasNotEdited = answer.text == _lastResolvedAnswer;
+    if (_answerLifecycleChanged(oldWidget.data, widget.data) &&
+        studentHasNotEdited) {
+      answer.value = TextEditingValue(
+        text: resolvedAnswer,
+        selection: TextSelection.collapsed(offset: resolvedAnswer.length),
+      );
+    }
+    _lastResolvedAnswer = resolvedAnswer;
   }
 
   @override
@@ -329,15 +348,18 @@ class _StudentHomeworkDetailScreenState
           ),
         ],
         if (item.completionStatus == 'returned' ||
+            item.completionStatus == 'reviewed' ||
             item.completionStatus == 'graded') ...[
           const SizedBox(height: AppSpacing.x4),
           AppCard(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
-                  item.completionStatus == 'returned'
-                      ? 'أعيد للمراجعة'
-                      : 'تم التصحيح',
+                  switch (item.completionStatus) {
+                    'returned' => 'أعيد للمراجعة',
+                    'reviewed' => 'تمت المراجعة',
+                    _ => 'تم التصحيح',
+                  },
                   style: Theme.of(context).textTheme.titleLarge),
               if (item.grade != null)
                 Text('الدرجة: ${item.grade} من ${item.maxGrade ?? '-'}'),
@@ -405,7 +427,25 @@ class _StudentHomeworkDetailScreenState
           ),
           const SizedBox(height: AppSpacing.x3),
           AppSecondaryButton(
-              label: 'حفظ كمسودة', onPressed: () => widget.onSave(draft)),
+            label: 'حفظ كمسودة',
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await widget.onSave(draft);
+                if (mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('تم حفظ المسودة')),
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('تعذر حفظ المسودة')),
+                  );
+                }
+              }
+            },
+          ),
           const SizedBox(height: AppSpacing.x2),
           AppPrimaryButton(
             label: item.completionStatus == 'returned'
@@ -454,6 +494,22 @@ class _StudentHomeworkDetailScreenState
       ],
     );
   }
+}
+
+String _resolvedAnswer(HomeworkDetailData data) =>
+    data.draft.updatedAt != null
+        ? data.draft.answer
+        : data.homework.submission?.answer ?? data.draft.answer;
+
+bool _answerLifecycleChanged(HomeworkDetailData previous, HomeworkDetailData next) {
+  final previousSubmission = previous.homework.submission;
+  final nextSubmission = next.homework.submission;
+  return previous.homework.id != next.homework.id ||
+      previousSubmission?.id != nextSubmission?.id ||
+      (previousSubmission?.status != 'returned' &&
+          nextSubmission?.status == 'returned') ||
+      (nextSubmission?.status == 'returned' &&
+          previousSubmission?.returnedAt != nextSubmission?.returnedAt);
 }
 
 String _submissionTypeLabel(String value) => switch (value) {
