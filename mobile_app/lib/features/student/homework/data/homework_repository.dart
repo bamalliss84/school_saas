@@ -9,6 +9,18 @@ class HomeworkListData {
   final List<StudentHomework> items;
   final DateTime lastUpdated;
   final bool offline;
+
+  HomeworkListData withPersistedDraft(int homeworkId) => HomeworkListData(
+        items
+            .map((item) => item.id == homeworkId &&
+                    item.requiresElectronicSubmission &&
+                    item.completionStatus == 'not_started'
+                ? item.withCompletionStatus('draft')
+                : item)
+            .toList(),
+        lastUpdated,
+        offline: offline,
+      );
 }
 
 class HomeworkDetailData {
@@ -28,8 +40,12 @@ class StudentHomeworkRepository {
   Future<HomeworkListData?> readList(CacheScope scope) async {
     final rows = await local.list(scope);
     if (rows.isEmpty) return null;
-    return HomeworkListData(
+    final items = await _projectPersistedDrafts(
+      scope,
       rows.map(StudentHomework.fromJson).toList(),
+    );
+    return HomeworkListData(
+      items,
       _latest(rows),
       offline: true,
     );
@@ -42,7 +58,11 @@ class StudentHomeworkRepository {
       row['_mobile_last_synced_at'] = now.toIso8601String();
     }
     await local.replaceList(scope, rows, now);
-    return HomeworkListData(rows.map(StudentHomework.fromJson).toList(), now);
+    final items = await _projectPersistedDrafts(
+      scope,
+      rows.map(StudentHomework.fromJson).toList(),
+    );
+    return HomeworkListData(items, now);
   }
 
   Future<HomeworkDetailData> loadDetail(
@@ -118,6 +138,20 @@ class StudentHomeworkRepository {
         ? HomeworkSubmissionModel.fromJson(
             Map<String, dynamic>.from(rawSubmission))
         : null);
+  }
+
+  Future<List<StudentHomework>> _projectPersistedDrafts(
+      CacheScope scope, List<StudentHomework> items) async {
+    return Future.wait(items.map((item) async {
+      if (!item.requiresElectronicSubmission ||
+          item.completionStatus != 'not_started') {
+        return item;
+      }
+      final draft = await local.readDraft(scope, item.id);
+      return draft.updatedAt == null
+          ? item
+          : item.withCompletionStatus('draft');
+    }));
   }
 }
 

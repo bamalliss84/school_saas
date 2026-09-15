@@ -133,6 +133,7 @@ class HomeworkController extends StateNotifier<HomeworkState> {
     if (!detail.homework.requiresElectronicSubmission) return;
     await repository.saveDraft(scope, detail.homework.id, draft);
     state = current.copyWith(
+      list: current.list.withPersistedDraft(detail.homework.id),
       detail: HomeworkDetailReady(HomeworkDetailData(
         detail.homework,
         HomeworkLocalDraft(

@@ -10,6 +10,7 @@ import '../teacher/profile/teacher_profile.dart';
 import '../teacher/students/presentation/teacher_students_screen.dart';
 import '../teacher/exams/presentation/teacher_exam_screen.dart';
 import '../teacher/communications/teacher_communications_screen.dart';
+import '../teacher/homework/presentation/teacher_homework_screen.dart';
 import '../teacher/timetable/presentation/teacher_timetable_controller.dart';
 import '../teacher/timetable/presentation/teacher_timetable_screen.dart';
 import 'teacher_context.dart';
@@ -20,7 +21,15 @@ final teacherProfileProvider = FutureProvider.autoDispose
     .family<TeacherProfile, int>((ref, membershipId) =>
         TeacherProfileRepository(ref.read(apiProvider).dio).getProfile());
 
-enum _TeacherDestination { context, profile, history, communications, settings, help, about }
+enum _TeacherDestination {
+  context,
+  profile,
+  history,
+  communications,
+  settings,
+  help,
+  about
+}
 
 class TeacherShell extends ConsumerStatefulWidget {
   const TeacherShell({super.key});
@@ -221,9 +230,18 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
           onSettings: () => _open(_TeacherDestination.settings),
           onHelp: () => _open(_TeacherDestination.help),
           onAbout: () => _open(_TeacherDestination.about),
-          onNotifications: () => setState(() { communicationsTab = 0; destination = _TeacherDestination.communications; }),
-          onAnnouncements: () => setState(() { communicationsTab = 1; destination = _TeacherDestination.communications; }),
-          onMessages: () => setState(() { communicationsTab = 2; destination = _TeacherDestination.communications; }),
+          onNotifications: () => setState(() {
+            communicationsTab = 0;
+            destination = _TeacherDestination.communications;
+          }),
+          onAnnouncements: () => setState(() {
+            communicationsTab = 1;
+            destination = _TeacherDestination.communications;
+          }),
+          onMessages: () => setState(() {
+            communicationsTab = 2;
+            destination = _TeacherDestination.communications;
+          }),
           onLogout: ref.read(sessionProvider.notifier).logout,
         ),
     };

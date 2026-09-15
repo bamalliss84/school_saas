@@ -142,6 +142,26 @@ class StudentHomework {
         submission: value,
       );
 
+  StudentHomework withCompletionStatus(String value) => StudentHomework(
+        id: id,
+        title: title,
+        description: description,
+        submissionType: submissionType,
+        subject: subject,
+        classroomId: classroomId,
+        sectionId: sectionId,
+        teacher: teacher,
+        dueDate: dueDate,
+        completionStatus: value,
+        canCreateDraft: canCreateDraft,
+        canFinalSubmit: canFinalSubmit,
+        attachments: attachments,
+        maxGrade: maxGrade,
+        grade: grade,
+        teacherNote: teacherNote,
+        submission: submission,
+      );
+
   factory StudentHomework.fromJson(Map<String, dynamic> json) =>
       StudentHomework(
         id: json['id'] as int,
