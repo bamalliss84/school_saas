@@ -13,6 +13,8 @@ import { SchoolAdminGuard } from './SchoolAdminGuard';
 import { ContextGuard } from './ContextGuard';
 import { ClassesPage } from '../pages/ClassesPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
+import { TeachersPage } from '../pages/TeachersPage';
+import { ExamsPage } from '../pages/ExamsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Sparkles } from 'lucide-react';
@@ -205,26 +207,8 @@ export const AppRoutes: React.FC = () => {
         />
 
         {/* Exams */}
-        <Route
-          path="/exams/*"
-          element={
-            <ModulePlaceholder
-              title="الاختبارات والنتائج (Exams & Results)"
-              phase="Phase W10"
-              description="إدارة الاختبارات، إدخال الدرجات، الاعتماد الإداري، والنشر."
-            />
-          }
-        />
-        <Route
-          path="/exams"
-          element={
-            <ModulePlaceholder
-              title="الاختبارات والنتائج (Exams & Results)"
-              phase="Phase W10"
-              description="إدارة الاختبارات، إدخال الدرجات، الاعتماد الإداري، والنشر."
-            />
-          }
-        />
+        <Route path="/exams/*" element={<ExamsPage />} />
+        <Route path="/exams" element={<ExamsPage />} />
 
         {/* Communications */}
         <Route
