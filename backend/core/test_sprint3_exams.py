@@ -7,6 +7,7 @@ from django.test import RequestFactory
 from django.utils import timezone
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .admin import ExamResultAdmin, ExamResultLogAdmin
 from .models import (
@@ -14,6 +15,7 @@ from .models import (
     ExamType, Parent, School, Section, Student, StudentEnrollment,
     StudentGuardian, Subject, Teacher, TeacherAssignment, User,
 )
+from .context import ensure_legacy_membership
 
 
 class SprintThreeExamPlatformTests(APITestCase):
@@ -161,7 +163,15 @@ class SprintThreeExamPlatformTests(APITestCase):
         )
 
     def auth(self, user=None):
-        self.client.force_authenticate(user=user or self.teacher_user)
+        user = user or self.teacher_user
+        membership = ensure_legacy_membership(user)
+        credentials = {
+            'HTTP_AUTHORIZATION': f'Bearer {RefreshToken.for_user(user).access_token}',
+        }
+        if membership is not None:
+            credentials['HTTP_X_SCHOOL_MEMBERSHIP_ID'] = str(membership.pk)
+        self.client.force_authenticate(user=None)
+        self.client.credentials(**credentials)
 
     def submit_result(self):
         self.auth(self.teacher_user)

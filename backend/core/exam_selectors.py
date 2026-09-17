@@ -3,12 +3,26 @@ from django.db.models import Prefetch
 from .models import Exam, ExamResult, ExamResultLog, ExamType
 
 
+def _context_for(user, request):
+    """Use canonical request context for HTTP calls; retain legacy fallback off-request."""
+    if request is not None:
+        return (
+            getattr(request, 'active_role', None),
+            getattr(request, 'active_school', None),
+            getattr(request, 'active_academic_year', None),
+        )
+    return (
+        getattr(user, 'role', None),
+        getattr(user, 'school', None),
+        getattr(user, 'academic_year', None),
+    )
+
+
 def exam_types_for_user(user, request=None):
     queryset = ExamType.objects.select_related('school')
     if not user or not user.is_authenticated:
         return queryset.none()
-    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
-    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
+    role, school, _ = _context_for(user, request)
     if role == 'super_admin':
         return queryset
     if not school:
@@ -28,9 +42,7 @@ def exams_for_user(user, request=None):
     if not user or not user.is_authenticated:
         return queryset.none()
 
-    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
-    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
-    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+    role, school, academic_year = _context_for(user, request)
 
     if role == 'super_admin':
         return queryset
@@ -38,7 +50,7 @@ def exams_for_user(user, request=None):
         return queryset.none()
     queryset = queryset.filter(school=school)
     if role == 'school_admin':
-        return queryset
+        return queryset.filter(academic_year=academic_year) if academic_year else queryset.none()
     if role == 'teacher':
         qs = queryset.filter(teacher_assignment__teacher__user=user)
         if academic_year:
@@ -72,9 +84,7 @@ def exam_results_for_user(user, request=None):
     if not user or not user.is_authenticated:
         return queryset.none()
 
-    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
-    school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
-    academic_year = getattr(request, 'active_academic_year', None) or getattr(user, 'academic_year', None)
+    role, school, academic_year = _context_for(user, request)
 
     if role == 'super_admin':
         return queryset
@@ -82,7 +92,7 @@ def exam_results_for_user(user, request=None):
         return queryset.none()
     queryset = queryset.filter(exam__school=school)
     if role == 'school_admin':
-        return queryset
+        return queryset.filter(exam__academic_year=academic_year) if academic_year else queryset.none()
     if role == 'teacher':
         qs = queryset.filter(exam__teacher_assignment__teacher__user=user)
         if academic_year:
@@ -105,7 +115,7 @@ def exam_results_for_user(user, request=None):
 
 def exam_result_logs_for_user(user, request=None):
     result_ids = exam_results_for_user(user, request=request).values('pk')
-    role = getattr(request, 'active_role', None) or getattr(user, 'role', None)
+    role, _, _ = _context_for(user, request)
     if role in ('parent', 'student'):
         return ExamResultLog.objects.none()
     return ExamResultLog.objects.filter(exam_result_id__in=result_ids).select_related(

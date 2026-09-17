@@ -749,6 +749,12 @@ class ExamAdmin(TenantAdminMixin, admin.ModelAdmin):
         exams = list(self.get_queryset(request).filter(pk__in=queryset.values('pk')))
         if not exams:
             raise DRFPermissionDenied('No permitted exams were selected.')
+        # Django Admin does not run the membership JWT authenticator. Adapt its
+        # already tenant-scoped admin request to the same context consumed by
+        # the exam-result services before invoking them.
+        request.active_role = request.user.role
+        request.active_school = request.user.school
+        request.active_academic_year = request.user.academic_year
         return exams
 
     @admin.action(description='Publish all approved results for selected exams')

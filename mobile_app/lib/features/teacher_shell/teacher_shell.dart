@@ -8,7 +8,7 @@ import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../teacher/profile/teacher_profile.dart';
 import '../teacher/students/presentation/teacher_students_screen.dart';
-import '../teacher/homework/presentation/teacher_homework_screen.dart';
+import '../teacher/exams/presentation/teacher_exam_screen.dart';
 import '../teacher/timetable/presentation/teacher_timetable_controller.dart';
 import '../teacher/timetable/presentation/teacher_timetable_screen.dart';
 import 'teacher_context.dart';
@@ -205,7 +205,7 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
             }
           },
         ),
-      3 => TeacherHomeworkScreen(
+      3 => TeacherWorkCenterScreen(
           scope: timetableScope,
           historical: !session.canWrite,
         ),
