@@ -18,6 +18,7 @@ from .exam_serializers import (
     ExamTypeQuerySerializer, ExamTypeSerializer, PublicationSummarySerializer,
     RejectActionSerializer, WorkflowActionSerializer,
 )
+from .context import require_writable_context
 from .models import Classroom, ExamResult, ExamResultLog, Subject
 from .permissions import (
     IsActiveSchoolUser, IsParent, IsStudent, IsTeacher,
@@ -34,8 +35,8 @@ MANAGER_ROLES = ('super_admin', 'school_admin', 'teacher')
 APPROVER_ROLES = ('super_admin', 'school_admin')
 
 
-def _require_role(user, roles):
-    if user.role not in roles:
+def _require_role(request, roles):
+    if getattr(request, 'active_role', None) not in roles:
         raise PermissionDenied('You do not have permission for this action.')
 
 
@@ -50,13 +51,14 @@ class ExamTypeListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         query = ExamTypeQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
-        queryset = exam_types_for_user(self.request.user)
+        queryset = exam_types_for_user(self.request.user, request=self.request)
         if 'is_active' in self.request.query_params:
             queryset = queryset.filter(is_active=query.validated_data['is_active'])
         return queryset.order_by('name', 'id')
 
     def create(self, request, *args, **kwargs):
-        _require_role(request.user, APPROVER_ROLES)
+        require_writable_context(request)
+        _require_role(request, APPROVER_ROLES)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -68,14 +70,16 @@ class ExamTypeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
-        return exam_types_for_user(self.request.user)
+        return exam_types_for_user(self.request.user, request=self.request)
 
     def update(self, request, *args, **kwargs):
-        _require_role(request.user, APPROVER_ROLES)
+        require_writable_context(request)
+        _require_role(request, APPROVER_ROLES)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        _require_role(request.user, APPROVER_ROLES)
+        require_writable_context(request)
+        _require_role(request, APPROVER_ROLES)
         instance = self.get_object()
         if instance.exams.exists():
             raise ValidationError('Exam types in use cannot be deleted.')
@@ -94,7 +98,7 @@ class ExamListCreateAPIView(generics.ListCreateAPIView):
         query = ExamQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
-        queryset = exams_for_user(self.request.user)
+        queryset = exams_for_user(self.request.user, request=self.request)
         filters = {
             'academic_year_id': 'academic_year_id',
             'academic_term_id': 'academic_term_id',
@@ -108,7 +112,8 @@ class ExamListCreateAPIView(generics.ListCreateAPIView):
         return queryset.order_by('-exam_date', '-id')
 
     def create(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -120,14 +125,16 @@ class ExamDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
-        return exams_for_user(self.request.user)
+        return exams_for_user(self.request.user, request=self.request)
 
     def update(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         exam = self.get_object()
         if exam.status != 'draft' or exam.results.exists():
             raise ValidationError('Only empty draft exams can be deleted.')
@@ -146,7 +153,7 @@ class ExamResultListCreateAPIView(generics.ListCreateAPIView):
         query = ExamResultQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
-        queryset = exam_results_for_user(self.request.user)
+        queryset = exam_results_for_user(self.request.user, request=self.request)
         filters = {
             'exam_id': 'exam_id',
             'student_id': 'student_enrollment__student_id',
@@ -162,7 +169,8 @@ class ExamResultListCreateAPIView(generics.ListCreateAPIView):
         return queryset.order_by('-exam__exam_date', 'student_enrollment__student__full_name')
 
     def create(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -174,16 +182,18 @@ class ExamResultDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
-        return exam_results_for_user(self.request.user)
+        return exam_results_for_user(self.request.user, request=self.request)
 
     def update(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         result = self.get_object()
-        delete_exam_result(exam_result=result, changed_by=request.user)
+        delete_exam_result(exam_result=result, changed_by=request.user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -196,7 +206,8 @@ class BulkGradeAPIView(APIView):
         responses={200: ExamResultSerializer(many=True)},
     )
     def post(self, request):
-        _require_role(request.user, MANAGER_ROLES)
+        require_writable_context(request)
+        _require_role(request, MANAGER_ROLES)
         serializer = BulkGradeSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         results = serializer.save()
@@ -224,8 +235,9 @@ class ExamPublicationAPIView(APIView):
         ),
     )
     def post(self, request, pk):
-        _require_role(request.user, APPROVER_ROLES)
-        exam = generics.get_object_or_404(exams_for_user(request.user), pk=pk)
+        require_writable_context(request)
+        _require_role(request, APPROVER_ROLES)
+        exam = generics.get_object_or_404(exams_for_user(request.user, request=request), pk=pk)
         serializer = WorkflowActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         service = publish_results if self.action == 'publish' else unpublish_results
@@ -264,11 +276,15 @@ class BulkPublishExamsAPIView(APIView):
         ),
     )
     def post(self, request):
-        _require_role(request.user, APPROVER_ROLES)
+        require_writable_context(request)
+        _require_role(request, APPROVER_ROLES)
         serializer = BulkPublishSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         exam_ids = serializer.validated_data['exam_ids']
-        exam_map = {exam.pk: exam for exam in exams_for_user(request.user).filter(pk__in=exam_ids)}
+        exam_map = {
+            exam.pk: exam
+            for exam in exams_for_user(request.user, request=request).filter(pk__in=exam_ids)
+        }
         if len(exam_map) != len(exam_ids):
             raise NotFound('One or more exams were not found.')
         summaries = publish_results_bulk(
@@ -286,27 +302,33 @@ class ResultWorkflowAPIView(APIView):
 
     @extend_schema(request=WorkflowActionSerializer, responses={200: ExamResultSerializer})
     def post(self, request, pk):
-        result = generics.get_object_or_404(exam_results_for_user(request.user), pk=pk)
+        result = generics.get_object_or_404(
+            exam_results_for_user(request.user, request=request), pk=pk,
+        )
         serializer = self.input_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         reason = serializer.validated_data.get('reason')
         if self.action == 'submit':
-            _require_role(request.user, MANAGER_ROLES)
+            require_writable_context(request)
+            _require_role(request, MANAGER_ROLES)
             result = submit_exam_result(
                 exam_result=result, changed_by=request.user, request=request,
             )
         elif self.action == 'approve':
-            _require_role(request.user, APPROVER_ROLES)
+            require_writable_context(request)
+            _require_role(request, APPROVER_ROLES)
             result = approve_exam_result(
                 exam_result=result, changed_by=request.user, reason=reason, request=request,
             )
         elif self.action == 'reject':
-            _require_role(request.user, APPROVER_ROLES)
+            require_writable_context(request)
+            _require_role(request, APPROVER_ROLES)
             result = reject_exam_result(
                 exam_result=result, changed_by=request.user, reason=reason, request=request,
             )
         elif self.action == 'reopen':
-            _require_role(request.user, APPROVER_ROLES)
+            require_writable_context(request)
+            _require_role(request, APPROVER_ROLES)
             result = reopen_exam_result(
                 exam_result=result, changed_by=request.user, reason=reason, request=request,
             )
@@ -342,11 +364,13 @@ class ExamResultLogListAPIView(generics.ListAPIView):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return ExamResultLog.objects.none()
-        _require_role(self.request.user, MANAGER_ROLES)
+        _require_role(self.request, MANAGER_ROLES)
         result = generics.get_object_or_404(
-            exam_results_for_user(self.request.user), pk=self.kwargs['pk'],
+            exam_results_for_user(self.request.user, request=self.request), pk=self.kwargs['pk'],
         )
-        return exam_result_logs_for_user(self.request.user).filter(exam_result=result)
+        return exam_result_logs_for_user(
+            self.request.user, request=self.request,
+        ).filter(exam_result=result)
 
 
 class RoleResultsAPIView(generics.ListAPIView):
@@ -354,7 +378,9 @@ class RoleResultsAPIView(generics.ListAPIView):
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
-        return exam_results_for_user(self.request.user).order_by('-exam__exam_date', '-id')
+        return exam_results_for_user(
+            self.request.user, request=self.request,
+        ).order_by('-exam__exam_date', '-id')
 
 
 class StudentOwnResultsAPIView(RoleResultsAPIView):
@@ -417,11 +443,13 @@ class StudentTranscriptAPIView(APIView):
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request, student_id):
-        student = generics.get_object_or_404(students_for_user(request.user), pk=student_id)
-        results = exam_results_for_user(request.user).filter(
+        student = generics.get_object_or_404(
+            students_for_user(request.user, request=request), pk=student_id,
+        )
+        results = exam_results_for_user(request.user, request=request).filter(
             student_enrollment__student=student,
         )
-        if request.user.role in ('parent', 'student'):
+        if request.active_role in ('parent', 'student'):
             results = results.filter(workflow_status='approved', is_published=True)
         results = results.order_by('exam__exam_date')
         return Response({
@@ -438,8 +466,8 @@ class ScopedSummaryAPIView(APIView):
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request, object_id):
-        _require_role(request.user, MANAGER_ROLES)
-        results = exam_results_for_user(request.user).filter(
+        _require_role(request, MANAGER_ROLES)
+        results = exam_results_for_user(request.user, request=request).filter(
             **{self.scope_field: object_id},
         )
         if not results.exists():
@@ -461,9 +489,11 @@ class ExamResultSummaryAPIView(APIView):
 
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request, exam_id):
-        _require_role(request.user, MANAGER_ROLES)
-        exam = generics.get_object_or_404(exams_for_user(request.user), pk=exam_id)
-        results = exam_results_for_user(request.user).filter(exam=exam)
+        _require_role(request, MANAGER_ROLES)
+        exam = generics.get_object_or_404(
+            exams_for_user(request.user, request=request), pk=exam_id,
+        )
+        results = exam_results_for_user(request.user, request=request).filter(exam=exam)
         return Response({
             'exam': {'id': exam.id, 'title': exam.title},
             'statistics': _statistics(results),

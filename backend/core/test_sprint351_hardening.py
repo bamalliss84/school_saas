@@ -8,10 +8,12 @@ from django.db import IntegrityError, transaction
 from django.test import RequestFactory, override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from . import test_sprint3_exams
 from .admin import ExamAdmin
 from .models import Exam, ExamResult
+from .context import ensure_legacy_membership
 from .services.exam_results import request_audit_metadata
 
 
@@ -22,7 +24,15 @@ class SprintThreePointFiveHardeningTests(APITestCase):
     )
 
     def auth(self, user=None):
-        self.client.force_authenticate(user=user or self.admin_user)
+        user = user or self.admin_user
+        membership = ensure_legacy_membership(user)
+        credentials = {
+            'HTTP_AUTHORIZATION': f'Bearer {RefreshToken.for_user(user).access_token}',
+        }
+        if membership is not None:
+            credentials['HTTP_X_SCHOOL_MEMBERSHIP_ID'] = str(membership.pk)
+        self.client.force_authenticate(user=None)
+        self.client.credentials(**credentials)
 
     def approve(self, result=None):
         result = result or self.result
@@ -223,7 +233,9 @@ class SprintThreePointFiveHardeningTests(APITestCase):
         self.result.published_at = timezone.now()
         self.result.save()
         self.auth(self.admin_user)
-        with self.assertNumQueries(2):
+        # JWT membership resolution adds four context queries; the result
+        # pagination/serialization path remains the original two queries.
+        with self.assertNumQueries(6):
             response = self.client.get('/api/v1/exam-results/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['count'], 1)

@@ -39,16 +39,21 @@ def request_audit_metadata(request):
     }
 
 
-def _can_edit(user, exam_result):
-    return user_can_manage_teacher_assignment(user, exam_result.exam.teacher_assignment)
+def _can_edit(user, exam_result, request=None):
+    return user_can_manage_teacher_assignment(
+        user, exam_result.exam.teacher_assignment, request=request,
+    )
 
 
-def _is_approver(user, exam_result):
-    if user.role == 'super_admin':
+def _is_approver(user, exam_result, request=None):
+    role = getattr(request, 'active_role', None) if request is not None else user.role
+    school = getattr(request, 'active_school', None) if request is not None else user.school
+    if role == 'super_admin':
         return True
     return bool(
-        user.role == 'school_admin'
-        and user.school_id == exam_result.exam.school_id
+        role == 'school_admin'
+        and school is not None
+        and school.id == exam_result.exam.school_id
     )
 
 
@@ -75,7 +80,9 @@ def _audit(*, result, old, changed_by, action, reason, request):
 
 @transaction.atomic
 def create_exam_result(*, exam, student_enrollment, changed_by, request=None, **values):
-    if not user_can_manage_teacher_assignment(changed_by, exam.teacher_assignment):
+    if not user_can_manage_teacher_assignment(
+        changed_by, exam.teacher_assignment, request=request,
+    ):
         raise PermissionDenied('You cannot manage this exam.')
     result = ExamResult(
         exam=exam,
@@ -105,7 +112,7 @@ def update_exam_result(
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _can_edit(changed_by, result):
+    if not _can_edit(changed_by, result, request=request):
         raise PermissionDenied('You cannot manage this result.')
 
     allowed_fields = {
@@ -150,11 +157,11 @@ def update_exam_result(
 
 
 @transaction.atomic
-def delete_exam_result(*, exam_result, changed_by):
+def delete_exam_result(*, exam_result, changed_by, request=None):
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _can_edit(changed_by, result):
+    if not _can_edit(changed_by, result, request=request):
         raise PermissionDenied('You cannot delete this result.')
     if result.workflow_status != 'draft':
         raise ValidationError('Only draft results can be deleted.')
@@ -166,7 +173,7 @@ def submit_exam_result(*, exam_result, changed_by, request=None):
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _can_edit(changed_by, result):
+    if not _can_edit(changed_by, result, request=request):
         raise PermissionDenied('You cannot submit this result.')
     if result.workflow_status != 'draft':
         raise ValidationError('Only draft results can be submitted.')
@@ -187,7 +194,7 @@ def approve_exam_result(*, exam_result, changed_by, reason=None, request=None):
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _is_approver(changed_by, result):
+    if not _is_approver(changed_by, result, request=request):
         raise PermissionDenied('You cannot approve this result.')
     if result.workflow_status != 'submitted':
         raise ValidationError('Only submitted results can be approved.')
@@ -208,7 +215,7 @@ def reject_exam_result(*, exam_result, changed_by, reason, request=None):
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _is_approver(changed_by, result):
+    if not _is_approver(changed_by, result, request=request):
         raise PermissionDenied('You cannot reject this result.')
     if result.workflow_status != 'submitted':
         raise ValidationError('Only submitted results can be rejected.')
@@ -231,7 +238,7 @@ def reopen_exam_result(*, exam_result, changed_by, reason=None, request=None):
     result = ExamResult.objects.select_for_update().select_related(
         'exam__teacher_assignment__teacher', 'exam__school',
     ).get(pk=exam_result.pk)
-    if not _is_approver(changed_by, result):
+    if not _is_approver(changed_by, result, request=request):
         raise PermissionDenied('You cannot reopen this result.')
     if result.workflow_status != 'approved':
         raise ValidationError('Only approved results can be reopened.')
@@ -282,15 +289,17 @@ def _notify_results_published_safely(*, exam_id, result_ids):
         )
 
 
-def _can_publish_exam(user, exam):
-    if user.role == 'super_admin':
+def _can_publish_exam(user, exam, request=None):
+    role = getattr(request, 'active_role', None) if request is not None else user.role
+    school = getattr(request, 'active_school', None) if request is not None else user.school
+    if role == 'super_admin':
         return True
-    return bool(user.role == 'school_admin' and user.school_id == exam.school_id)
+    return bool(role == 'school_admin' and school and school.id == exam.school_id)
 
 
 @transaction.atomic
 def publish_results(*, exam, changed_by, reason=None, request=None):
-    if not _can_publish_exam(changed_by, exam):
+    if not _can_publish_exam(changed_by, exam, request=request):
         raise PermissionDenied('You cannot publish this exam.')
     results = list(
         ExamResult.objects.select_for_update().select_related(
@@ -349,7 +358,7 @@ def publish_results(*, exam, changed_by, reason=None, request=None):
 
 @transaction.atomic
 def unpublish_results(*, exam, changed_by, reason=None, request=None):
-    if not _can_publish_exam(changed_by, exam):
+    if not _can_publish_exam(changed_by, exam, request=request):
         raise PermissionDenied('You cannot unpublish this exam.')
     results = list(
         ExamResult.objects.select_for_update().select_related(

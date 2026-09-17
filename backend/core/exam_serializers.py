@@ -6,9 +6,9 @@ from .serializer_fields import OptionalBooleanField
 from .exam_selectors import exams_for_user
 from .models import (
     Exam, ExamResult, ExamResultLog, ExamType, School, StudentEnrollment,
-    TeacherAssignment,
 )
 from .selectors import get_accessible_student_enrollments_for_user
+from .selectors import user_can_manage_teacher_assignment
 from .services.exam_results import create_exam_result, update_exam_result
 
 
@@ -45,9 +45,12 @@ class ExamTypeSerializer(serializers.ModelSerializer):
         validators = []
 
     def validate(self, attrs):
-        user = self.context['request'].user
-        if user.role != 'super_admin':
-            attrs['school'] = user.school
+        request = self.context['request']
+        user = request.user
+        from .context import require_writable_context
+        require_writable_context(request)
+        if request.active_role != 'super_admin':
+            attrs['school'] = request.active_school
         elif not attrs.get('school') and not self.instance:
             raise serializers.ValidationError({'school': 'This field is required.'})
         school = attrs.get('school', getattr(self.instance, 'school', None))
@@ -83,19 +86,21 @@ class ExamSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context['request']
+        from .context import require_writable_context
+        require_writable_context(request)
         assignment = attrs.get('teacher_assignment', getattr(self.instance, 'teacher_assignment', None))
         year = attrs.get('academic_year', getattr(self.instance, 'academic_year', None))
         term = attrs.get('academic_term', getattr(self.instance, 'academic_term', None))
         exam_type = attrs.get('exam_type', getattr(self.instance, 'exam_type', None))
-        if (
-            request.user.role == 'teacher'
-            and not TeacherAssignment.objects.filter(
-                pk=assignment.pk, teacher__user=request.user,
-            ).exists()
-        ):
+        if not user_can_manage_teacher_assignment(request.user, assignment, request=request):
             raise serializers.ValidationError('Teacher assignment is outside your scope.')
-        if request.user.role != 'super_admin' and assignment.school_id != request.user.school_id:
+        if request.active_role != 'super_admin' and assignment.school_id != request.active_school.id:
             raise serializers.ValidationError('Invalid exam relationships.')
+        if (
+            request.active_academic_year is None
+            or assignment.academic_year_id != request.active_academic_year.id
+        ):
+            raise serializers.ValidationError('Teacher assignment is outside the active academic year.')
         if (
             assignment.academic_year_id != year.id
             or term.school_id != assignment.school_id

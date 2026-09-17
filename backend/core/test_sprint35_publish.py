@@ -7,9 +7,11 @@ from django.test import RequestFactory
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.utils import timezone
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .admin import ExamAdmin
 from .models import Exam, ExamResult, ExamResultLog
+from .context import ensure_legacy_membership
 from . import test_sprint3_exams
 
 
@@ -20,7 +22,15 @@ class SprintThreePointFivePublishTests(APITestCase):
     )
 
     def auth(self, user=None):
-        self.client.force_authenticate(user=user or self.teacher_user)
+        user = user or self.teacher_user
+        membership = ensure_legacy_membership(user)
+        credentials = {
+            'HTTP_AUTHORIZATION': f'Bearer {RefreshToken.for_user(user).access_token}',
+        }
+        if membership is not None:
+            credentials['HTTP_X_SCHOOL_MEMBERSHIP_ID'] = str(membership.pk)
+        self.client.force_authenticate(user=None)
+        self.client.credentials(**credentials)
 
     def approve(self, result=None):
         result = result or self.result
@@ -206,6 +216,7 @@ class SprintThreePointFivePublishTests(APITestCase):
 
     def test_63_unauthenticated_publish_is_401(self):
         self.client.force_authenticate(user=None)
+        self.client.credentials()
         response = self.client.post(f'/api/v1/exams/{self.exam.pk}/publish/', {})
         self.assertEqual(response.status_code, 401)
 
