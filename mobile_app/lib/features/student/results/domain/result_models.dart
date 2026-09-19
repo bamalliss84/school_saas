@@ -41,7 +41,7 @@ class StudentResult {
   String get scoreLabel =>
       hasScore ? '${_number(score!)} من ${_number(totalMarks)}' : _statusLabel(status);
   String get percentageLabel =>
-      percentage == null ? '' : '${_number(percentage!)}%';
+      hasScore && percentage != null ? '${_number(percentage!)}%' : '';
 
   factory StudentResult.fromJson(Map<String, dynamic> json) => StudentResult(
         id: (json['id'] as num).toInt(),
@@ -69,8 +69,8 @@ String _number(double value) =>
 
 String _statusLabel(String status) => switch (status) {
       'absent' => 'غائب',
-      'excused' => 'بعذر',
-      'exempted' => 'معفى',
+      'excused' => 'غياب بعذر',
+      'exempted' => 'معفي',
       _ => 'لم ترصد الدرجة',
     };
 
