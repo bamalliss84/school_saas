@@ -71,14 +71,26 @@ export const ExamsPage: React.FC = () => {
     finally { setMutating(null); }
   };
 
-  const togglePublication = async () => {
+  const publishNewApprovedResults = async () => {
     if (!selectedExam) return;
     setMutating(-1);
     try {
-      const hasPublished = results.some((result) => result.is_published);
-      const summary = hasPublished ? await examService.unpublishExam(selectedExam.id) : await examService.publishExam(selectedExam.id);
+      const summary = await examService.publishExam(selectedExam.id);
       setResults((current) => current.map((item) => summary.results.find((row) => row.id === item.id) ?? item));
-      toast.success(hasPublished ? 'تم إلغاء نشر النتائج' : 'تم نشر النتائج المعتمدة');
+      toast.success('تم نشر النتائج المعتمدة الجديدة');
+      const refreshed = await examService.getResults({ exam_id: selectedExam.id });
+      setResults(refreshed.results);
+    } catch (err) { toast.error(errorMessage(err)); }
+    finally { setMutating(null); }
+  };
+
+  const unpublishResults = async () => {
+    if (!selectedExam) return;
+    setMutating(-1);
+    try {
+      const summary = await examService.unpublishExam(selectedExam.id);
+      setResults((current) => current.map((item) => summary.results.find((row) => row.id === item.id) ?? item));
+      toast.success('تم إلغاء نشر النتائج');
       const refreshed = await examService.getResults({ exam_id: selectedExam.id });
       setResults(refreshed.results);
     } catch (err) { toast.error(errorMessage(err)); }
@@ -97,8 +109,10 @@ export const ExamsPage: React.FC = () => {
 
   const visibleExams = useMemo(() => exams.filter((exam) => exam.title.toLowerCase().includes(query.toLowerCase())), [exams, query]);
   const visibleResults = pendingOnly ? results.filter((result) => result.workflow_status === 'submitted') : results;
-  const published = results.some((result) => result.is_published);
-  const canPublish = !isReadOnly && results.some((result) => result.workflow_status === 'approved');
+  const publishedCount = results.filter((result) => result.is_published).length;
+  const approvedUnpublishedCount = results.filter(
+    (result) => result.workflow_status === 'approved' && !result.is_published,
+  ).length;
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
     <PageHeader title="الاختبارات والنتائج" description="مراجعة نتائج السياق الأكاديمي النشط واعتمادها ونشرها" />
@@ -121,7 +135,10 @@ export const ExamsPage: React.FC = () => {
         </tr>)}</tbody></table></div>
       </CardBody></Card>}
     {selectedExam && <Card><CardHeader><div><CardTitle>{selectedExam.title}</CardTitle><CardSubtitle>{selectedExam.notes || 'لا توجد ملاحظات'} · {selectedExam.exam_date}</CardSubtitle></div>
-      {!isReadOnly && results.length > 0 && <Button size="sm" variant={published ? 'outline' : 'primary'} disabled={!published && !canPublish} isLoading={mutating === -1} onClick={() => void togglePublication()} leftIcon={published ? <RotateCcw size={14} /> : <Send size={14} />}>{published ? 'إلغاء النشر' : 'نشر النتائج المعتمدة'}</Button>}
+      {!isReadOnly && results.length > 0 && <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+        {approvedUnpublishedCount > 0 && <Button size="sm" variant="primary" isLoading={mutating === -1} onClick={() => void publishNewApprovedResults()} leftIcon={<Send size={14} />}>نشر النتائج المعتمدة الجديدة</Button>}
+        {publishedCount > 0 && <Button size="sm" variant="outline" isLoading={mutating === -1} onClick={() => void unpublishResults()} leftIcon={<RotateCcw size={14} />}>إلغاء النشر</Button>}
+      </div>}
     </CardHeader><CardBody>
       {loadingResults ? <p>جاري تحميل سجل النتائج...</p> : visibleResults.length === 0 ? <EmptyState title={pendingOnly ? 'لا توجد نتائج بانتظار الاعتماد' : 'لا توجد نتائج لهذا الاختبار'} /> :
       <div className="responsive-table-container"><table className="responsive-table"><thead><tr><th>الطالب</th><th>الحالة</th><th>الدرجة</th><th>سير العمل</th><th>النشر</th><th>الإجراءات</th></tr></thead><tbody>{visibleResults.map((result) => <React.Fragment key={result.id}><tr>

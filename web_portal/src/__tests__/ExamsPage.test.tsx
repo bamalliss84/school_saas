@@ -72,6 +72,11 @@ const submittedResult: ExamResult = {
   created_at: '2026-10-15T10:00:00Z',
 };
 
+const resultWith = (overrides: Partial<ExamResult>): ExamResult => ({
+  ...submittedResult,
+  ...overrides,
+});
+
 const auth = (membershipId = 10, readOnly = false): AuthContextType => ({
   user: { id: 1, username: 'admin', email: '', full_name: 'مدير المدرسة', role: 'school_admin' },
   activeMembership: {
@@ -159,7 +164,67 @@ describe('W10 Exams and Results page', () => {
     await screen.findByText('DEMO Student A 03');
     expect(screen.queryByRole('button', { name: 'اعتماد' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'رفض' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'إلغاء النشر' })).not.toBeInTheDocument();
     expect(screen.getByText('السياق التاريخي للقراءة فقط')).toBeInTheDocument();
+  });
+
+  it('offers publishing when approved unpublished results exist and none are published', async () => {
+    vi.mocked(examService.getResults).mockResolvedValue({
+      count: 1, next: null, previous: null,
+      results: [resultWith({ workflow_status: 'approved', is_published: false })],
+    });
+    renderPage();
+    fireEvent.click(await screen.findByText(exam.title));
+    expect(await screen.findByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'إلغاء النشر' })).not.toBeInTheDocument();
+  });
+
+  it('publishes newly approved rows while preserving existing published rows and refetches', async () => {
+    const published = resultWith({ id: 90, student_name: 'A01', workflow_status: 'approved', is_published: true });
+    const newlyApproved = resultWith({ id: 94, student_name: 'A04', workflow_status: 'approved', is_published: false, status: 'absent', score: null });
+    const reconciled = { ...newlyApproved, is_published: true };
+    vi.mocked(examService.getResults)
+      .mockResolvedValueOnce({ count: 2, next: null, previous: null, results: [published, newlyApproved] })
+      .mockResolvedValueOnce({ count: 2, next: null, previous: null, results: [published, reconciled] });
+    vi.mocked(examService.publishExam).mockResolvedValue({
+      exam: exam.id, published_count: 1, skipped_count: 0,
+      already_published_count: 1, total_count: 2, results: [published, reconciled],
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByText(exam.title));
+    expect(await screen.findByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'إلغاء النشر' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' }));
+
+    await waitFor(() => expect(examService.publishExam).toHaveBeenCalledWith(exam.id));
+    await waitFor(() => expect(examService.getResults).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getAllByText('منشورة')).toHaveLength(2));
+    expect(screen.queryByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'إلغاء النشر' })).toBeEnabled();
+  });
+
+  it.each([
+    ['pending', resultWith({ workflow_status: 'submitted', is_published: false })],
+    ['draft', resultWith({ workflow_status: 'draft', is_published: false })],
+  ])('does not count %s results as publishable', async (_label, row) => {
+    vi.mocked(examService.getResults).mockResolvedValue({ count: 1, next: null, previous: null, results: [row] });
+    renderPage();
+    fireEvent.click(await screen.findByText(exam.title));
+    await screen.findByText(row.student_name);
+    expect(screen.queryByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).not.toBeInTheDocument();
+  });
+
+  it('keeps unpublish available without showing incremental publish when all approved rows are published', async () => {
+    vi.mocked(examService.getResults).mockResolvedValue({
+      count: 1, next: null, previous: null,
+      results: [resultWith({ workflow_status: 'approved', is_published: true })],
+    });
+    renderPage();
+    fireEvent.click(await screen.findByText(exam.title));
+    expect(await screen.findByRole('button', { name: 'إلغاء النشر' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'نشر النتائج المعتمدة الجديدة' })).not.toBeInTheDocument();
   });
 
   it('clears stale selected records when the active membership changes', async () => {
