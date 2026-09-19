@@ -18,6 +18,7 @@ class TeacherMoreScreen extends StatelessWidget {
     required this.onProfile,
     required this.onNotifications,
     required this.onAnnouncements,
+    required this.onMessages,
     required this.onHistory,
     required this.onSettings,
     required this.onHelp,
@@ -31,6 +32,7 @@ class TeacherMoreScreen extends StatelessWidget {
   final VoidCallback onProfile;
   final VoidCallback onNotifications;
   final VoidCallback onAnnouncements;
+  final VoidCallback onMessages;
   final VoidCallback onHistory;
   final VoidCallback onSettings;
   final VoidCallback onHelp;
@@ -84,6 +86,10 @@ class TeacherMoreScreen extends StatelessWidget {
               icon: Icons.campaign_outlined,
               label: 'الإعلانات',
               onTap: onAnnouncements),
+          _MoreTile(
+              icon: Icons.chat_bubble_outline,
+              label: 'الرسائل',
+              onTap: onMessages),
           _MoreTile(
               icon: Icons.history_edu_outlined,
               label: 'السجل الدراسي السابق',
