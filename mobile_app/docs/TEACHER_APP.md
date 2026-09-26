@@ -1,5 +1,25 @@
 # Teacher App
 
+## Current Milestone Status
+
+| Milestone | Status |
+| --- | --- |
+| M2.1 — Shell & Context | CLOSED |
+| M2.2 — Timetable | CLOSED — Runtime Accepted |
+| M2.3 — Assignments + Lesson Roster | CLOSED — Runtime Accepted |
+| M2.4 — Attendance | CLOSED — Runtime Accepted |
+| M2.5 — Homework | CLOSED — Runtime Accepted |
+| M2.6 — Exams & Results | CLOSED — Runtime Accepted |
+| M2.7 — Communications | CLOSED — Runtime Accepted |
+
+This is the current milestone numbering; the former numbering that separated Submissions and shifted Exams/Results and Communications is obsolete.
+
+`TeacherShell` opens `TeacherWorkCenterScreen`. The work center includes `TeacherHomeworkScreen` and Exams/Results.
+
+Communications support notifications, the announcement lifecycle, and Teacher → Student conversations. Teacher → Parent new-conversation creation is **Deferred** until a safe teacher-scoped parent/guardian recipient-discovery contract exists; raw membership IDs are not an acceptable substitute.
+
+A formal Mobile + Web UI/UX review/redesign remains a **Planned** Release 1.0 workstream after functional stabilization, without changing approved business rules or API contracts.
+
 ## Role-Based Visual System
 
 - The Teacher role accent is professional blue.
