@@ -13,6 +13,7 @@ import '../core/storage/session_store.dart';
 import '../core/storage/session_snapshot_store.dart';
 import '../features/authentication/data/auth_repository.dart';
 import '../features/school_context/data/context_repository.dart';
+import '../features/parent_shell/parent_shell.dart';
 import '../features/student_shell/student_shell.dart';
 import '../features/teacher_shell/teacher_shell.dart';
 import 'session/app_session.dart';
@@ -225,6 +226,9 @@ class RoleShell extends ConsumerStatefulWidget {
   ConsumerState<RoleShell> createState() => _RoleShellState();
 }
 
+Widget parentShellForMembership(int? membershipId) =>
+    ParentShell(key: ValueKey(membershipId));
+
 class _RoleShellState extends ConsumerState<RoleShell> {
   int selected = 0;
   @override
@@ -237,6 +241,9 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     }
     if (role == 'teacher') {
       return TeacherShell(key: ValueKey(school?.membershipId));
+    }
+    if (role == 'parent') {
+      return parentShellForMembership(school?.membershipId);
     }
     final labels = switch (role) {
       'student' => ['الرئيسية', 'الجدول', 'الواجبات', 'النتائج', 'الإشعارات'],
