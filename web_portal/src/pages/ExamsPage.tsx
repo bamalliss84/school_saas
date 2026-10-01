@@ -5,7 +5,7 @@ import { useToast } from '../context/useToast';
 import { ApiError } from '../services/apiClient';
 import { examService } from '../services/examService';
 import { Exam, ExamResult, ExamResultLog } from '../types/exams';
-import { Badge, Button, Card, CardBody, CardHeader, CardSubtitle, CardTitle, PageHeader } from '../components/ui';
+import { Badge, Button, Card, CardBody, CardHeader, CardSubtitle, CardTitle } from '../components/ui';
 import { EmptyState, ErrorAlert } from '../components/feedback';
 import { ConfirmationModal } from '../components/feedback/ConfirmationModal';
 
@@ -115,7 +115,10 @@ export const ExamsPage: React.FC = () => {
   ).length;
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-    <PageHeader title="الاختبارات والنتائج" description="مراجعة نتائج السياق الأكاديمي النشط واعتمادها ونشرها" />
+    <div>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>الاختبارات والنتائج</h1>
+      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0 0' }}>مراجعة نتائج السياق الأكاديمي النشط واعتمادها ونشرها</p>
+    </div>
     {isReadOnly && <ErrorAlert variant="info" title="السياق التاريخي للقراءة فقط" message="يمكنك استعراض الاختبارات والنتائج والسجل، ولا يمكن تنفيذ تغييرات." />}
     {error && <ErrorAlert title="تعذر تحميل الاختبارات" message={error} />}
     <Card><CardBody>
