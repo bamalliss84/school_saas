@@ -1,4 +1,6 @@
 from core.academic_views import (
+    AcademicTermDetailAPIView, AcademicTermListCreateAPIView,
+    AcademicYearDetailAPIView, AcademicYearListCreateAPIView,
     ClassSubjectDetailAPIView, ClassSubjectListCreateAPIView,
     ClassroomDetailAPIView, ClassroomListCreateAPIView,
     SectionDetailAPIView, SectionListCreateAPIView,
@@ -108,6 +110,10 @@ from core.views import (
 
 
 urlpatterns = [
+    path('academic-years/', AcademicYearListCreateAPIView.as_view(), name='academic-year-list'),
+    path('academic-years/<int:pk>/', AcademicYearDetailAPIView.as_view(), name='academic-year-detail'),
+    path('academic-terms/', AcademicTermListCreateAPIView.as_view(), name='academic-term-list'),
+    path('academic-terms/<int:pk>/', AcademicTermDetailAPIView.as_view(), name='academic-term-detail'),
     path('timetable/config/', TimetableConfigAPIView.as_view(), name='timetable-config'),
     path('timetable/periods/', PeriodListCreateAPIView.as_view(), name='timetable-period-list'),
     path('timetable/periods/bulk/', PeriodBulkAPIView.as_view(), name='timetable-period-bulk'),

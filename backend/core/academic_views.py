@@ -5,13 +5,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from .academic_serializers import (
+    AcademicTermAdminSerializer, AcademicYearAdminSerializer,
     ClassSubjectAdminSerializer, ClassroomAdminSerializer,
     SectionAdminSerializer, SubjectAdminSerializer,
     TeacherAdminSerializer, TeacherAssignmentAdminSerializer,
 )
 from .context import require_writable_context
 from .models import (
-    Attendance, ClassSubject, Classroom, Exam, Homework,
+    AcademicTerm, AcademicYear, Attendance, ClassSubject, Classroom, Exam, Homework,
     Section, Subject, Teacher, TeacherAssignment, TimetableEntry,
 )
 from .pagination import StandardResultsSetPagination
@@ -24,6 +25,91 @@ def _get_active_school(request):
 
 def _get_active_academic_year(request):
     return getattr(request, 'active_academic_year', None) or getattr(request.user, 'academic_year', None)
+
+
+class AcademicYearListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = AcademicYearAdminSerializer
+    permission_classes = [IsActiveSchoolUser, IsSchoolAdminOrSuperAdmin]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AcademicYear.objects.none()
+        school = getattr(self.request, 'active_school', None)
+        if not school:
+            return AcademicYear.objects.none()
+        queryset = AcademicYear.objects.filter(school=school).select_related('school')
+        if 'is_active' in self.request.query_params:
+            is_active = self.request.query_params['is_active'].lower() in ('true', '1')
+            queryset = queryset.filter(is_active=is_active)
+        return queryset.order_by('-start_date', '-pk')
+
+    def perform_create(self, serializer):
+        require_writable_context(self.request)
+        serializer.save()
+
+
+class AcademicYearDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = AcademicYearAdminSerializer
+    permission_classes = [IsActiveSchoolUser, IsSchoolAdminOrSuperAdmin]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AcademicYear.objects.none()
+        school = getattr(self.request, 'active_school', None)
+        if not school:
+            return AcademicYear.objects.none()
+        return AcademicYear.objects.filter(school=school).select_related('school')
+
+    def perform_update(self, serializer):
+        require_writable_context(self.request)
+        serializer.save()
+
+
+class AcademicTermListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = AcademicTermAdminSerializer
+    permission_classes = [IsActiveSchoolUser, IsSchoolAdminOrSuperAdmin]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AcademicTerm.objects.none()
+        school = getattr(self.request, 'active_school', None)
+        if not school:
+            return AcademicTerm.objects.none()
+        queryset = AcademicTerm.objects.filter(school=school).select_related(
+            'school', 'academic_year',
+        )
+        year_id = self.request.query_params.get('academic_year_id')
+        if year_id:
+            queryset = queryset.filter(academic_year_id=year_id)
+        if 'is_active' in self.request.query_params:
+            is_active = self.request.query_params['is_active'].lower() in ('true', '1')
+            queryset = queryset.filter(is_active=is_active)
+        return queryset.order_by('academic_year__start_date', 'start_date', 'pk')
+
+    def perform_create(self, serializer):
+        require_writable_context(self.request)
+        serializer.save()
+
+
+class AcademicTermDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = AcademicTermAdminSerializer
+    permission_classes = [IsActiveSchoolUser, IsSchoolAdminOrSuperAdmin]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AcademicTerm.objects.none()
+        school = getattr(self.request, 'active_school', None)
+        if not school:
+            return AcademicTerm.objects.none()
+        return AcademicTerm.objects.filter(school=school).select_related(
+            'school', 'academic_year',
+        )
+
+    def perform_update(self, serializer):
+        require_writable_context(self.request)
+        serializer.save()
 
 
 class ClassroomListCreateAPIView(generics.ListCreateAPIView):

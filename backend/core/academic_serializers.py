@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from .models import (
-    AcademicYear, ClassSubject, Classroom, SchoolMembership, Section,
+    AcademicTerm, AcademicYear, ClassSubject, Classroom, SchoolMembership, Section,
     Subject, Teacher, TeacherAssignment,
 )
 from .serializers import (
@@ -16,6 +16,115 @@ from .serializers import (
 from .services.identity import sync_teacher_memberships
 
 User = get_user_model()
+
+
+class AcademicYearAdminSerializer(serializers.ModelSerializer):
+    school = SchoolBriefSerializer(read_only=True)
+
+    class Meta:
+        model = AcademicYear
+        fields = (
+            'id', 'school', 'name', 'start_date', 'end_date', 'is_active',
+            'created_at',
+        )
+        read_only_fields = ('id', 'school', 'created_at')
+
+    def validate(self, attrs):
+        school = getattr(self.context['request'], 'active_school', None)
+        if not school:
+            raise ValidationError('An active school context is required.')
+
+        start_date = attrs.get('start_date', self.instance.start_date if self.instance else None)
+        end_date = attrs.get('end_date', self.instance.end_date if self.instance else None)
+        if start_date and end_date and start_date > end_date:
+            raise ValidationError({'start_date': 'Start date must be on or before end date.'})
+
+        if self.instance:
+            boundary_errors = {}
+            if self.instance.terms.filter(start_date__lt=start_date).exists():
+                boundary_errors['start_date'] = 'Start date would exclude an existing academic term.'
+            if self.instance.terms.filter(end_date__gt=end_date).exists():
+                boundary_errors['end_date'] = 'End date would exclude an existing academic term.'
+            if boundary_errors:
+                raise ValidationError(boundary_errors)
+
+        name = attrs.get('name', self.instance.name if self.instance else None)
+        duplicate = AcademicYear.objects.filter(school=school, name=name)
+        if self.instance:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise ValidationError({'name': 'An academic year with this name already exists.'})
+
+        attrs['school'] = school
+        return attrs
+
+
+class AcademicTermAdminSerializer(serializers.ModelSerializer):
+    school = SchoolBriefSerializer(read_only=True)
+    academic_year = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicYear.objects.all(),
+    )
+    academic_year_detail = AcademicYearBriefSerializer(
+        source='academic_year', read_only=True,
+    )
+
+    class Meta:
+        model = AcademicTerm
+        fields = (
+            'id', 'school', 'academic_year', 'academic_year_detail', 'name',
+            'term_type', 'start_date', 'end_date', 'is_active', 'created_at',
+        )
+        read_only_fields = ('id', 'school', 'academic_year_detail', 'created_at')
+
+    def validate(self, attrs):
+        school = getattr(self.context['request'], 'active_school', None)
+        if not school:
+            raise ValidationError('An active school context is required.')
+
+        academic_year = attrs.get(
+            'academic_year', self.instance.academic_year if self.instance else None,
+        )
+        if not academic_year or academic_year.school_id != school.id:
+            raise ValidationError({
+                'academic_year': 'Academic year must belong to the active school.',
+            })
+
+        start_date = attrs.get('start_date', self.instance.start_date if self.instance else None)
+        end_date = attrs.get('end_date', self.instance.end_date if self.instance else None)
+        if start_date and end_date and start_date > end_date:
+            raise ValidationError({'start_date': 'Start date must be on or before end date.'})
+        if start_date and start_date < academic_year.start_date:
+            raise ValidationError({'start_date': 'Term must start within the academic year.'})
+        if end_date and end_date > academic_year.end_date:
+            raise ValidationError({'end_date': 'Term must end within the academic year.'})
+
+        term_type = attrs.get('term_type', self.instance.term_type if self.instance else None)
+        duplicate_type = AcademicTerm.objects.filter(
+            school=school, academic_year=academic_year, term_type=term_type,
+        )
+        if self.instance:
+            duplicate_type = duplicate_type.exclude(pk=self.instance.pk)
+        if duplicate_type.exists():
+            raise ValidationError({
+                'term_type': 'This term type already exists for the academic year.',
+            })
+
+        if start_date and end_date:
+            overlap = AcademicTerm.objects.filter(
+                school=school,
+                academic_year=academic_year,
+                start_date__lte=end_date,
+                end_date__gte=start_date,
+            )
+            if self.instance:
+                overlap = overlap.exclude(pk=self.instance.pk)
+            if overlap.exists():
+                raise ValidationError({
+                    'overlap': 'Term dates overlap an existing term; boundary dates are inclusive.',
+                })
+
+        attrs['school'] = school
+        return attrs
 
 
 class ClassroomAdminSerializer(serializers.ModelSerializer):

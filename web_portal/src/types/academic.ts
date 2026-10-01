@@ -1,5 +1,46 @@
 import { SchoolBrief, AcademicYearBrief } from './context';
 
+export interface AcademicYear {
+  id: number;
+  school: SchoolBrief;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AcademicYearInput {
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active?: boolean;
+}
+
+export type AcademicTermType = 'term_1' | 'term_2' | 'term_3' | 'summer';
+
+export interface AcademicTerm {
+  id: number;
+  school: SchoolBrief;
+  academic_year: number;
+  academic_year_detail: AcademicYearBrief;
+  name: string;
+  term_type: AcademicTermType;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AcademicTermInput {
+  academic_year: number;
+  name: string;
+  term_type: AcademicTermType;
+  start_date: string;
+  end_date: string;
+  is_active?: boolean;
+}
+
 export interface Classroom {
   id: number;
   school: SchoolBrief;

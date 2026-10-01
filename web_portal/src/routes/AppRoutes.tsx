@@ -13,6 +13,7 @@ import { SchoolAdminGuard } from './SchoolAdminGuard';
 import { ContextGuard } from './ContextGuard';
 import { ClassesPage } from '../pages/ClassesPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
+import { AcademicPeriodsPage } from '../pages/AcademicPeriodsPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -133,6 +134,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/people" element={<Navigate to="/students" replace />} />
 
         {/* Academic routes */}
+        <Route path="/academic-periods" element={<AcademicPeriodsPage />} />
         <Route path="/classes/*" element={<ClassesPage />} />
         <Route path="/classes" element={<ClassesPage />} />
         <Route path="/subjects/*" element={<SubjectsPage />} />

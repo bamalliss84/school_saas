@@ -1,6 +1,10 @@
 import { apiClient } from './apiClient';
 import { PaginatedResponse } from '../types/api';
 import {
+  AcademicTerm,
+  AcademicTermInput,
+  AcademicYear,
+  AcademicYearInput,
   Classroom,
   ClassroomCreateInput,
   ClassroomUpdateInput,
@@ -16,6 +20,31 @@ import {
 } from '../types/academic';
 
 export const academicService = {
+  // Academic years and terms
+  getAcademicYears: async (params?: { is_active?: boolean; page?: number }): Promise<PaginatedResponse<AcademicYear>> => {
+    return apiClient.get<PaginatedResponse<AcademicYear>>('/academic-years/', { params });
+  },
+
+  createAcademicYear: async (data: AcademicYearInput): Promise<AcademicYear> => {
+    return apiClient.post<AcademicYear>('/academic-years/', data);
+  },
+
+  updateAcademicYear: async (id: number, data: Partial<AcademicYearInput>): Promise<AcademicYear> => {
+    return apiClient.patch<AcademicYear>(`/academic-years/${id}/`, data);
+  },
+
+  getAcademicTerms: async (params: { academic_year_id: number; is_active?: boolean; page?: number }): Promise<PaginatedResponse<AcademicTerm>> => {
+    return apiClient.get<PaginatedResponse<AcademicTerm>>('/academic-terms/', { params });
+  },
+
+  createAcademicTerm: async (data: AcademicTermInput): Promise<AcademicTerm> => {
+    return apiClient.post<AcademicTerm>('/academic-terms/', data);
+  },
+
+  updateAcademicTerm: async (id: number, data: Partial<AcademicTermInput>): Promise<AcademicTerm> => {
+    return apiClient.patch<AcademicTerm>(`/academic-terms/${id}/`, data);
+  },
+
   // Classrooms
   getClassrooms: async (params?: {
     search?: string;
