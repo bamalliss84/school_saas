@@ -8,6 +8,8 @@ import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../parent/presentation/parent_controller.dart';
 import '../parent/presentation/parent_home.dart';
+import '../parent/presentation/parent_m2_controller.dart';
+import '../parent/presentation/parent_m2_screens.dart';
 
 class ParentShell extends ConsumerStatefulWidget {
   const ParentShell({super.key});
@@ -47,11 +49,15 @@ class _ParentShellState extends ConsumerState<ParentShell> {
       return const SizedBox.shrink();
     }
     final state = ref.watch(parentFoundationProvider(scope));
+    final selectedChild = state is ParentReady ? state.data.selectedChild : null;
+    final query = selectedChild == null
+        ? null
+        : (scope: scope, childId: selectedChild.id);
     return Scaffold(
       key: const Key('parent-shell'),
       body: SafeArea(
-        child: selectedIndex == 0
-            ? ParentHome(
+        child: switch (selectedIndex) {
+          0 => ParentHome(
                 state: state,
                 contextInfo: contextInfo,
                 onSelectChild: (id) => ref
@@ -59,17 +65,54 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                     .selectChild(id),
                 onRefresh:
                     ref.read(parentFoundationProvider(scope).notifier).refresh,
-              )
-            : ParentMore(
+              ),
+          1 => query == null
+              ? const _ParentFeatureUnavailable()
+              : ParentTimetableScreen(
+                  state: ref.watch(parentTimetableProvider(query)),
+                  childName: selectedChild!.fullName,
+                  historical: contextInfo.isHistorical,
+                  onRefresh:
+                      ref.read(parentTimetableProvider(query).notifier).refresh,
+                ),
+          2 => query == null
+              ? const _ParentFeatureUnavailable()
+              : ParentAttendanceScreen(
+                  state: ref.watch(parentAttendanceProvider(query)),
+                  childName: selectedChild!.fullName,
+                  historical: contextInfo.isHistorical,
+                  onRefresh:
+                      ref.read(parentAttendanceProvider(query).notifier).refresh,
+                ),
+          _ => ParentMore(
                 session: session,
                 onSelectContext:
                     ref.read(sessionProvider.notifier).selectContext,
                 onLogout: ref.read(sessionProvider.notifier).logout,
               ),
+        },
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: ParentBottomNavigation(
         selectedIndex: selectedIndex,
-        onDestinationSelected: (value) => setState(() => selectedIndex = value),
+        onSelected: (value) => setState(() => selectedIndex = value),
+      ),
+    );
+  }
+}
+
+class ParentBottomNavigation extends StatelessWidget {
+  const ParentBottomNavigation({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) => NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -77,13 +120,30 @@ class _ParentShellState extends ConsumerState<ParentShell> {
             label: 'الرئيسية',
           ),
           NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'الجدول',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.fact_check_outlined),
+            selectedIcon: Icon(Icons.fact_check),
+            label: 'الحضور',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.more_horiz),
             label: 'المزيد',
           ),
         ],
-      ),
-    );
-  }
+      );
+}
+
+class _ParentFeatureUnavailable extends StatelessWidget {
+  const _ParentFeatureUnavailable();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Text('اختر ابنًا من الصفحة الرئيسية لعرض البيانات.'),
+      );
 }
 
 CacheScope? _scope(AppSession session) {
