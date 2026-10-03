@@ -3,7 +3,7 @@ from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -98,7 +98,7 @@ class SchoolListAPIView(SchoolQuerySetMixin, generics.ListAPIView):
         return self.get_school_queryset(School.objects.all().order_by('name'))
 
 
-class StudentListAPIView(generics.ListAPIView):
+class StudentListAPIView(generics.ListCreateAPIView):
     serializer_class = StudentListSerializer
     permission_classes = [IsActiveSchoolUser]
 
@@ -110,7 +110,7 @@ class StudentListAPIView(generics.ListAPIView):
         query = StudentListQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
-        queryset = students_for_user(self.request.user)
+        queryset = students_for_user(self.request.user, request=self.request)
 
         search = params.get('search', '').strip()
         if search:
@@ -140,12 +140,43 @@ class StudentListAPIView(generics.ListAPIView):
                 queryset = queryset.filter(**{field: params[parameter]})
         return queryset.distinct().order_by(params['ordering'])
 
-class StudentDetailAPIView(generics.RetrieveAPIView):
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            from .student_admin_serializers import StudentAdminWriteSerializer
+            return StudentAdminWriteSerializer
+        return StudentListSerializer
+
+    def perform_create(self, serializer):
+        from .context import require_writable_context
+        from .permissions import IsSchoolAdminOrSuperAdmin
+        if not IsSchoolAdminOrSuperAdmin().has_permission(self.request, self):
+            raise PermissionDenied('Only school administrators can create students.')
+        require_writable_context(self.request)
+        serializer.save()
+
+class StudentDetailAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = StudentDetailSerializer
     permission_classes = [IsActiveSchoolUser]
 
     def get_queryset(self):
-        return students_for_user(self.request.user)
+        return students_for_user(self.request.user, request=self.request)
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            from .student_admin_serializers import StudentAdminWriteSerializer
+            return StudentAdminWriteSerializer
+        return StudentDetailSerializer
+
+    def perform_update(self, serializer):
+        from .context import require_writable_context
+        from .permissions import IsSchoolAdminOrSuperAdmin
+        if not IsSchoolAdminOrSuperAdmin().has_permission(self.request, self):
+            raise PermissionDenied('Only school administrators can update students.')
+        require_writable_context(self.request)
+        school = getattr(self.request, 'active_school', None)
+        if not school or serializer.instance.school_id != school.pk:
+            raise PermissionDenied('Student profile is not owned by the active school.')
+        serializer.save()
 
 
 class StudentMeProfileAPIView(generics.RetrieveAPIView):
@@ -167,14 +198,14 @@ class StudentAcademicHistoryAPIView(generics.ListAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return StudentEnrollment.objects.none()
         student = generics.get_object_or_404(
-            students_for_user(self.request.user),
+            students_for_user(self.request.user, request=self.request),
             pk=self.kwargs['pk'],
         )
         queryset = student.enrollments.select_related(
             'school', 'academic_year', 'classroom', 'section',
         )
-        if self.request.user.role != 'super_admin':
-            queryset = queryset.filter(school_id=self.request.user.school_id)
+        if getattr(self.request, 'active_role', None) != 'super_admin':
+            queryset = queryset.filter(school=getattr(self.request, 'active_school', None))
         return queryset.order_by('-academic_year__start_date', '-created_at')
 
 

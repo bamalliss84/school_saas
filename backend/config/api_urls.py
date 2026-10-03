@@ -19,6 +19,9 @@ from core.identity_views import (
     ParentChildAcademicHistoryAPIView, ParentChildSchoolsAPIView,
     StudentMeAcademicHistoryAPIView, StudentMeSchoolsAPIView, StudentTransferAPIView,
 )
+from core.student_admin_views import (
+    StudentEnrollmentDetailAPIView, StudentEnrollmentListCreateAPIView,
+)
 from core.timetable_views import (
     AssignmentOptionsAPIView, BulkTimetableAPIView, CopyDayAPIView, CopyWeekAPIView,
     CurrentAPIView, EntryDetailAPIView, EntryListCreateAPIView, GridAPIView, NextAPIView,
@@ -218,6 +221,8 @@ urlpatterns = [
     path('students/me/profile/', StudentMeProfileAPIView.as_view(), name='student-me-profile'),
     path('students/<int:pk>/', StudentDetailAPIView.as_view(), name='student-detail'),
     path('students/<int:pk>/academic-history/', StudentAcademicHistoryAPIView.as_view(), name='student-academic-history'),
+    path('students/<int:student_id>/enrollments/', StudentEnrollmentListCreateAPIView.as_view(), name='student-enrollment-list'),
+    path('students/<int:student_id>/enrollments/<int:pk>/', StudentEnrollmentDetailAPIView.as_view(), name='student-enrollment-detail'),
     path('parents/me/children/', ParentChildrenAPIView.as_view(), name='parent-children'),
     path('teachers/me/profile/', TeacherMeProfileAPIView.as_view(), name='teacher-me-profile'),
     path('teachers/me/assignments/', TeacherAssignmentsAPIView.as_view(), name='teacher-assignments'),

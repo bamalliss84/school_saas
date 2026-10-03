@@ -14,6 +14,7 @@ import { ContextGuard } from './ContextGuard';
 import { ClassesPage } from '../pages/ClassesPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
 import { AcademicPeriodsPage } from '../pages/AcademicPeriodsPage';
+import { StudentsPage } from '../pages/StudentsPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -91,26 +92,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/responsive-system" element={<ResponsiveSystemShowcasePage />} />
 
         {/* People routes */}
-        <Route
-          path="/students/*"
-          element={
-            <ModulePlaceholder
-              title="إدارة الطلاب (Students Management)"
-              phase="Phase W5"
-              description="سجلات الطلاب، التسجيل الأكاديمي، الفصول، وأولياء الأمور."
-            />
-          }
-        />
-        <Route
-          path="/students"
-          element={
-            <ModulePlaceholder
-              title="إدارة الطلاب (Students Management)"
-              phase="Phase W5"
-              description="سجلات الطلاب، التسجيل الأكاديمي، الفصول، وأولياء الأمور."
-            />
-          }
-        />
+        <Route path="/students/*" element={<StudentsPage />} />
+        <Route path="/students" element={<StudentsPage />} />
         <Route
           path="/teachers/*"
           element={

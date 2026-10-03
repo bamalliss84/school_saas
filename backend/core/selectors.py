@@ -43,10 +43,12 @@ def students_for_user(user, request=None):
     if not school:
         return queryset.none()
 
-    queryset = queryset.filter(enrollments__school_id=school.id).distinct()
-
     if role == 'school_admin':
-        return queryset
+        return queryset.filter(
+            Q(school_id=school.id) | Q(enrollments__school_id=school.id),
+        ).distinct()
+
+    queryset = queryset.filter(enrollments__school_id=school.id).distinct()
 
     if role == 'teacher':
         teacher = Teacher.objects.filter(user=user, school=school).first() or Teacher.objects.filter(user=user).first()

@@ -92,6 +92,53 @@ def set_current_student_enrollment(enrollment):
     return locked
 
 
+def _reject_implicit_school_transfer(student, school, becoming_current):
+    if not becoming_current:
+        return
+    current = StudentEnrollment.objects.filter(
+        student=student, is_current=True, status='active',
+    ).first()
+    if current and current.school_id != school.pk:
+        raise ValidationError('A school administrator cannot replace a current enrollment in another school.')
+
+
+@transaction.atomic
+def create_student_enrollment(*, student, school, academic_year, classroom, section,
+                              status='active', is_current=False, start_date=None, end_date=None):
+    locked_student = Student.objects.select_for_update().get(pk=student.pk)
+    _reject_implicit_school_transfer(locked_student, school, is_current)
+    enrollment = StudentEnrollment.objects.create(
+        student=locked_student, school=school, academic_year=academic_year,
+        classroom=classroom, section=section, status=status, is_current=False,
+        start_date=start_date, end_date=end_date,
+    )
+    if is_current:
+        enrollment = set_current_student_enrollment(enrollment)
+    else:
+        sync_student_memberships(locked_student)
+    sync_parent_memberships(student=locked_student)
+    return enrollment
+
+
+@transaction.atomic
+def update_student_enrollment(*, enrollment, school, **changes):
+    locked = StudentEnrollment.objects.select_for_update().select_related('student').get(
+        pk=enrollment.pk,
+    )
+    becoming_current = changes.pop('is_current', locked.is_current)
+    _reject_implicit_school_transfer(locked.student, school, becoming_current)
+    for field, value in changes.items():
+        setattr(locked, field, value)
+    locked.is_current = False
+    locked.save()
+    if becoming_current:
+        locked = set_current_student_enrollment(locked)
+    else:
+        sync_student_memberships(locked.student)
+    sync_parent_memberships(student=locked.student)
+    return locked
+
+
 @transaction.atomic
 def sync_parent_memberships(parent=None, student=None):
     parents = []
