@@ -8,6 +8,8 @@ import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../parent/presentation/parent_controller.dart';
 import '../parent/presentation/parent_home.dart';
+import '../parent/presentation/parent_homework_controller.dart';
+import '../parent/presentation/parent_homework_screens.dart';
 import '../parent/presentation/parent_m2_controller.dart';
 import '../parent/presentation/parent_m2_screens.dart';
 
@@ -49,7 +51,8 @@ class _ParentShellState extends ConsumerState<ParentShell> {
       return const SizedBox.shrink();
     }
     final state = ref.watch(parentFoundationProvider(scope));
-    final selectedChild = state is ParentReady ? state.data.selectedChild : null;
+    final selectedChild =
+        state is ParentReady ? state.data.selectedChild : null;
     final query = selectedChild == null
         ? null
         : (scope: scope, childId: selectedChild.id);
@@ -58,14 +61,14 @@ class _ParentShellState extends ConsumerState<ParentShell> {
       body: SafeArea(
         child: switch (selectedIndex) {
           0 => ParentHome(
-                state: state,
-                contextInfo: contextInfo,
-                onSelectChild: (id) => ref
-                    .read(parentFoundationProvider(scope).notifier)
-                    .selectChild(id),
-                onRefresh:
-                    ref.read(parentFoundationProvider(scope).notifier).refresh,
-              ),
+              state: state,
+              contextInfo: contextInfo,
+              onSelectChild: (id) => ref
+                  .read(parentFoundationProvider(scope).notifier)
+                  .selectChild(id),
+              onRefresh:
+                  ref.read(parentFoundationProvider(scope).notifier).refresh,
+            ),
           1 => query == null
               ? const _ParentFeatureUnavailable()
               : ParentTimetableScreen(
@@ -81,15 +84,35 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                   state: ref.watch(parentAttendanceProvider(query)),
                   childName: selectedChild!.fullName,
                   historical: contextInfo.isHistorical,
+                  onRefresh: ref
+                      .read(parentAttendanceProvider(query).notifier)
+                      .refresh,
+                ),
+          3 => query == null
+              ? const _ParentFeatureUnavailable()
+              : ParentHomeworkListScreen(
+                  state: ref.watch(parentHomeworkProvider(query)),
+                  childName: selectedChild!.fullName,
+                  historical: contextInfo.isHistorical,
                   onRefresh:
-                      ref.read(parentAttendanceProvider(query).notifier).refresh,
+                      ref.read(parentHomeworkProvider(query).notifier).refresh,
+                  onOpen: (homework) => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ParentHomeworkDetailPage(
+                        scope: scope,
+                        childId: selectedChild.id,
+                        childName: selectedChild.fullName,
+                        homework: homework,
+                        historical: contextInfo.isHistorical,
+                      ),
+                    ),
+                  ),
                 ),
           _ => ParentMore(
-                session: session,
-                onSelectContext:
-                    ref.read(sessionProvider.notifier).selectContext,
-                onLogout: ref.read(sessionProvider.notifier).logout,
-              ),
+              session: session,
+              onSelectContext: ref.read(sessionProvider.notifier).selectContext,
+              onLogout: ref.read(sessionProvider.notifier).logout,
+            ),
         },
       ),
       bottomNavigationBar: ParentBottomNavigation(
@@ -128,6 +151,11 @@ class ParentBottomNavigation extends StatelessWidget {
             icon: Icon(Icons.fact_check_outlined),
             selectedIcon: Icon(Icons.fact_check),
             label: 'الحضور',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'الواجبات',
           ),
           NavigationDestination(
             icon: Icon(Icons.more_horiz),
