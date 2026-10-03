@@ -15,6 +15,7 @@ import { ClassesPage } from '../pages/ClassesPage';
 import { SubjectsPage } from '../pages/SubjectsPage';
 import { AcademicPeriodsPage } from '../pages/AcademicPeriodsPage';
 import { StudentsPage } from '../pages/StudentsPage';
+import { TeachersPage } from '../pages/TeachersPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -94,26 +95,8 @@ export const AppRoutes: React.FC = () => {
         {/* People routes */}
         <Route path="/students/*" element={<StudentsPage />} />
         <Route path="/students" element={<StudentsPage />} />
-        <Route
-          path="/teachers/*"
-          element={
-            <ModulePlaceholder
-              title="إدارة المعلمين (Teachers Management)"
-              phase="Phase W5"
-              description="ملفات المعلمين، التكليفات الأكاديمية، والأنصبة التدريسية."
-            />
-          }
-        />
-        <Route
-          path="/teachers"
-          element={
-            <ModulePlaceholder
-              title="إدارة المعلمين (Teachers Management)"
-              phase="Phase W5"
-              description="ملفات المعلمين، التكليفات الأكاديمية، والأنصبة التدريسية."
-            />
-          }
-        />
+        <Route path="/teachers/*" element={<TeachersPage />} />
+        <Route path="/teachers" element={<TeachersPage />} />
         <Route path="/people" element={<Navigate to="/students" replace />} />
 
         {/* Academic routes */}
