@@ -126,9 +126,9 @@ void main() {
     expect(find.text('لا توجد سجلات حضور'), findsOneWidget); expect(find.textContaining('بيانات محفوظة'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('Parent navigation exposes only M1 and M2 destinations', (tester) async {
+  testWidgets('Parent navigation retains M1 and M2 destinations', (tester) async {
     await tester.pumpWidget(app(ParentBottomNavigation(selectedIndex: 0, onSelected: (_) {})));
     for (final label in ['الرئيسية', 'الجدول', 'الحضور', 'المزيد']) { expect(find.text(label), findsOneWidget); }
-    for (final deferred in ['الواجبات', 'النتائج', 'الرسائل']) { expect(find.text(deferred), findsNothing); }
+    for (final deferred in ['النتائج', 'الرسائل']) { expect(find.text(deferred), findsNothing); }
   });
 }
