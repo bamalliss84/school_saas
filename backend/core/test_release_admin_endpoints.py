@@ -1,5 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import AcademicYear, School, SchoolMembership, User
 
@@ -20,8 +21,8 @@ class ReleaseAdminEndpointsTests(TestCase):
             is_default=True,
         )
         self.client = APIClient()
-        self.client.force_authenticate(self.user)
-        self.headers = {'HTTP_X_SCHOOL_MEMBERSHIP_ID': str(self.membership.id)}
+        access = str(RefreshToken.for_user(self.user).access_token)
+        self.headers = {'HTTP_AUTHORIZATION': f'Bearer {access}', 'HTTP_X_SCHOOL_MEMBERSHIP_ID': str(self.membership.id)}
 
     def test_settings_are_tenant_scoped_and_writable(self):
         response = self.client.get('/api/v1/admin/settings/', **self.headers)
