@@ -6,12 +6,15 @@ import '../../app/session/app_session.dart';
 import '../../core/design_system/role_visual_tokens.dart';
 import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
+import '../parent/domain/parent_models.dart';
 import '../parent/presentation/parent_controller.dart';
 import '../parent/presentation/parent_home.dart';
 import '../parent/presentation/parent_homework_controller.dart';
 import '../parent/presentation/parent_homework_screens.dart';
 import '../parent/presentation/parent_m2_controller.dart';
 import '../parent/presentation/parent_m2_screens.dart';
+import '../parent/presentation/parent_results_controller.dart';
+import '../parent/presentation/parent_results_screens.dart';
 
 class ParentShell extends ConsumerStatefulWidget {
   const ParentShell({super.key});
@@ -56,6 +59,16 @@ class _ParentShellState extends ConsumerState<ParentShell> {
     final query = selectedChild == null
         ? null
         : (scope: scope, childId: selectedChild.id);
+    final selectedEnrollment = state is ParentReady
+        ? _enrollmentForScope(state.data.selectedHistory, scope)
+        : null;
+    final resultsQuery = selectedChild == null || selectedEnrollment == null
+        ? null
+        : (
+            scope: scope,
+            childId: selectedChild.id,
+            enrollmentId: selectedEnrollment.id,
+          );
     return Scaffold(
       key: const Key('parent-shell'),
       body: SafeArea(
@@ -103,6 +116,23 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                         childId: selectedChild.id,
                         childName: selectedChild.fullName,
                         homework: homework,
+                        historical: contextInfo.isHistorical,
+                      ),
+                    ),
+                  ),
+                ),
+          4 => resultsQuery == null
+              ? const _ParentFeatureUnavailable()
+              : ParentResultsScreen(
+                  state: ref.watch(parentResultsProvider(resultsQuery)),
+                  childName: selectedChild!.fullName,
+                  historical: contextInfo.isHistorical,
+                  onRefresh:
+                      ref.read(parentResultsProvider(resultsQuery).notifier).refresh,
+                  onOpen: (result) => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ParentResultDetailScreen(
+                        result: result,
                         historical: contextInfo.isHistorical,
                       ),
                     ),
@@ -158,6 +188,11 @@ class ParentBottomNavigation extends StatelessWidget {
             label: 'الواجبات',
           ),
           NavigationDestination(
+            icon: Icon(Icons.assessment_outlined),
+            selectedIcon: Icon(Icons.assessment),
+            label: 'النتائج',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.more_horiz),
             label: 'المزيد',
           ),
@@ -184,6 +219,20 @@ CacheScope? _scope(AppSession session) {
     academicYearKey:
         context.academicYearId?.toString() ?? context.academicYearName ?? '',
   );
+}
+
+ParentEnrollment? _enrollmentForScope(
+  List<ParentEnrollment> history,
+  CacheScope scope,
+) {
+  final academicYearId = int.tryParse(scope.academicYearKey);
+  for (final enrollment in history) {
+    if (academicYearId != null &&
+        enrollment.academicYear.id == academicYearId) {
+      return enrollment;
+    }
+  }
+  return history.length == 1 ? history.single : null;
 }
 
 class ParentMore extends StatefulWidget {
