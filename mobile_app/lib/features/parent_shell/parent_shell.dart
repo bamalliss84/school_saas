@@ -8,6 +8,7 @@ import '../../core/local_database/app_database.dart';
 import '../../core/models/school_context.dart';
 import '../parent/domain/parent_models.dart';
 import '../parent/presentation/parent_controller.dart';
+import '../parent/presentation/parent_communications_screens.dart';
 import '../parent/presentation/parent_home.dart';
 import '../parent/presentation/parent_homework_controller.dart';
 import '../parent/presentation/parent_homework_screens.dart';
@@ -127,8 +128,9 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                   state: ref.watch(parentResultsProvider(resultsQuery)),
                   childName: selectedChild!.fullName,
                   historical: contextInfo.isHistorical,
-                  onRefresh:
-                      ref.read(parentResultsProvider(resultsQuery).notifier).refresh,
+                  onRefresh: ref
+                      .read(parentResultsProvider(resultsQuery).notifier)
+                      .refresh,
                   onOpen: (result) => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => ParentResultDetailScreen(
@@ -142,6 +144,31 @@ class _ParentShellState extends ConsumerState<ParentShell> {
               session: session,
               onSelectContext: ref.read(sessionProvider.notifier).selectContext,
               onLogout: ref.read(sessionProvider.notifier).logout,
+              onNotifications: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ParentNotificationsPage(
+                    scope: scope,
+                    historical: contextInfo.isHistorical,
+                  ),
+                ),
+              ),
+              onAnnouncements: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ParentAnnouncementsPage(
+                    scope: scope,
+                    historical: contextInfo.isHistorical,
+                    childId: selectedChild?.id,
+                  ),
+                ),
+              ),
+              onMessages: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ParentConversationsPage(
+                    scope: scope,
+                    historical: contextInfo.isHistorical,
+                  ),
+                ),
+              ),
             ),
         },
       ),
@@ -241,11 +268,17 @@ class ParentMore extends StatefulWidget {
     required this.session,
     required this.onSelectContext,
     required this.onLogout,
+    this.onNotifications,
+    this.onAnnouncements,
+    this.onMessages,
   });
 
   final AppSession session;
   final Future<void> Function(SchoolContext context) onSelectContext;
   final Future<void> Function() onLogout;
+  final VoidCallback? onNotifications;
+  final VoidCallback? onAnnouncements;
+  final VoidCallback? onMessages;
 
   @override
   State<ParentMore> createState() => _ParentMoreState();
@@ -319,6 +352,16 @@ class _ParentMoreState extends State<ParentMore> {
           const Text(
             'لا يمكن تغيير المدرسة دون اتصال بالإنترنت.',
             textAlign: TextAlign.center,
+          ),
+        ],
+        if (widget.onNotifications != null &&
+            widget.onAnnouncements != null &&
+            widget.onMessages != null) ...[
+          const SizedBox(height: 16),
+          ParentCommunicationLinks(
+            onNotifications: widget.onNotifications!,
+            onAnnouncements: widget.onAnnouncements!,
+            onMessages: widget.onMessages!,
           ),
         ],
         const SizedBox(height: 24),
