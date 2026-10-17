@@ -16,6 +16,7 @@ import { SubjectsPage } from '../pages/SubjectsPage';
 import { AcademicPeriodsPage } from '../pages/AcademicPeriodsPage';
 import { StudentsPage } from '../pages/StudentsPage';
 import { TeachersPage } from '../pages/TeachersPage';
+import { ParentsPage } from '../pages/ParentsPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -97,6 +98,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/students" element={<StudentsPage />} />
         <Route path="/teachers/*" element={<TeachersPage />} />
         <Route path="/teachers" element={<TeachersPage />} />
+        <Route path="/parents/*" element={<ParentsPage />} />
+        <Route path="/parents" element={<ParentsPage />} />
         <Route path="/people" element={<Navigate to="/students" replace />} />
 
         {/* Academic routes */}

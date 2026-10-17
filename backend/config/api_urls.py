@@ -22,6 +22,10 @@ from core.identity_views import (
 from core.student_admin_views import (
     StudentEnrollmentDetailAPIView, StudentEnrollmentListCreateAPIView,
 )
+from core.parent_admin_views import (
+    GuardianDetailAPIView, GuardianListCreateAPIView,
+    ParentDetailAPIView, ParentListCreateAPIView,
+)
 from core.timetable_views import (
     AssignmentOptionsAPIView, BulkTimetableAPIView, CopyDayAPIView, CopyWeekAPIView,
     CurrentAPIView, EntryDetailAPIView, EntryListCreateAPIView, GridAPIView, NextAPIView,
@@ -113,6 +117,10 @@ from core.views import (
 
 
 urlpatterns = [
+    path('parents/', ParentListCreateAPIView.as_view(), name='parent-admin-list'),
+    path('parents/<int:pk>/', ParentDetailAPIView.as_view(), name='parent-admin-detail'),
+    path('students/<int:student_id>/guardians/', GuardianListCreateAPIView.as_view(), name='guardian-admin-list'),
+    path('students/<int:student_id>/guardians/<int:pk>/', GuardianDetailAPIView.as_view(), name='guardian-admin-detail'),
     path('academic-years/', AcademicYearListCreateAPIView.as_view(), name='academic-year-list'),
     path('academic-years/<int:pk>/', AcademicYearDetailAPIView.as_view(), name='academic-year-detail'),
     path('academic-terms/', AcademicTermListCreateAPIView.as_view(), name='academic-term-list'),

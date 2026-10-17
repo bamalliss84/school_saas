@@ -47,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { to: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
     { to: '/students', label: 'الطلاب', icon: GraduationCap },
     { to: '/teachers', label: 'المعلمون', icon: Users },
+    { to: '/parents', label: 'أولياء الأمور', icon: Users },
     { to: '/classes', label: 'الفصول والشعب', icon: Layers },
     { to: '/subjects', label: 'المواد الدراسية', icon: BookOpen },
     { to: '/academic-periods', label: 'السنوات والفصول', icon: CalendarDays },

@@ -1,8 +1,11 @@
 from django.db import transaction
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
+from django.contrib.auth import get_user_model
+
 from core.models import (
-    HomeworkActionLog, SchoolMembership, Student, StudentEnrollment,
+    HomeworkActionLog, Parent, SchoolMembership, Student, StudentEnrollment,
+    StudentGuardian,
 )
 from core.services.exam_results import request_audit_metadata
 
@@ -162,6 +165,11 @@ def sync_parent_memberships(parent=None, student=None):
                 user_id=item.user_id, role='parent',
             )
         }
+        for school_id, membership in existing.items():
+            if school_id not in schools and membership.status != 'ended':
+                SchoolMembership.objects.filter(pk=membership.pk).update(
+                    status='ended', is_default=False,
+                )
         for school_id, active in schools.items():
             desired = 'active' if active else 'historical'
             membership = existing.get(school_id)
@@ -174,6 +182,90 @@ def sync_parent_memberships(parent=None, student=None):
                     status=desired, is_default=False if desired == 'historical' else membership.is_default,
                 )
     return parents
+
+
+def _next_parent_code(school):
+    last = Parent.objects.select_for_update().filter(school=school).order_by('-id').first()
+    number = 1
+    if last and last.parent_code:
+        try:
+            number = int(last.parent_code.rsplit('-', 1)[-1].removeprefix('P')) + 1
+        except (TypeError, ValueError):
+            number = last.pk + 1
+    return f'{school.code.upper()}-P{number:05d}'
+
+
+def _ensure_current_student_in_school(*, student, school):
+    if not StudentEnrollment.objects.filter(
+        student=student, school=school, is_current=True, status='active',
+    ).exists():
+        raise ValidationError('Student must have a current active enrollment in the active school.')
+
+
+@transaction.atomic
+def create_parent_with_guardian(*, school, student, parent_values, guardian_values,
+                                account_username=None, account_password=None):
+    locked_student = Student.objects.select_for_update().get(pk=student.pk)
+    _ensure_current_student_in_school(student=locked_student, school=school)
+    user = None
+    if account_username:
+        User = get_user_model()
+        name = parent_values.get('full_name', '').strip().split(' ', 1)
+        user = User.objects.create_user(
+            username=account_username, password=account_password,
+            first_name=name[0] if name else '', last_name=name[1] if len(name) > 1 else '',
+            email=parent_values.get('email') or '', phone=parent_values.get('phone'),
+            role='parent', school=school, is_active_school_user=True,
+        )
+    parent = Parent.objects.create(
+        school=school, user=user, parent_code=_next_parent_code(school), **parent_values,
+    )
+    create_guardian_link(parent=parent, student=locked_student, school=school, **guardian_values)
+    if user and not SchoolMembership.objects.filter(user=user, is_default=True).exists():
+        SchoolMembership.objects.filter(
+            user=user, school=school, role='parent', status='active',
+        ).update(is_default=True)
+    return parent
+
+
+@transaction.atomic
+def create_guardian_link(*, parent, student, school, **values):
+    locked_student = Student.objects.select_for_update().get(pk=student.pk)
+    _ensure_current_student_in_school(student=locked_student, school=school)
+    links = StudentGuardian.objects.select_for_update().filter(student=locked_student)
+    if links.filter(parent=parent).exists():
+        raise ValidationError({'parent_id': 'This parent is already linked to the student.'})
+    if values.get('is_primary'):
+        links.filter(is_primary=True).update(is_primary=False)
+    link = StudentGuardian.objects.create(parent=parent, student=locked_student, **values)
+    sync_parent_memberships(parent=parent)
+    return link
+
+
+@transaction.atomic
+def update_guardian_link(*, guardian, school, **changes):
+    item = StudentGuardian.objects.select_for_update().select_related('student', 'parent').get(pk=guardian.pk)
+    if not item.student.enrollments.filter(school=school).exists():
+        raise PermissionDenied('Guardian relationship is outside the active school.')
+    if changes.get('is_primary'):
+        StudentGuardian.objects.select_for_update().filter(
+            student=item.student, is_primary=True,
+        ).exclude(pk=item.pk).update(is_primary=False)
+    for field, value in changes.items():
+        setattr(item, field, value)
+    item.save()
+    sync_parent_memberships(parent=item.parent)
+    return item
+
+
+@transaction.atomic
+def delete_guardian_link(*, guardian, school):
+    item = StudentGuardian.objects.select_for_update().select_related('student', 'parent').get(pk=guardian.pk)
+    if not item.student.enrollments.filter(school=school).exists():
+        raise PermissionDenied('Guardian relationship is outside the active school.')
+    parent = item.parent
+    item.delete()
+    sync_parent_memberships(parent=parent)
 
 
 @transaction.atomic
