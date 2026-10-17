@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../services/apiClient';
 import { academicService } from '../services/academicService';
 import { useAuth } from '../context/useAuth';
@@ -18,7 +18,7 @@ export const OperationsPage:React.FC<{module:Module}>=({module})=>{
  const [classes,setClasses]=useState<any[]>([]); const [sections,setSections]=useState<any[]>([]);
  const [classId,setClassId]=useState<number|undefined>(); const [sectionId,setSectionId]=useState<number|undefined>();
  const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [draft,setDraft]=useState<any>({});
- const load=async()=>{
+ const load=useCallback(async()=>{
   setLoading(true);setError('');
   try{
    if(module==='timetable'){const c=await academicService.getClassrooms();setClasses(c.results);if(c.results[0])setClassId(v=>v||c.results[0].id);setData(await apiClient.get('/timetable/config/'))}
@@ -31,8 +31,8 @@ export const OperationsPage:React.FC<{module:Module}>=({module})=>{
    else if(module==='settings') setData(await apiClient.get('/admin/settings/'));
    else setData(await apiClient.get('/admin/data/export/',{params:{kind:'students'}}));
   }catch(e:any){setError(e?.message||'تعذر تحميل البيانات');}finally{setLoading(false)}
- };
- useEffect(()=>{load()},[module,date]);
+ },[module,date]);
+ useEffect(()=>{load()},[load]);
  useEffect(()=>{if(classId)academicService.getSections({classroom_id:classId}).then(r=>{setSections(r.results);setSectionId(r.results[0]?.id)})},[classId]);
  useEffect(()=>{if(module==='timetable'&&classId&&sectionId){setLoading(true);apiClient.get('/timetable/grid/',{params:{classroom_id:classId,section_id:sectionId}}).then(setData).catch((e:any)=>setError(e.message)).finally(()=>setLoading(false))}},[module,classId,sectionId]);
  const rows=useMemo(()=>Array.isArray(data)?data:(data?.results||data?.rows||[]),[data]);
