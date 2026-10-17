@@ -68,7 +68,10 @@ class SchoolSettingsAPIView(APIView):
             raise ValidationError({'language': 'Supported languages are ar and en.'})
         if item.primary_color and not str(item.primary_color).startswith('#'):
             raise ValidationError({'primary_color': 'Color must be a hex value.'})
-        school.full_clean(); school.save(update_fields=[f for f in school_fields if f in request.data])
+        school.full_clean()
+        changed_school_fields = [f for f in school_fields if f in request.data]
+        if changed_school_fields:
+            school.save(update_fields=changed_school_fields)
         item.full_clean(); item.save()
         return self.get(request)
 
