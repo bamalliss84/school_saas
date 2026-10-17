@@ -1,4 +1,5 @@
 from django.core import signing
+from django.db import transaction
 from django.db.models import Count
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -233,7 +234,8 @@ class DataImportAPIView(APIView):
         if errors:
             return Response({'valid': False, 'created': 0, 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
         created = []
-        for serializer in valid:
-            item = serializer.save()
-            created.append(item.pk)
+        with transaction.atomic():
+            for serializer in valid:
+                item = serializer.save()
+                created.append(item.pk)
         return Response({'valid': True, 'created': len(created), 'ids': created}, status=status.HTTP_201_CREATED)
