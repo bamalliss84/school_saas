@@ -129,6 +129,7 @@ void main() {
   testWidgets('Parent navigation retains M1 and M2 destinations', (tester) async {
     await tester.pumpWidget(app(ParentBottomNavigation(selectedIndex: 0, onSelected: (_) {})));
     for (final label in ['الرئيسية', 'الجدول', 'الحضور', 'المزيد']) { expect(find.text(label), findsOneWidget); }
-    for (final deferred in ['النتائج', 'الرسائل']) { expect(find.text(deferred), findsNothing); }
+    expect(find.text('النتائج'), findsOneWidget);
+    expect(find.text('الرسائل'), findsNothing);
   });
 }

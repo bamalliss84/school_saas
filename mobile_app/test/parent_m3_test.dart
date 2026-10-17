@@ -306,7 +306,7 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('Parent navigation adds Homework only', (tester) async {
+  testWidgets('Parent navigation retains Homework and adds Results', (tester) async {
     await tester.pumpWidget(app(ParentBottomNavigation(
       selectedIndex: 0,
       onSelected: (_) {},
@@ -316,11 +316,12 @@ void main() {
       'الجدول',
       'الحضور',
       'الواجبات',
+      'النتائج',
       'المزيد'
     ]) {
       expect(find.text(label), findsOneWidget);
     }
-    for (final deferred in ['النتائج', 'الرسائل', 'الإشعارات']) {
+    for (final deferred in ['الرسائل', 'الإشعارات']) {
       expect(find.text(deferred), findsNothing);
     }
   });
