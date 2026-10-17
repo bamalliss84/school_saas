@@ -18,44 +18,7 @@ import { StudentsPage } from '../pages/StudentsPage';
 import { TeachersPage } from '../pages/TeachersPage';
 import { ParentsPage } from '../pages/ParentsPage';
 import { ExamsPage } from '../pages/ExamsPage';
-import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { Sparkles } from 'lucide-react';
 import { OperationsPage } from '../pages/OperationsPage';
-
-const ModulePlaceholder: React.FC<{ title: string; phase: string; description: string }> = ({
-  title,
-  phase,
-  description,
-}) => (
-  <Card>
-    <CardHeader>
-      <div>
-        <CardTitle>{title}</CardTitle>
-        <CardSubtitle>{description}</CardSubtitle>
-      </div>
-      <Badge variant="primary" icon={<Sparkles size={12} />}>{phase}</Badge>
-    </CardHeader>
-    <CardBody>
-      <div
-        style={{
-          padding: '2.5rem 1.5rem',
-          textAlign: 'center',
-          backgroundColor: 'var(--neutral-50)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px dashed var(--border-strong)',
-        }}
-      >
-        <h4 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-          هذه الوحدة مخصصة للتطوير في المرحلة ({phase})
-        </h4>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: '520px', margin: '0 auto' }}>
-          نظام الأساس (W1) جاهز بالكامل من حيث المصادقة وتحديد سياق المدرسة. سيتم بناء واجهات هذه الوحدة فور اعتماد التصاميم المرئية (Nano Boards) واستكمال المرحلة الحالية.
-        </p>
-      </div>
-    </CardBody>
-  </Card>
-);
 
 export const AppRoutes: React.FC = () => {
   return (
