@@ -120,7 +120,7 @@ class Sprint4BNotificationTests(Sprint4DFixtureMixin, TestCase):
 
     def test_contexts_include_unread_counts_without_n_plus_one(self):
         self.notification(self.membership_a); self.notification(self.membership_b); self.auth(membership=self.membership_a)
-        with self.assertNumQueries(8): response=self.client.get('/api/v1/auth/contexts/')
+        with self.assertNumQueries(6): response=self.client.get('/api/v1/auth/contexts/')
         counts={row['membership_id']:row['unread_notifications_count'] for row in response.data['contexts']}; self.assertEqual(counts,{self.membership_a.pk:1,self.membership_b.pk:1})
 
     def test_compatibility_route_works(self):
