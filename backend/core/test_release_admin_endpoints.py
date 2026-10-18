@@ -50,6 +50,8 @@ class ReleaseAdminEndpointsTests(TestCase):
         self.membership.status = 'historical'
         self.membership.is_default = False
         self.membership.save()
+        access = str(RefreshToken.for_user(self.user).access_token)
+        self.headers = {'HTTP_AUTHORIZATION': f'Bearer {access}', 'HTTP_X_SCHOOL_MEMBERSHIP_ID': str(self.membership.id)}
         response = self.client.patch(
             '/api/v1/admin/settings/', {'phone': '1'}, format='json', **self.headers,
         )
