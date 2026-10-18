@@ -90,6 +90,8 @@ class TeacherAssignmentsAPIView(generics.ListAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return TeacherAssignment.objects.none()
 
+        _get_teacher_for_request(self.request)
+
         query = TeacherAssignmentQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
