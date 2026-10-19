@@ -1,6 +1,6 @@
 from django.core import signing
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from .context import require_writable_context
 from .models import (
     AcademicTerm, AcademicYear, Announcement, Attendance, Classroom, Conversation,
-    Exam, Homework, Parent, SchoolPeriod, SchoolSetting, Section, Student,
+    Exam, Homework, HomeworkSubmission, Parent, SchoolPeriod, SchoolSetting, Section, Student,
     StudentEnrollment, StudentGuardian, Subject, Teacher, TeacherAssignment,
     TimetableEntry,
 )
@@ -170,26 +170,83 @@ class AdminReportSummaryAPIView(APIView):
         enrollments = StudentEnrollment.objects.filter(school=school)
         attendance = Attendance.objects.filter(student_enrollment__school=school)
         homework = Homework.objects.filter(school=school)
+        submissions = HomeworkSubmission.objects.filter(homework__school=school)
         exams = Exam.objects.filter(school=school)
+        filters = {}
         if year:
             enrollments = enrollments.filter(academic_year=year)
             attendance = attendance.filter(student_enrollment__academic_year=year)
             homework = homework.filter(academic_year=year)
+            submissions = submissions.filter(homework__academic_year=year)
             exams = exams.filter(academic_year=year)
+        classroom_id = request.query_params.get('classroom_id')
+        section_id = request.query_params.get('section_id')
+        student_id = request.query_params.get('student_id')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if classroom_id:
+            filters['classroom_id'] = classroom_id
+            enrollments = enrollments.filter(classroom_id=classroom_id)
+            attendance = attendance.filter(student_enrollment__classroom_id=classroom_id)
+            homework = homework.filter(teacher_assignment__classroom_id=classroom_id)
+            submissions = submissions.filter(homework__teacher_assignment__classroom_id=classroom_id)
+            exams = exams.filter(teacher_assignment__classroom_id=classroom_id)
+        if section_id:
+            filters['section_id'] = section_id
+            enrollments = enrollments.filter(section_id=section_id)
+            attendance = attendance.filter(student_enrollment__section_id=section_id)
+            homework = homework.filter(teacher_assignment__section_id=section_id)
+            submissions = submissions.filter(homework__teacher_assignment__section_id=section_id)
+            exams = exams.filter(teacher_assignment__section_id=section_id)
+        if student_id:
+            filters['student_id'] = student_id
+            enrollments = enrollments.filter(student_id=student_id)
+            attendance = attendance.filter(student_enrollment__student_id=student_id)
+            submissions = submissions.filter(student_enrollment__student_id=student_id)
+        if date_from:
+            filters['date_from'] = date_from
+            attendance = attendance.filter(attendance_date__gte=date_from)
+            homework = homework.filter(due_date__date__gte=date_from)
+            submissions = submissions.filter(homework__due_date__date__gte=date_from)
+        if date_to:
+            filters['date_to'] = date_to
+            attendance = attendance.filter(attendance_date__lte=date_to)
+            homework = homework.filter(due_date__date__lte=date_to)
+            submissions = submissions.filter(homework__due_date__date__lte=date_to)
         status_counts = {row['status']: row['total'] for row in attendance.values('status').annotate(total=Count('id'))}
         total_att = sum(status_counts.values())
         attended = status_counts.get('present', 0) + status_counts.get('late', 0)
+        submission_counts = {row['status']: row['total'] for row in submissions.values('status').annotate(total=Count('id'))}
+        submitted = sum(submission_counts.get(x, 0) for x in ('submitted', 'graded', 'reviewed'))
+        expected_submissions = 0
+        for item in homework.filter(status__in=('published', 'closed')).values(
+            'teacher_assignment__classroom_id', 'teacher_assignment__section_id'
+        ):
+            expected_submissions += enrollments.filter(
+                classroom_id=item['teacher_assignment__classroom_id'],
+                section_id=item['teacher_assignment__section_id'], status='active',
+            ).count()
         return Response({
+            'filters': filters,
             'students': {'total': enrollments.values('student_id').distinct().count(),
                          'active': enrollments.filter(status='active').count()},
             'attendance': {'total': total_att, 'present': status_counts.get('present', 0),
                            'absent': status_counts.get('absent', 0), 'late': status_counts.get('late', 0),
                            'excused': status_counts.get('excused', 0),
                            'rate': round(attended * 100 / total_att, 2) if total_att else 0},
-            'homework': {'total': homework.count(), 'published': homework.filter(status='published').count()},
+            'homework': {'total': homework.count(), 'published': homework.filter(status='published').count(),
+                         'submissions': submissions.count(), 'submitted': submitted,
+                         'not_submitted': max(expected_submissions - submitted, 0),
+                         'completion_rate': round(submitted * 100 / expected_submissions, 2) if expected_submissions else 0},
             'exams': {'total': exams.count(), 'published': exams.filter(status='published').count()},
-            'operations': {'teachers': TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True, teacher__is_active=True).values('teacher_id').distinct().count() if year else TeacherAssignment.objects.filter(school=school, is_current=True, teacher__is_active=True).values('teacher_id').distinct().count(),
-                           'parents': Parent.objects.filter(school=school, is_active=True).count(),
+            'operations': {'teachers': TeacherAssignment.objects.filter(
+                                school=school, academic_year=year, is_current=True, teacher__is_active=True
+                            ).values('teacher_id').distinct().count() if year else TeacherAssignment.objects.filter(
+                                school=school, is_current=True, teacher__is_active=True
+                            ).values('teacher_id').distinct().count(),
+                           'parents': Parent.objects.filter(
+                               Q(school=school) | Q(students__student__enrollments__school=school), is_active=True
+                           ).distinct().count(),
                            'conversations': Conversation.objects.filter(school=school).count(),
                            'announcements': Announcement.objects.filter(school=school).count()},
         })
