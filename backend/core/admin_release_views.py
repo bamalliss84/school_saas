@@ -273,8 +273,23 @@ class DataExportAPIView(APIView):
             qs = Teacher.objects.filter(school=school)
             if year: qs = qs.filter(academic_year=year)
             rows = qs.values('employee_code','full_name','phone','email','specialization','is_active')
+        elif kind == 'guardians':
+            qs = StudentGuardian.objects.filter(
+                student__enrollments__school=school,
+            ).select_related('student', 'parent').distinct()
+            if year:
+                qs = qs.filter(student__enrollments__academic_year=year)
+            rows = [{
+                'student_code': link.student.student_code,
+                'full_name': link.parent.full_name,
+                'national_id': link.parent.national_id,
+                'phone': link.parent.phone, 'email': link.parent.email,
+                'relationship': link.relationship, 'is_primary': link.is_primary,
+                'can_receive_notifications': link.can_receive_notifications,
+                'can_receive_financial_alerts': link.can_receive_financial_alerts,
+            } for link in qs]
         else:
-            raise ValidationError({'kind': 'Supported exports are students and teachers.'})
+            raise ValidationError({'kind': 'Supported exports are students, teachers and guardians.'})
         return Response({'kind': kind, 'rows': list(rows)})
 
 
