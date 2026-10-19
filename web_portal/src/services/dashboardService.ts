@@ -55,6 +55,9 @@ export const dashboardService = {
 
     // 2. Fetch scoped data from active tenant context
     let studentCount: number | null = null;
+    let teacherCount: number | null = null;
+    let classroomCount: number | null = null;
+    let sectionCount: number | null = null;
     let dailyAttendance: DailyAttendanceResponse | null = null;
     let unreadInboxCount = 0;
     let unreadNotificationsCount = 0;
@@ -77,6 +80,25 @@ export const dashboardService = {
       }
     } catch {
       studentCount = null;
+    }
+
+    // A2. Teacher/Class/Section population for executive KPIs
+    try {
+      const teachersRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/admin/teachers/?page_size=1');
+      teacherCount = typeof teachersRes?.count === 'number' ? teachersRes.count : null;
+    } catch { teacherCount = null; }
+    try {
+      const classesRes = await apiClient.get<{ count?: number; results?: Array<{ sections_count?: number }> }>('/admin/classrooms/?page_size=200');
+      classroomCount = typeof classesRes?.count === 'number' ? classesRes.count : (classesRes?.results?.length ?? null);
+      if (Array.isArray(classesRes?.results)) {
+        sectionCount = classesRes.results.reduce((sum, row) => sum + (Number(row.sections_count) || 0), 0);
+      }
+    } catch {
+      try {
+        const classesRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/classrooms/?page_size=200');
+        classroomCount = typeof classesRes?.count === 'number' ? classesRes.count : (classesRes?.results?.length ?? null);
+      } catch { classroomCount = null; }
+      sectionCount = null;
     }
 
     // B. Daily Attendance Scope (GET /attendance/daily/)
@@ -240,24 +262,24 @@ export const dashboardService = {
       {
         id: 'total_teachers',
         title: 'إجمالي المعلمين',
-        value: '—',
-        subtext: 'غير متوفر حالياً',
-        trend: undefined,
+        value: teacherCount !== null ? teacherCount.toLocaleString('ar-EG') : '—',
+        subtext: teacherCount !== null ? 'معلم نشط' : 'غير متوفر حالياً',
+        trend: teacherCount !== null ? { direction: 'neutral', value: 'نشط' } : undefined,
         iconName: 'teachers',
         color: 'var(--indigo-600)',
         bgColor: 'var(--indigo-50)',
-        isAvailable: false,
+        isAvailable: teacherCount !== null,
       },
       {
         id: 'classes_sections',
         title: 'الفصول والشعب',
-        value: '—',
-        subtext: 'غير متوفر حالياً',
+        value: classroomCount !== null ? (sectionCount !== null ? `${classroomCount.toLocaleString('ar-EG')} / ${sectionCount.toLocaleString('ar-EG')}` : classroomCount.toLocaleString('ar-EG')) : '—',
+        subtext: classroomCount !== null ? (sectionCount !== null ? 'صف / شعبة' : 'صف دراسي') : 'غير متوفر حالياً',
         trend: undefined,
         iconName: 'classes',
         color: 'var(--neutral-700)',
         bgColor: 'var(--neutral-100)',
-        isAvailable: false,
+        isAvailable: classroomCount !== null,
       },
       {
         id: 'attendance_rate',
