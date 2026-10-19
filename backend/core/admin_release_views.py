@@ -1,6 +1,7 @@
 from django.core import signing
 from django.db import transaction
 from django.db.models import Count, Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -10,10 +11,11 @@ from .context import require_writable_context
 from .models import (
     AcademicTerm, AcademicYear, Announcement, Attendance, Classroom, Conversation,
     Exam, Homework, HomeworkSubmission, Parent, SchoolPeriod, SchoolSetting, Section, Student,
-    StudentEnrollment, StudentGuardian, Subject, Teacher, TeacherAssignment,
+    StudentEnrollment, StudentGuardian, Subject, Teacher, TeacherAssignment, User,
     TimetableEntry,
 )
 from .permissions import IsActiveSchoolUser
+from .services import identity
 
 
 def _admin(request, write=False):
@@ -283,7 +285,7 @@ class DataImportAPIView(APIView):
     def post(self, request):
         _admin(request, write=True)
         kind, rows = request.data.get('kind'), request.data.get('rows')
-        if kind not in ('students', 'teachers') or not isinstance(rows, list):
+        if kind not in ('students', 'teachers', 'guardians') or not isinstance(rows, list):
             raise ValidationError('kind and rows are required.')
         if len(rows) > 1000:
             raise ValidationError('A single import is limited to 1000 rows.')
@@ -292,6 +294,25 @@ class DataImportAPIView(APIView):
         serializer_class = StudentAdminWriteSerializer if kind == 'students' else TeacherAdminSerializer
         valid, errors = [], []
         for index, row in enumerate(rows, start=2):
+            if kind == 'guardians':
+                student_code = str(row.get('student_code', '')).strip()
+                full_name = str(row.get('full_name', '')).strip()
+                relationship = str(row.get('relationship', '')).strip()
+                student = Student.objects.filter(
+                    school=request.active_school, student_code=student_code, is_active=True,
+                ).first()
+                if not student:
+                    errors.append({'row': index, 'errors': {'student_code': ['Student was not found in the active school.']}})
+                    continue
+                if not full_name or relationship not in dict(StudentGuardian.RELATION_CHOICES):
+                    errors.append({'row': index, 'errors': {'guardian': ['full_name and a valid relationship are required.']}})
+                    continue
+                username = str(row.get('account_username', '')).strip()
+                if username and User.objects.filter(username=username).exists():
+                    errors.append({'row': index, 'errors': {'account_username': ['Username already exists.']}})
+                    continue
+                valid.append({'row': row, 'student': student})
+                continue
             serializer = serializer_class(data=row, context={'request': request})
             if serializer.is_valid():
                 valid.append(serializer)
@@ -310,8 +331,33 @@ class DataImportAPIView(APIView):
         created = []
         with transaction.atomic():
             for serializer in valid:
-                item = serializer.save()
-                created.append(item.pk)
+                if kind == 'guardians':
+                    row, student = serializer['row'], serializer['student']
+                    username = str(row.get('account_username', '')).strip()
+                    password = str(row.get('account_password', '')).strip()
+                    parent = identity.create_parent_with_guardian(
+                        school=request.active_school, student=student,
+                        parent_values={
+                            'full_name': str(row.get('full_name', '')).strip(),
+                            'national_id': str(row.get('national_id', '')).strip(),
+                            'phone': str(row.get('phone', '')).strip(),
+                            'email': str(row.get('email', '')).strip(),
+                            'address': str(row.get('address', '')).strip(),
+                            'occupation': str(row.get('occupation', '')).strip(),
+                            'workplace': str(row.get('workplace', '')).strip(),
+                        },
+                        guardian_values={
+                            'relationship': str(row.get('relationship', '')).strip(),
+                            'is_primary': str(row.get('is_primary', '')).lower() in ('1', 'true', 'yes'),
+                            'can_receive_notifications': str(row.get('can_receive_notifications', 'true')).lower() not in ('0', 'false', 'no'),
+                            'can_receive_financial_alerts': str(row.get('can_receive_financial_alerts', 'true')).lower() not in ('0', 'false', 'no'),
+                        },
+                        account_username=username or None, account_password=password or None,
+                    )
+                    created.append(parent.pk)
+                else:
+                    item = serializer.save()
+                    created.append(item.pk)
         return Response({
             'valid': True, 'confirmed': True, 'created': len(created), 'ids': created,
         }, status=status.HTTP_201_CREATED)
