@@ -30,11 +30,8 @@ class SchoolSettingsAPIView(APIView):
 
     def _payload(self, request):
         school = request.active_school
-        item, _ = SchoolSetting.objects.get_or_create(
-            school=school,
-            defaults={'school_name_ar': school.name},
-        )
-        return item
+        item = SchoolSetting.objects.filter(school=school).first()
+        return item or SchoolSetting(school=school, school_name_ar=school.name)
 
     def get(self, request):
         _admin(request)
@@ -68,11 +65,16 @@ class SchoolSettingsAPIView(APIView):
             raise ValidationError({'language': 'Supported languages are ar and en.'})
         if item.primary_color and not str(item.primary_color).startswith('#'):
             raise ValidationError({'primary_color': 'Color must be a hex value.'})
-        school.full_clean()
+        try:
+            school.full_clean()
+            item.full_clean()
+        except Exception as exc:
+            raise ValidationError(getattr(exc, 'message_dict', {'detail': str(exc)}))
         changed_school_fields = [f for f in school_fields if f in request.data]
-        if changed_school_fields:
-            school.save(update_fields=changed_school_fields)
-        item.full_clean(); item.save()
+        with transaction.atomic():
+            if changed_school_fields:
+                school.save(update_fields=changed_school_fields)
+            item.save()
         return self.get(request)
 
 
@@ -89,7 +91,7 @@ class OnboardingStatusAPIView(APIView):
             ('classes', 'الصفوف', bool(year and Classroom.objects.filter(school=school, academic_year=year).exists())),
             ('sections', 'الشعب', bool(year and Section.objects.filter(school=school, academic_year=year).exists())),
             ('subjects', 'المواد', Subject.objects.filter(school=school, is_active=True).exists()),
-            ('teachers', 'المعلمون', bool(year and Teacher.objects.filter(school=school, academic_year=year, is_active=True).exists())),
+            ('teachers', 'المعلمون', bool(year and TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True, teacher__is_active=True).exists())),
             ('assignments', 'تكليفات المعلمين', bool(year and TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True).exists())),
             ('students', 'الطلاب والتسجيلات', bool(year and StudentEnrollment.objects.filter(school=school, academic_year=year, status='active').exists())),
             ('timetable', 'الفترات والجدول', bool(year and SchoolPeriod.objects.filter(school=school, academic_year=year, is_active=True).exists())),
@@ -186,7 +188,7 @@ class AdminReportSummaryAPIView(APIView):
                            'rate': round(attended * 100 / total_att, 2) if total_att else 0},
             'homework': {'total': homework.count(), 'published': homework.filter(status='published').count()},
             'exams': {'total': exams.count(), 'published': exams.filter(status='published').count()},
-            'operations': {'teachers': Teacher.objects.filter(school=school, is_active=True).count(),
+            'operations': {'teachers': TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True, teacher__is_active=True).values('teacher_id').distinct().count() if year else TeacherAssignment.objects.filter(school=school, is_current=True, teacher__is_active=True).values('teacher_id').distinct().count(),
                            'parents': Parent.objects.filter(school=school, is_active=True).count(),
                            'conversations': Conversation.objects.filter(school=school).count(),
                            'announcements': Announcement.objects.filter(school=school).count()},
@@ -203,8 +205,12 @@ class DataExportAPIView(APIView):
         if kind == 'students':
             qs = StudentEnrollment.objects.filter(school=school)
             if year: qs = qs.filter(academic_year=year)
-            rows = qs.select_related('student','classroom','section').values(
-                'student__student_code','student__full_name','student__gender','classroom__name','section__name','status')
+            rows = [
+                {'student_code': e.student.student_code, 'full_name': e.student.full_name,
+                 'gender': e.student.gender, 'classroom': e.classroom.name,
+                 'section': e.section.name, 'status': e.status}
+                for e in qs.select_related('student', 'classroom', 'section')
+            ]
         elif kind == 'teachers':
             qs = Teacher.objects.filter(school=school)
             if year: qs = qs.filter(academic_year=year)
