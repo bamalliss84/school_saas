@@ -1,7 +1,6 @@
 from django.core import signing
 from django.db import transaction
 from django.db.models import Count, Q
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -11,7 +10,7 @@ from .context import require_writable_context
 from .models import (
     AcademicTerm, AcademicYear, Announcement, Attendance, Classroom, Conversation,
     Exam, Homework, HomeworkSubmission, Parent, SchoolPeriod, SchoolSetting, Section, Student,
-    StudentEnrollment, StudentGuardian, Subject, Teacher, TeacherAssignment, User,
+    StudentEnrollment, StudentGuardian, Subject, Teacher, TeacherAssignment,
     TimetableEntry,
 )
 from .permissions import IsActiveSchoolUser
@@ -308,7 +307,8 @@ class DataImportAPIView(APIView):
                     errors.append({'row': index, 'errors': {'guardian': ['full_name and a valid relationship are required.']}})
                     continue
                 username = str(row.get('account_username', '')).strip()
-                if username and User.objects.filter(username=username).exists():
+                from django.contrib.auth import get_user_model
+                if username and get_user_model().objects.filter(username=username).exists():
                     errors.append({'row': index, 'errors': {'account_username': ['Username already exists.']}})
                     continue
                 valid.append({'row': row, 'student': student})
