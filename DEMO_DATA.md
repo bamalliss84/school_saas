@@ -42,7 +42,7 @@ Use `/api/v1/auth/contexts/` after login and send `X-School-Membership-ID`. The 
 - School A Grade 7/A Science: multi-school teacher.
 - School B Grade 6/B Mathematics: multi-school teacher, students and independent homework.
 - School B Grade 7/A English: Teacher B.
-- Synthetic notification and School Support conversation/message records are membership-scoped.
+- Synthetic notification and School Support conversation/message records are membership-scoped.\n- Release 1.0 admin acceptance data adds 18+ attendance rows across multiple statuses, a published homework with graded/submitted responses, and additional school/role announcements so the Web admin screens and reports are not tested against sparse data.
 
 ## Seed and reset
 
