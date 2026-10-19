@@ -93,6 +93,24 @@ class ReleaseAdminEndpointsTests(TestCase):
         self.assertTrue(confirmed.data['confirmed'])
         self.assertEqual(confirmed.data['created'], 1)
 
+    def test_reports_support_operational_filters(self):
+        response = self.client.get(
+            '/api/v1/admin/reports/summary/?date_from=2026-08-01&date_to=2026-08-31',
+            **self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['filters']['date_from'], '2026-08-01')
+        self.assertIn('completion_rate', response.data['homework'])
+
+    def test_guardian_import_preview_is_non_mutating(self):
+        payload = {'kind': 'guardians', 'rows': [{
+            'student_code': 'MISSING', 'full_name': 'Guardian',
+            'relationship': 'father',
+        }]}
+        response = self.client.post('/api/v1/admin/data/import/', payload, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data['valid'])
+
     def test_student_export_uses_import_compatible_identity_keys(self):
         response = self.client.get('/api/v1/admin/data/export/?kind=students', **self.headers)
         self.assertEqual(response.status_code, 200)
