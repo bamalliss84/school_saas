@@ -17,7 +17,7 @@ export const OperationsPage:React.FC<{module:Module}>=({module})=>{
  const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [data,setData]=useState<any>(null);
  const [classes,setClasses]=useState<any[]>([]); const [sections,setSections]=useState<any[]>([]);
  const [classId,setClassId]=useState<number|undefined>(); const [sectionId,setSectionId]=useState<number|undefined>();
- const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [draft,setDraft]=useState<any>({});
+ const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [draft,setDraft]=useState<any>({kind:'students'});
  const load=useCallback(async()=>{
   setLoading(true);setError('');
   try{
@@ -29,12 +29,12 @@ export const OperationsPage:React.FC<{module:Module}>=({module})=>{
    else if(module==='onboarding') setData(await apiClient.get('/admin/onboarding/status/'));
    else if(module==='reports') setData(await apiClient.get('/admin/reports/summary/'));
    else if(module==='settings') setData(await apiClient.get('/admin/settings/'));
-   else setData(await apiClient.get('/admin/data/export/',{params:{kind:'students'}}));
+   else setData(await apiClient.get('/admin/data/export/',{params:{kind:draft.kind||'students'}}));
   }catch(e:any){setError(e?.message||'تعذر تحميل البيانات');}finally{setLoading(false)}
- },[module,date]);
+ },[module,date,draft.kind]);
  useEffect(()=>{load()},[load]);
- useEffect(()=>{if(classId)academicService.getSections({classroom_id:classId}).then(r=>{setSections(r.results);setSectionId(r.results[0]?.id)})},[classId]);
- useEffect(()=>{if(module==='timetable'&&classId&&sectionId){setLoading(true);apiClient.get('/timetable/grid/',{params:{classroom_id:classId,section_id:sectionId}}).then(setData).catch((e:any)=>setError(e.message)).finally(()=>setLoading(false))}},[module,classId,sectionId]);
+ useEffect(()=>{let active=true;setSectionId(undefined);setSections([]);if(classId)academicService.getSections({classroom_id:classId}).then(r=>{if(active){setSections(r.results);setSectionId(r.results[0]?.id)}});return()=>{active=false}},[classId]);
+ useEffect(()=>{let active=true;if(module==='timetable'&&classId&&sectionId){setLoading(true);apiClient.get('/timetable/grid/',{params:{classroom_id:classId,section_id:sectionId}}).then(r=>{if(active)setData(r)}).catch((e:any)=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)})}return()=>{active=false}},[module,classId,sectionId]);
  const rows=useMemo(()=>Array.isArray(data)?data:(data?.results||data?.rows||[]),[data]);
  const saveSettings=async()=>{try{setData(await apiClient.patch('/admin/settings/',draft));toast.success('تم حفظ الإعدادات')}catch(e:any){toast.error(e.message)}};
  const importRows=async()=>{try{const rows=JSON.parse(draft.rows||'[]');await apiClient.post('/admin/data/import/',{kind:draft.kind||'students',rows});toast.success('تم الاستيراد بنجاح');load()}catch(e:any){toast.error(e.message||'بيانات الاستيراد غير صالحة')}};
@@ -48,7 +48,7 @@ export const OperationsPage:React.FC<{module:Module}>=({module})=>{
    module==='onboarding'?<Card><div style={{padding:'1.25rem'}}><h3>جاهزية المدرسة: {data?.progress||0}%</h3><div style={{display:'grid',gap:'.5rem'}}>{data?.steps?.map((s:any)=><div key={s.key} style={box}>{s.complete?'✓':'○'} {s.label}</div>)}</div></div></Card>:
    module==='reports'?<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:'1rem'}}>{Object.entries(data||{}).map(([k,v]:any)=><Card key={k}><div style={{padding:'1rem'}}><strong>{k}</strong>{Object.entries(v||{}).map(([a,b]:any)=><div key={a}>{a}: {String(b)}</div>)}</div></Card>)}</div>:
    module==='settings'?<Card><div style={{padding:'1.25rem',display:'grid',gap:'.75rem',maxWidth:600}}>{['name','phone','email','address'].map(k=><input key={k} placeholder={k} defaultValue={data?.school?.[k]||''} onChange={e=>setDraft((d:any)=>({...d,[k]:e.target.value}))}/>)}{['school_name_ar','school_name_en','primary_color','timezone'].map(k=><input key={k} placeholder={k} defaultValue={data?.settings?.[k]||''} onChange={e=>setDraft((d:any)=>({...d,[k]:e.target.value}))}/>) }{!isReadOnly&&<Button onClick={saveSettings}>حفظ الإعدادات</Button>}</div></Card>:
-   module==='data'?<><Card><div style={{padding:'1rem',display:'grid',gap:'.75rem'}}><select onChange={e=>setDraft((d:any)=>({...d,kind:e.target.value}))}><option value="students">الطلاب</option><option value="teachers">المعلمون</option></select><textarea rows={7} placeholder='ألصق JSON array بعد المعاينة' onChange={e=>setDraft((d:any)=>({...d,rows:e.target.value}))}/>{!isReadOnly&&<Button onClick={importRows}>تحقق واستيراد</Button>}</div></Card><Card><pre style={{padding:'1rem',overflow:'auto',direction:'ltr'}}>{JSON.stringify(data,null,2)}</pre></Card></>:
+   module==='data'?<><Card><div style={{padding:'1rem',display:'grid',gap:'.75rem'}}><select value={draft.kind||'students'} onChange={e=>setDraft((d:any)=>({...d,kind:e.target.value}))}><option value="students">الطلاب</option><option value="teachers">المعلمون</option></select><textarea rows={7} placeholder='ألصق JSON array بعد المعاينة' onChange={e=>setDraft((d:any)=>({...d,rows:e.target.value}))}/>{!isReadOnly&&<Button onClick={importRows}>تحقق واستيراد</Button>}</div></Card><Card><pre style={{padding:'1rem',overflow:'auto',direction:'ltr'}}>{JSON.stringify(data,null,2)}</pre></Card></>:
    module==='timetable'?<Card><div style={{padding:'1rem',overflowX:'auto'}}>{!data?.entries?.length?<EmptyState title="لا توجد حصص" description="أضف الفترات وتكليفات المعلمين ثم كوّن الجدول."/>:<table style={{width:'100%'}}><thead><tr><th>اليوم</th><th>الفترة</th><th>المادة</th><th>المعلم</th></tr></thead><tbody>{data.entries.map((x:any)=><tr key={x.id}><td>{x.weekday}</td><td>{x.period_name||x.period}</td><td>{x.subject_name||x.subject}</td><td>{x.teacher_name||x.teacher}</td></tr>)}</tbody></table>}</div></Card>:
    <Card><div style={{padding:'1rem',overflowX:'auto'}}>{rows.length===0?<EmptyState title="لا توجد بيانات" description={'لا توجد سجلات في '+labels[module]}/>:<pre style={{direction:'ltr',textAlign:'left',whiteSpace:'pre-wrap'}}>{JSON.stringify(rows,null,2)}</pre>}</div></Card>}
  </div>
