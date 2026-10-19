@@ -74,6 +74,25 @@ class ReleaseAdminEndpointsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(SchoolSetting.objects.filter(school=self.school).exists())
 
+
+    def test_import_requires_explicit_confirmation_after_preview(self):
+        payload = {'kind': 'teachers', 'rows': [{
+            'employee_code': 'IMP-1', 'full_name': 'Imported Teacher',
+            'phone': '0501111111', 'email': 'imported@example.com',
+            'specialization': 'Math', 'is_active': True,
+        }]}
+        preview = self.client.post('/api/v1/admin/data/import/', payload, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200)
+        self.assertTrue(preview.data['valid'])
+        self.assertFalse(preview.data['confirmed'])
+        self.assertEqual(preview.data['created'], 0)
+
+        payload['confirm'] = True
+        confirmed = self.client.post('/api/v1/admin/data/import/', payload, format='json', **self.headers)
+        self.assertEqual(confirmed.status_code, 201)
+        self.assertTrue(confirmed.data['confirmed'])
+        self.assertEqual(confirmed.data['created'], 1)
+
     def test_student_export_uses_import_compatible_identity_keys(self):
         response = self.client.get('/api/v1/admin/data/export/?kind=students', **self.headers)
         self.assertEqual(response.status_code, 200)
