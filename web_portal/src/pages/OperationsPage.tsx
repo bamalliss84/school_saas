@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
 import { academicService } from '../services/academicService';
 import { useAuth } from '../context/useAuth';
@@ -8,48 +9,87 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/feedback/EmptyState';
 import { LoadingSpinner } from '../components/feedback/LoadingSpinner';
 
-type Module = 'timetable'|'attendance'|'homework'|'messages'|'announcements'|'onboarding'|'data'|'reports'|'settings';
+type Module='timetable'|'attendance'|'homework'|'messages'|'announcements'|'onboarding'|'data'|'reports'|'settings';
+type AnyRow=Record<string,any>;
 const labels:Record<Module,string>={timetable:'الجدول المدرسي',attendance:'الحضور والغياب',homework:'الواجبات',messages:'الرسائل والمحادثات',announcements:'الإعلانات والإشعارات',onboarding:'تهيئة المدرسة',data:'الاستيراد والتصدير',reports:'التقارير',settings:'إعدادات المدرسة'};
-const box:React.CSSProperties={padding:'1rem',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-md)',background:'var(--neutral-50)'};
+const panel:React.CSSProperties={padding:'1rem',display:'grid',gap:'.75rem'};
+const filters:React.CSSProperties={display:'flex',gap:'.65rem',flexWrap:'wrap',alignItems:'end'};
+const input:React.CSSProperties={minHeight:38,padding:'.45rem .65rem',border:'1px solid var(--border-subtle)',borderRadius:'var(--radius-md)',background:'var(--surface-primary)',color:'var(--text-primary)'};
+const table:React.CSSProperties={width:'100%',borderCollapse:'collapse',minWidth:680};
+const th:React.CSSProperties={textAlign:'right',padding:'.65rem',borderBottom:'1px solid var(--border-subtle)',whiteSpace:'nowrap'};
+const td:React.CSSProperties={padding:'.65rem',borderBottom:'1px solid var(--border-subtle)',verticalAlign:'top'};
+const arStatus:Record<string,string>={draft:'مسودة',published:'منشور',closed:'مغلق',archived:'مؤرشف',open:'مفتوحة',in_progress:'قيد المتابعة',present:'حاضر',absent:'غائب',late:'متأخر',excused:'بعذر'};
+const asRows=(v:any):AnyRow[]=>Array.isArray(v)?v:(v?.results||v?.rows||[]);
+const errText=(e:any)=>e?.message||'تعذر تنفيذ العملية';
 
 export const OperationsPage:React.FC<{module:Module}>=({module})=>{
  const {isReadOnly}=useAuth(); const toast=useToast();
- const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [data,setData]=useState<any>(null);
- const [classes,setClasses]=useState<any[]>([]); const [sections,setSections]=useState<any[]>([]);
- const [classId,setClassId]=useState<number|undefined>(); const [sectionId,setSectionId]=useState<number|undefined>();
- const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [draft,setDraft]=useState<any>({kind:'students'});
+ const [loading,setLoading]=useState(true),[error,setError]=useState(''); const [data,setData]=useState<any>(null);
+ const [classes,setClasses]=useState<AnyRow[]>([]),[sections,setSections]=useState<AnyRow[]>([]);
+ const [classId,setClassId]=useState<number>(),[sectionId,setSectionId]=useState<number>();
+ const [date,setDate]=useState(new Date().toISOString().slice(0,10));
+ const [options,setOptions]=useState<AnyRow[]>([]),[entry,setEntry]=useState<AnyRow>({});
+ const [draft,setDraft]=useState<AnyRow>({kind:'students'}),[csvRows,setCsvRows]=useState<AnyRow[]>([]);
+ const [selectedConversation,setSelectedConversation]=useState<AnyRow|null>(null),[messages,setMessages]=useState<AnyRow[]>([]),[message,setMessage]=useState('');
+
  const load=useCallback(async()=>{
   setLoading(true);setError('');
   try{
-   if(module==='timetable'){const c=await academicService.getClassrooms();setClasses(c.results);if(c.results[0])setClassId(v=>v||c.results[0].id);setData(await apiClient.get('/timetable/config/'))}
-   else if(module==='attendance') setData(await apiClient.get('/attendance/',{params:{attendance_date:date}}));
+   if(module==='timetable'){
+    const c=await academicService.getClassrooms(); setClasses(c.results); const cid=classId||c.results[0]?.id; if(cid&&!classId)setClassId(cid);
+    if(cid&&sectionId) setData(await apiClient.get('/timetable/grid/',{params:{classroom_id:cid,section_id:sectionId}})); else setData({entries:[],periods:[],days:[]});
+   } else if(module==='attendance') setData(await apiClient.get('/attendance/',{params:{attendance_date:date,classroom_id:classId,section_id:sectionId}}));
    else if(module==='homework') setData(await apiClient.get('/homework/'));
    else if(module==='messages') setData(await apiClient.get('/conversations/'));
    else if(module==='announcements') setData(await apiClient.get('/announcements/'));
    else if(module==='onboarding') setData(await apiClient.get('/admin/onboarding/status/'));
    else if(module==='reports') setData(await apiClient.get('/admin/reports/summary/'));
-   else if(module==='settings') setData(await apiClient.get('/admin/settings/'));
+   else if(module==='settings'){const r:any=await apiClient.get('/admin/settings/');setData(r);setDraft({...r.school,...r.settings});}
    else setData(await apiClient.get('/admin/data/export/',{params:{kind:draft.kind||'students'}}));
-  }catch(e:any){setError(e?.message||'تعذر تحميل البيانات');}finally{setLoading(false)}
- },[module,date,draft.kind]);
+  }catch(e:any){setError(errText(e));}finally{setLoading(false)}
+ },[module,date,classId,sectionId,draft.kind]);
+
  useEffect(()=>{load()},[load]);
- useEffect(()=>{let active=true;setSectionId(undefined);setSections([]);if(classId)academicService.getSections({classroom_id:classId}).then(r=>{if(active){setSections(r.results);setSectionId(r.results[0]?.id)}});return()=>{active=false}},[classId]);
- useEffect(()=>{let active=true;if(module==='timetable'&&classId&&sectionId){setLoading(true);apiClient.get('/timetable/grid/',{params:{classroom_id:classId,section_id:sectionId}}).then(r=>{if(active)setData(r)}).catch((e:any)=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)})}return()=>{active=false}},[module,classId,sectionId]);
- const rows=useMemo(()=>Array.isArray(data)?data:(data?.results||data?.rows||[]),[data]);
- const saveSettings=async()=>{try{setData(await apiClient.patch('/admin/settings/',draft));toast.success('تم حفظ الإعدادات')}catch(e:any){toast.error(e.message)}};
- const importRows=async()=>{try{const rows=JSON.parse(draft.rows||'[]');await apiClient.post('/admin/data/import/',{kind:draft.kind||'students',rows});toast.success('تم الاستيراد بنجاح');load()}catch(e:any){toast.error(e.message||'بيانات الاستيراد غير صالحة')}};
- return <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
-  <div><h1 style={{margin:0,fontSize:'1.5rem'}}>{labels[module]}</h1><p style={{color:'var(--text-secondary)'}}>إدارة {labels[module]} ضمن المدرسة والسنة الدراسية النشطة{isReadOnly?' — وضع القراءة التاريخية':''}</p></div>
-  {(module==='timetable'||module==='attendance')&&<Card><div style={{padding:'1rem',display:'flex',gap:'.75rem',flexWrap:'wrap'}}>
-   {module==='timetable'&&<><select value={classId||''} onChange={e=>setClassId(Number(e.target.value))}>{classes.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><select value={sectionId||''} onChange={e=>setSectionId(Number(e.target.value))}>{sections.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></>}
-   {module==='attendance'&&<input type="date" value={date} onChange={e=>setDate(e.target.value)}/>}<Button variant="outline" size="sm" onClick={load}>تحديث</Button>
-  </div></Card>}
-  {loading?<LoadingSpinner text="جاري التحميل..."/>:error?<Card><div style={{padding:'2rem',color:'var(--danger-600)'}}>{error}<div><Button variant="outline" size="sm" onClick={load}>إعادة المحاولة</Button></div></div></Card>:
-   module==='onboarding'?<Card><div style={{padding:'1.25rem'}}><h3>جاهزية المدرسة: {data?.progress||0}%</h3><div style={{display:'grid',gap:'.5rem'}}>{data?.steps?.map((s:any)=><div key={s.key} style={box}>{s.complete?'✓':'○'} {s.label}</div>)}</div></div></Card>:
-   module==='reports'?<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:'1rem'}}>{Object.entries(data||{}).map(([k,v]:any)=><Card key={k}><div style={{padding:'1rem'}}><strong>{k}</strong>{Object.entries(v||{}).map(([a,b]:any)=><div key={a}>{a}: {String(b)}</div>)}</div></Card>)}</div>:
-   module==='settings'?<Card><div style={{padding:'1.25rem',display:'grid',gap:'.75rem',maxWidth:600}}>{['name','phone','email','address'].map(k=><input key={k} placeholder={k} defaultValue={data?.school?.[k]||''} onChange={e=>setDraft((d:any)=>({...d,[k]:e.target.value}))}/>)}{['school_name_ar','school_name_en','primary_color','timezone'].map(k=><input key={k} placeholder={k} defaultValue={data?.settings?.[k]||''} onChange={e=>setDraft((d:any)=>({...d,[k]:e.target.value}))}/>) }{!isReadOnly&&<Button onClick={saveSettings}>حفظ الإعدادات</Button>}</div></Card>:
-   module==='data'?<><Card><div style={{padding:'1rem',display:'grid',gap:'.75rem'}}><select value={draft.kind||'students'} onChange={e=>setDraft((d:any)=>({...d,kind:e.target.value}))}><option value="students">الطلاب</option><option value="teachers">المعلمون</option></select><textarea rows={7} placeholder='ألصق JSON array بعد المعاينة' onChange={e=>setDraft((d:any)=>({...d,rows:e.target.value}))}/>{!isReadOnly&&<Button onClick={importRows}>تحقق واستيراد</Button>}</div></Card><Card><pre style={{padding:'1rem',overflow:'auto',direction:'ltr'}}>{JSON.stringify(data,null,2)}</pre></Card></>:
-   module==='timetable'?<Card><div style={{padding:'1rem',overflowX:'auto'}}>{!data?.entries?.length?<EmptyState title="لا توجد حصص" description="أضف الفترات وتكليفات المعلمين ثم كوّن الجدول."/>:<table style={{width:'100%'}}><thead><tr><th>اليوم</th><th>الفترة</th><th>المادة</th><th>المعلم</th></tr></thead><tbody>{data.entries.map((x:any)=><tr key={x.id}><td>{x.weekday}</td><td>{x.period_name||x.period}</td><td>{x.subject_name||x.subject}</td><td>{x.teacher_name||x.teacher}</td></tr>)}</tbody></table>}</div></Card>:
-   <Card><div style={{padding:'1rem',overflowX:'auto'}}>{rows.length===0?<EmptyState title="لا توجد بيانات" description={'لا توجد سجلات في '+labels[module]}/>:<pre style={{direction:'ltr',textAlign:'left',whiteSpace:'pre-wrap'}}>{JSON.stringify(rows,null,2)}</pre>}</div></Card>}
- </div>
+ useEffect(()=>{let ok=true;if(!classId){setSections([]);return} academicService.getSections({classroom_id:classId}).then(r=>{if(ok){setSections(r.results);setSectionId(v=>r.results.some(x=>x.id===v)?v:r.results[0]?.id)}});return()=>{ok=false}},[classId]);
+ useEffect(()=>{if(module==='attendance'&&!classes.length)academicService.getClassrooms().then(r=>setClasses(r.results))},[module,classes.length]);
+ useEffect(()=>{if(module==='timetable'&&classId&&sectionId)apiClient.get<AnyRow[]>('/timetable/assignment-options/',{params:{classroom_id:classId,section_id:sectionId}}).then(setOptions).catch(()=>setOptions([]))},[module,classId,sectionId]);
+
+ const rows=useMemo(()=>asRows(data),[data]);
+ const act=async(path:string,method:'post'|'patch'|'put'|'delete'='post',body?:any)=>{try{await (apiClient as any)[method](path,body);toast.success('تم تنفيذ العملية بنجاح');await load()}catch(e:any){toast.error(errText(e))}};
+ const saveEntry=async()=>{if(!entry.teacher_assignment_id||entry.weekday===undefined||!entry.period_id)return toast.error('اختر اليوم والفترة والتكليف');await act('/timetable/entries/','post',{teacher_assignment_id:Number(entry.teacher_assignment_id),weekday:Number(entry.weekday),period_id:Number(entry.period_id),room_or_location:entry.room_or_location||'',is_active:true});setEntry({})};
+ const toggleEntry=(x:AnyRow)=>act('/timetable/entries/'+x.id+'/','put',{teacher_assignment_id:x.teacher_assignment,weekday:x.weekday,period_id:x.period,room_or_location:x.room_or_location||'',valid_from:x.valid_from||null,valid_to:x.valid_to||null,is_active:!x.is_active});
+ const saveSettings=()=>act('/admin/settings/','patch',draft);
+ const updateAttendance=(x:AnyRow,status:string)=>act('/attendance/'+x.id+'/','patch',{status});
+ const openConversation=async(x:AnyRow)=>{setSelectedConversation(x);try{const r:any=await apiClient.get('/conversations/'+x.id+'/messages/');setMessages(asRows(r))}catch(e:any){toast.error(errText(e))}};
+ const sendMessage=async()=>{if(!selectedConversation||!message.trim())return;try{await apiClient.post('/conversations/'+selectedConversation.id+'/messages/',{body:message});setMessage('');await openConversation(selectedConversation)}catch(e:any){toast.error(errText(e))}};
+ const parseCsv=(file:File)=>{const reader=new FileReader();reader.onload=()=>{const lines=String(reader.result||'').split(/\r?\n/).filter(Boolean);if(lines.length<2)return setCsvRows([]);const head=lines[0].split(',').map(x=>x.trim());setCsvRows(lines.slice(1).map(line=>Object.fromEntries(line.split(',').map((v,i)=>[head[i],v.trim()]))));};reader.readAsText(file,'UTF-8')};
+ const importRows=async()=>{if(!csvRows.length)return toast.error('اختر ملف CSV صالحًا أولًا');await act('/admin/data/import/','post',{kind:draft.kind,rows:csvRows});setCsvRows([])};
+ const exportCsv=()=>{const rs=asRows(data);if(!rs.length)return toast.error('لا توجد بيانات للتصدير');const keys=Object.keys(rs[0]);const text=[keys.join(','),...rs.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));a.download=(draft.kind||'data')+'.csv';a.click();URL.revokeObjectURL(a.href)};
+
+ const selector=<Card><div style={panel}><div style={filters}><label>الصف<select style={input} value={classId||''} onChange={e=>setClassId(Number(e.target.value)||undefined)}><option value="">الكل</option>{classes.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label>الشعبة<select style={input} value={sectionId||''} onChange={e=>setSectionId(Number(e.target.value)||undefined)}><option value="">الكل</option>{sections.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>{module==='attendance'&&<label>التاريخ<input style={input} type="date" value={date} onChange={e=>setDate(e.target.value)}/></label>}<Button variant="outline" size="sm" onClick={load}>تحديث</Button></div></div></Card>;
+
+ const timetableView=<>{selector}{!isReadOnly&&<Card><div style={panel}><strong>إضافة حصة</strong><div style={filters}><select style={input} value={entry.weekday??''} onChange={e=>setEntry({...entry,weekday:e.target.value})}><option value="">اليوم</option>{(data?.days||[]).map((x:AnyRow)=><option key={x.value} value={x.value}>{x.label}</option>)}</select><select style={input} value={entry.period_id||''} onChange={e=>setEntry({...entry,period_id:e.target.value})}><option value="">الفترة</option>{(data?.periods||[]).map((x:AnyRow)=><option key={x.id} value={x.id}>{x.name} {x.start_time}-{x.end_time}</option>)}</select><select style={input} value={entry.teacher_assignment_id||''} onChange={e=>setEntry({...entry,teacher_assignment_id:e.target.value})}><option value="">المعلم — المادة</option>{options.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select><input style={input} placeholder="الموقع/الغرفة" value={entry.room_or_location||''} onChange={e=>setEntry({...entry,room_or_location:e.target.value})}/><Button onClick={saveEntry}>إضافة</Button></div></div></Card>}<DataTable rows={data?.entries||[]} columns={[['weekday','اليوم'],['period_detail.name','الفترة'],['subject','المادة'],['teacher','المعلم'],['room_or_location','الموقع'],['is_active','الحالة']]} actions={!isReadOnly?(x=><><Button size="sm" variant="outline" onClick={()=>toggleEntry(x)}>{x.is_active?'تعطيل':'تفعيل'}</Button><Button size="sm" variant="danger" onClick={()=>act('/timetable/entries/'+x.id+'/','delete')}>حذف</Button></>):undefined}/></>;
+
+ const attendanceView=<>{selector}<DataTable rows={rows} columns={[['student.full_name','الطالب'],['student.student_code','الرقم'],['attendance_date','التاريخ'],['status','الحالة'],['note','ملاحظة']]} actions={!isReadOnly?(x=><select style={input} value={x.status} onChange={e=>updateAttendance(x,e.target.value)}>{[['present','حاضر'],['absent','غائب'],['late','متأخر'],['excused','بعذر']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>):undefined}/></>;
+
+ const homeworkView=<DataTable rows={rows} columns={[['title','الواجب'],['subject_name','المادة'],['teacher','المعلم'],['due_date','موعد التسليم'],['status','الحالة'],['completion_status','الإنجاز']]} actions={!isReadOnly?(x=><>{x.can_publish&&<Button size="sm" onClick={()=>act('/homework/'+x.id+'/publish/')}>نشر</Button>}{x.can_close&&<Button size="sm" variant="outline" onClick={()=>act('/homework/'+x.id+'/close/')}>إغلاق</Button>}{x.status==='draft'&&<Button size="sm" variant="danger" onClick={()=>act('/homework/'+x.id+'/','delete')}>حذف</Button>}</>):undefined}/>;
+
+ const announcementsView=<DataTable rows={rows} columns={[['title','العنوان'],['priority','الأولوية'],['audience_type','الجمهور'],['status','الحالة'],['published_at','تاريخ النشر']]} actions={!isReadOnly?(x=><>{x.permissions?.can_publish&&<Button size="sm" onClick={()=>act('/announcements/'+x.id+'/publish/')}>نشر</Button>}{x.permissions?.can_close&&<Button size="sm" variant="outline" onClick={()=>act('/announcements/'+x.id+'/close/')}>إغلاق</Button>}{x.permissions?.can_archive&&<Button size="sm" variant="outline" onClick={()=>act('/announcements/'+x.id+'/archive/')}>أرشفة</Button>}</>):undefined}/>;
+
+ const messagesView=<div style={{display:'grid',gridTemplateColumns:'minmax(280px,1fr) minmax(320px,2fr)',gap:'1rem'}}><DataTable rows={rows} columns={[['subject','الموضوع'],['status','الحالة'],['unread_messages_count','غير مقروء']]} actions={x=><Button size="sm" variant="outline" onClick={()=>openConversation(x)}>فتح</Button>}/><Card><div style={panel}>{!selectedConversation?<EmptyState title="اختر محادثة" description="افتح محادثة لعرض الرسائل والرد."/>:<><strong>{selectedConversation.subject}</strong><div style={{maxHeight:420,overflow:'auto',display:'grid',gap:'.5rem'}}>{messages.map(x=><div key={x.id} style={{padding:'.7rem',background:'var(--neutral-50)',borderRadius:'var(--radius-md)'}}><b>{x.sender?.display_name}</b><div>{x.body}</div></div>)}</div>{!isReadOnly&&selectedConversation.can_reply&&<div style={filters}><input style={{...input,flex:1}} value={message} onChange={e=>setMessage(e.target.value)} placeholder="اكتب الرد"/><Button onClick={sendMessage}>إرسال</Button></div>}</>}</div></Card></div>;
+
+ const onboarding=<Card><div style={panel}><h3 style={{margin:0}}>جاهزية المدرسة: {data?.progress||0}%</h3>{(data?.steps||[]).map((s:AnyRow)=><div key={s.key} style={{display:'flex',justifyContent:'space-between',padding:'.75rem',borderBottom:'1px solid var(--border-subtle)'}}><span>{s.complete?'✓':'○'} {s.label}</span>{!s.complete&&<Link to={onboardingPath(s.key)}>إكمال الخطوة</Link>}</div>)}</div></Card>;
+ const reports=<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:'1rem'}}>{Object.entries(data||{}).map(([k,v]:any)=><Card key={k}><div style={panel}><strong>{reportLabel(k)}</strong>{Object.entries(v||{}).map(([a,b]:any)=><div key={a} style={{display:'flex',justifyContent:'space-between'}}><span>{metricLabel(a)}</span><b>{String(b)}</b></div>)}</div></Card>)}</div>;
+ const settings=<Card><div style={{...panel,maxWidth:720}}><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'.75rem'}}>{[['name','اسم المدرسة'],['school_name_ar','الاسم العربي'],['school_name_en','الاسم الإنجليزي'],['phone','الهاتف'],['email','البريد الإلكتروني'],['address','العنوان'],['primary_color','اللون الرئيسي'],['timezone','المنطقة الزمنية']].map(([k,l])=><label key={k}>{l}<input style={{...input,width:'100%'}} value={draft[k]??''} disabled={isReadOnly} onChange={e=>setDraft({...draft,[k]:e.target.value})}/></label>)}</div><label><input type="checkbox" checked={draft.allow_parent_notifications!==false} disabled={isReadOnly} onChange={e=>setDraft({...draft,allow_parent_notifications:e.target.checked})}/> السماح بإشعارات أولياء الأمور</label>{!isReadOnly&&<Button onClick={saveSettings}>حفظ الإعدادات</Button>}</div></Card>;
+ const dataView=<><Card><div style={panel}><div style={filters}><select style={input} value={draft.kind||'students'} onChange={e=>{setDraft({...draft,kind:e.target.value});setCsvRows([])}}><option value="students">الطلاب</option><option value="teachers">المعلمون</option></select><input type="file" accept=".csv,text/csv" disabled={isReadOnly} onChange={e=>e.target.files?.[0]&&parseCsv(e.target.files[0])}/><Button variant="outline" onClick={exportCsv}>تصدير CSV</Button>{!isReadOnly&&csvRows.length>0&&<Button onClick={importRows}>تأكيد استيراد {csvRows.length} سجل</Button>}</div><small>يتم عرض الملف والتحقق منه قبل التأكيد. إذا وُجد خطأ يرفض الخادم العملية كاملة دون استيراد جزئي.</small></div></Card>{csvRows.length>0&&<DataTable rows={csvRows.slice(0,20)} columns={Object.keys(csvRows[0]).map(k=>[k,k])}/>}<DataTable rows={asRows(data)} columns={asRows(data)[0]?Object.keys(asRows(data)[0]).slice(0,6).map(k=>[k,k]):[]}/></>;
+
+ let body:React.ReactNode=module==='timetable'?timetableView:module==='attendance'?attendanceView:module==='homework'?homeworkView:module==='messages'?messagesView:module==='announcements'?announcementsView:module==='onboarding'?onboarding:module==='reports'?reports:module==='settings'?settings:dataView;
+ return <div dir="rtl" style={{display:'flex',flexDirection:'column',gap:'1rem'}}><div><h1 style={{margin:0,fontSize:'1.5rem'}}>{labels[module]}</h1><p style={{color:'var(--text-secondary)'}}>إدارة {labels[module]} ضمن المدرسة والسنة الدراسية النشطة{isReadOnly?' — وضع القراءة التاريخية':''}</p></div>{loading?<LoadingSpinner text="جاري التحميل..."/>:error?<Card><div style={panel}><span style={{color:'var(--danger-600)'}}>{error}</span><Button variant="outline" size="sm" onClick={load}>إعادة المحاولة</Button></div></Card>:body}</div>;
 };
+
+const get=(row:AnyRow,path:string)=>path.split('.').reduce((v,k)=>v?.[k],row);
+const show=(v:any)=>typeof v==='boolean'?(v?'نشط':'غير نشط'):(arStatus[String(v)]||String(v??'—'));
+const DataTable:React.FC<{rows:AnyRow[];columns:string[][];actions?:(row:AnyRow)=>React.ReactNode}>=({rows,columns,actions})=><Card><div style={{overflowX:'auto'}}>{!rows.length?<EmptyState title="لا توجد بيانات" description="لا توجد سجلات مطابقة ضمن السياق الحالي."/>:<table style={table}><thead><tr>{columns.map(c=><th key={c[0]} style={th}>{c[1]}</th>)}{actions&&<th style={th}>الإجراءات</th>}</tr></thead><tbody>{rows.map((r,i)=><tr key={r.id??i}>{columns.map(c=><td key={c[0]} style={td}>{show(get(r,c[0]))}</td>)}{actions&&<td style={{...td,display:'flex',gap:'.4rem',flexWrap:'wrap'}}>{actions(r)}</td>}</tr>)}</tbody></table>}</div></Card>;
+const onboardingPath=(k:string)=>({academic_year:'/academic-periods',terms:'/academic-periods',classes:'/classes',sections:'/classes',subjects:'/subjects',teachers:'/teachers',assignments:'/teachers',students:'/students',timetable:'/timetable',school:'/settings'} as Record<string,string>)[k]||'/dashboard';
+const reportLabel=(k:string)=>({students:'الطلاب',attendance:'الحضور',homework:'الواجبات',exams:'الاختبارات',operations:'التشغيل'} as Record<string,string>)[k]||k;
+const metricLabel=(k:string)=>({total:'الإجمالي',active:'النشط',present:'حاضر',absent:'غائب',late:'متأخر',excused:'بعذر',rate:'نسبة الحضور %',published:'المنشور',teachers:'المعلمون',parents:'أولياء الأمور',conversations:'المحادثات',announcements:'الإعلانات'} as Record<string,string>)[k]||k;
