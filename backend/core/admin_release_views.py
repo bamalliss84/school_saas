@@ -242,9 +242,19 @@ class DataImportAPIView(APIView):
                 errors.append({'row': index, 'errors': serializer.errors})
         if errors:
             return Response({'valid': False, 'created': 0, 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        # Validation/preview is deliberately separate from the committing step.
+        # The client must explicitly confirm after showing the validated preview.
+        confirm = request.data.get('confirm') is True
+        if not confirm:
+            return Response({
+                'valid': True, 'confirmed': False, 'created': 0,
+                'preview_count': len(valid), 'preview': rows[:50], 'errors': [],
+            })
         created = []
         with transaction.atomic():
             for serializer in valid:
                 item = serializer.save()
                 created.append(item.pk)
-        return Response({'valid': True, 'created': len(created), 'ids': created}, status=status.HTTP_201_CREATED)
+        return Response({
+            'valid': True, 'confirmed': True, 'created': len(created), 'ids': created,
+        }, status=status.HTTP_201_CREATED)
