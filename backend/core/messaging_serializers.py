@@ -13,6 +13,7 @@ class ConversationStartSerializer(serializers.Serializer):
     homework_id = serializers.IntegerField(required=False, min_value=1)
     parent_membership_id = serializers.IntegerField(required=False, min_value=1)
     parent_id = serializers.IntegerField(required=False, min_value=1)
+    recipient_ref = serializers.CharField(required=False, write_only=True)
     category = serializers.ChoiceField(
         choices=Conversation.CATEGORY_CHOICES, required=False, allow_blank=True,
     )
@@ -32,10 +33,10 @@ class ConversationStartSerializer(serializers.Serializer):
             if not (kind == 'teacher_student' and role == 'student'):
                 raise serializers.ValidationError({'student_id': 'A student is required.'})
         if kind == 'teacher_parent':
-            has_parent = attrs.get('parent_membership_id') or attrs.get('parent_id')
+            has_parent = attrs.get('recipient_ref') or attrs.get('parent_membership_id') or attrs.get('parent_id')
             if role == 'teacher' and not has_parent:
                 raise serializers.ValidationError(
-                    {'parent_membership_id': 'A single parent recipient is required.'},
+                    {'recipient_ref': 'A safe recipient reference is required.'},
                 )
             if role == 'parent' and has_parent:
                 raise serializers.ValidationError(
