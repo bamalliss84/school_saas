@@ -66,6 +66,7 @@ class ReleaseAdminEndpointsTests(TestCase):
     def test_historical_settings_get_does_not_create_settings(self):
         SchoolSetting.objects.filter(school=self.school).delete()
         self.membership.status = 'historical'
+        self.membership.is_default = False
         self.membership.save()
         access = str(RefreshToken.for_user(self.user).access_token)
         headers = {'HTTP_AUTHORIZATION': f'Bearer {access}', 'HTTP_X_SCHOOL_MEMBERSHIP_ID': str(self.membership.id)}
