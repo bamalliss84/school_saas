@@ -61,3 +61,23 @@ class ReleaseAdminEndpointsTests(TestCase):
             format='json', **self.headers,
         )
         self.assertEqual(response.status_code, 403)
+
+
+    def test_historical_settings_get_does_not_create_settings(self):
+        SchoolSetting.objects.filter(school=self.school).delete()
+        self.membership.status = 'historical'
+        self.membership.access_mode = 'read_only'
+        self.membership.save()
+        access = str(RefreshToken.for_user(self.user).access_token)
+        headers = {'HTTP_AUTHORIZATION': f'Bearer {access}', 'HTTP_X_SCHOOL_MEMBERSHIP_ID': str(self.membership.id)}
+        response = self.client.get('/api/v1/admin/settings/', **headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(SchoolSetting.objects.filter(school=self.school).exists())
+
+    def test_student_export_uses_import_compatible_identity_keys(self):
+        response = self.client.get('/api/v1/admin/data/export/?kind=students', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        for row in response.data['rows']:
+            self.assertIn('full_name', row)
+            self.assertIn('gender', row)
+            self.assertNotIn('student__full_name', row)
