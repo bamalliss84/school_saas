@@ -84,15 +84,16 @@ export const dashboardService = {
 
     // A2. Teacher/Class/Section population for executive KPIs
     try {
-      const teachersRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/admin/teachers/?page_size=1');
+      const teachersRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/teachers/?page_size=1');
       teacherCount = typeof teachersRes?.count === 'number' ? teachersRes.count : null;
     } catch { teacherCount = null; }
     try {
-      const classesRes = await apiClient.get<{ count?: number; results?: Array<{ sections_count?: number }> }>('/admin/classrooms/?page_size=200');
+      const classesRes = await apiClient.get<{ count?: number; results?: Array<{ sections_count?: number }> }>('/classes/?page_size=200');
       classroomCount = typeof classesRes?.count === 'number' ? classesRes.count : (classesRes?.results?.length ?? null);
-      if (Array.isArray(classesRes?.results)) {
-        sectionCount = classesRes.results.reduce((sum, row) => sum + (Number(row.sections_count) || 0), 0);
-      }
+      try {
+        const sectionsRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/sections/?page_size=1');
+        sectionCount = typeof sectionsRes?.count === 'number' ? sectionsRes.count : (sectionsRes?.results?.length ?? null);
+      } catch { sectionCount = null; }
     } catch {
       try {
         const classesRes = await apiClient.get<{ count?: number; results?: unknown[] }>('/classrooms/?page_size=200');
