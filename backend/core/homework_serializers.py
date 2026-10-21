@@ -176,8 +176,9 @@ class HomeworkSerializer(serializers.ModelSerializer):
     )
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     classroom_id = serializers.IntegerField(source='teacher_assignment.classroom_id', read_only=True)
-
+    classroom_name = serializers.CharField(source='teacher_assignment.classroom.name', read_only=True)
     section_id = serializers.IntegerField(source='teacher_assignment.section_id', read_only=True)
+    section_name = serializers.CharField(source='teacher_assignment.section.name', read_only=True)
     subject_id = serializers.IntegerField(source='teacher_assignment.subject_id', read_only=True)
     subject_name = serializers.CharField(source='teacher_assignment.subject.name', read_only=True)
     attachments = HomeworkAttachmentSerializer(many=True, read_only=True)
@@ -205,7 +206,7 @@ class HomeworkSerializer(serializers.ModelSerializer):
         model = Homework
         fields = (
             'id', 'school', 'academic_year', 'academic_term', 'teacher_assignment',
-            'classroom_id', 'section_id', 'subject_id', 'subject_name', 'title',
+            'classroom_id', 'classroom_name', 'section_id', 'section_name', 'subject_id', 'subject_name', 'title',
             'description', 'submission_type', 'status', 'publish_at', 'published_at', 'due_date',
             'max_grade', 'created_by', 'attachments', 'attachments_count',
             'submission_status', 'submitted_at', 'graded_at', 'grade',
