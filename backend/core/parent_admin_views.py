@@ -12,10 +12,20 @@ from .permissions import IsActiveSchoolUser, IsSchoolAdminOrSuperAdmin
 from .services.identity import delete_guardian_link
 
 
-def parents_visible_to_school(school):
-    return Parent.objects.filter(
-        Q(school=school) | Q(students__student__enrollments__school=school)
-    ).distinct()
+def parents_visible_to_school(school, academic_year=None):
+    """Return parents operationally visible in the active tenant context.
+
+    A guardian link from a historical enrollment must not make a parent visible
+    in the current school/year administration surface.
+    """
+    linked = Q(
+        students__student__enrollments__school=school,
+        students__student__enrollments__is_current=True,
+        students__student__enrollments__status='active',
+    )
+    if academic_year is not None:
+        linked &= Q(students__student__enrollments__academic_year=academic_year)
+    return Parent.objects.filter(Q(school=school) | linked).distinct()
 
 
 def student_visible_to_school(student_id, school, *, current_for_write=False):
@@ -34,7 +44,7 @@ class ParentListCreateAPIView(generics.ListCreateAPIView):
         school = getattr(self.request, 'active_school', None)
         if not school:
             return Parent.objects.none()
-        queryset = parents_visible_to_school(school).select_related('school', 'user')
+        queryset = parents_visible_to_school(school, getattr(self.request, 'active_academic_year', None)).select_related('school', 'user')
         search = self.request.query_params.get('search', '').strip()
         if search:
             queryset = queryset.filter(
@@ -56,7 +66,7 @@ class ParentDetailAPIView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         school = getattr(self.request, 'active_school', None)
-        return parents_visible_to_school(school).select_related('school', 'user') if school else Parent.objects.none()
+        return parents_visible_to_school(school, getattr(self.request, 'active_academic_year', None)).select_related('school', 'user') if school else Parent.objects.none()
 
     def perform_update(self, serializer):
         require_writable_context(self.request)

@@ -90,6 +90,10 @@ class TeacherAssignmentsAPIView(generics.ListAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return TeacherAssignment.objects.none()
 
+        school = _get_active_school(self.request)
+        if not Teacher.objects.filter(user=self.request.user, school=school).exists() and not TeacherAssignment.objects.filter(teacher__user=self.request.user, school=school).exists():
+            raise NotFound('Teacher profile not found.')
+
         query = TeacherAssignmentQuerySerializer(data=self.request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data

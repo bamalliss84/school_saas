@@ -18,8 +18,9 @@ class ContextListAPIView(APIView):
 
     @extend_schema(responses={200: ContextListSerializer})
     def get(self, request):
+        active_id = getattr(getattr(request, 'active_membership', None), 'pk', None)
         memberships = list(get_user_memberships(request.user))
-        current = get_active_membership(request)
+        current = next((item for item in memberships if item.pk == active_id), None)
         notification_counts = get_context_unread_counts(memberships)
         conversation_counts = get_context_unread_conversation_counts(memberships)
         school_ids = {item.school_id for item in memberships}

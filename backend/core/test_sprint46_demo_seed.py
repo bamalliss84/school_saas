@@ -45,6 +45,22 @@ class Sprint46DemoSeedTests(TestCase):
         self.assertTrue(School.objects.filter(pk=real_school.pk).exists())
 
 
+    def test_release1_admin_demo_dataset_has_operational_depth(self):
+        self.run_seed()
+        school = School.objects.get(code='DEMO_NOOR')
+        self.assertGreaterEqual(
+            Attendance.objects.filter(
+                student_enrollment__school=school,
+                note__startswith='DEMO Release 1 attendance',
+            ).count(),
+            18,
+        )
+        homework = Homework.objects.get(
+            school=school, title='DEMO Release 1 - واجب مراجعة الرياضيات',
+        )
+        self.assertEqual(homework.status, 'published')
+        self.assertGreaterEqual(homework.submissions.count(), 4)
+
     def test_student_a01_homework_submission_modes_demo_dataset(self):
         self.run_seed()
         rows = Homework.objects.filter(

@@ -39,7 +39,7 @@ class SprintFourAAttachmentTests(APITestCase):
         item = Homework.objects.create(
             school=self.school, academic_year=self.year, academic_term=self.term,
             teacher_assignment=self.assignment, title='Files homework',
-            due_date=timezone.now() + timedelta(days=5), created_by=self.teacher_user,
+            submission_type='text_and_attachment', due_date=timezone.now() + timedelta(days=5), created_by=self.teacher_user,
         )
         return publish_homework(homework=item, actor=self.teacher_user) if published else item
 

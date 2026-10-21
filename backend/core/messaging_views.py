@@ -1,7 +1,9 @@
+from django.core import signing
 from django.db.models import Count, DateTimeField, F, OuterRef, Prefetch, Q, Subquery
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import CursorPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -73,9 +75,23 @@ class ConversationStartAPIView(APIView):
                 student_id=data.get('student_id'), **common,
             )
         elif kind == 'teacher_parent':
+            parent_membership_id = data.get('parent_membership_id')
+            if request.active_role == 'teacher':
+                token = data.get('recipient_ref')
+                if not token:
+                    raise ValidationError({'recipient_ref': 'A safe recipient reference is required.'})
+                try:
+                    ref = signing.loads(token, salt='communication-recipient-v1', max_age=3600)
+                except signing.BadSignature:
+                    raise ValidationError({'recipient_ref': 'Recipient reference is invalid or expired.'})
+                if (ref.get('s') != request.active_school.id or ref.get('k') != 'parent'
+                        or ref.get('student') != data.get('student_id')
+                        or ref.get('assignment') != data.get('teacher_assignment_id')):
+                    raise ValidationError({'recipient_ref': 'Recipient reference is outside the selected context.'})
+                parent_membership_id = ref.get('m')
             conversation, created = start_teacher_parent_conversation(
                 assignment_id=data.get('teacher_assignment_id'), student_id=data.get('student_id'),
-                parent_membership_id=data.get('parent_membership_id'),
+                parent_membership_id=parent_membership_id,
                 parent_id=data.get('parent_id'), **common,
             )
         elif kind == 'homework_discussion':

@@ -204,8 +204,11 @@ class StudentAcademicHistoryAPIView(generics.ListAPIView):
         queryset = student.enrollments.select_related(
             'school', 'academic_year', 'classroom', 'section',
         )
-        if getattr(self.request, 'active_role', None) != 'super_admin':
-            queryset = queryset.filter(school=getattr(self.request, 'active_school', None))
+        role = getattr(self.request, 'active_role', None) or getattr(self.request.user, 'role', None)
+        active_school = getattr(self.request, 'active_school', None)
+        if role != 'super_admin':
+            school_id = active_school.pk if active_school else self.request.user.school_id
+            queryset = queryset.filter(school_id=school_id)
         return queryset.order_by('-academic_year__start_date', '-created_at')
 
 

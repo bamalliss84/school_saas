@@ -758,6 +758,72 @@ class Command(BaseCommand):
                 'source_type': 'demo', 'source_id': current_enrollment.pk,
             },
         )
+        # Release 1.0 admin acceptance data: richer operational records for
+        # timetable, attendance, homework, communications and reports.
+        for index, enrollment in enumerate(
+            StudentEnrollment.objects.filter(
+                school=school_a, academic_year=year_a, classroom=assignments['a_math'].classroom,
+                section=assignments['a_math'].section, status='active', is_current=True,
+            ).select_related('student')[:6],
+            start=1,
+        ):
+            for offset, attendance_status in ((2, 'present'), (3, 'late'), (4, 'absent')):
+                attendance_day = active_term_a.start_date + timedelta(days=20 + offset)
+                Attendance.objects.update_or_create(
+                    student_enrollment=enrollment, attendance_date=attendance_day,
+                    defaults={
+                        'teacher_assignment': assignments['a_math'],
+                        'academic_term': active_term_a, 'status': attendance_status,
+                        'note': f'DEMO Release 1 attendance {index}',
+                    },
+                )
+
+        demo_admin_homework, _ = Homework.objects.update_or_create(
+            teacher_assignment=assignments['a_math'],
+            title='DEMO Release 1 - واجب مراجعة الرياضيات',
+            defaults={
+                'school': school_a, 'academic_year': year_a, 'academic_term': active_term_a,
+                'description': 'بيانات تجريبية لفحص إدارة الواجبات والتقارير.',
+                'submission_type': 'text_and_attachment', 'status': 'published',
+                'published_at': timezone.now(), 'due_date': hw_due_a,
+                'max_grade': Decimal('10'), 'created_by': teacher_a_user,
+            },
+        )
+        for index, enrollment in enumerate(eligible_a[:4], start=1):
+            HomeworkSubmission.objects.update_or_create(
+                homework=demo_admin_homework, student_enrollment=enrollment,
+                defaults={
+                    'answer': f'DEMO Release 1 submission {index}',
+                    'status': 'graded' if index <= 2 else 'submitted',
+                    'submitted_at': timezone.now(),
+                    'grade': Decimal('9') if index <= 2 else None,
+                    'graded_by': teacher_a_user if index <= 2 else None,
+                    'graded_at': timezone.now() if index <= 2 else None,
+                },
+            )
+
+        for title, audience, body in (
+            ('DEMO Release 1 - تنبيه الاختبارات', 'school', 'تذكير تجريبي بموعد الاختبارات القادمة.'),
+            ('DEMO Release 1 - نشاط طلابي', 'roles', 'إعلان تجريبي لاختبار شاشة الاتصالات.'),
+        ):
+            release_announcement, _ = Announcement.objects.update_or_create(
+                school=school_a, title=title,
+                defaults={
+                    'academic_year': year_a, 'body': body, 'status': 'published',
+                    'audience_type': audience,
+                    'target_roles': ['student', 'parent'] if audience == 'roles' else [],
+                    'created_by_membership': SchoolMembership.objects.get(user=admin_a, school=school_a),
+                    'published_by_membership': SchoolMembership.objects.get(user=admin_a, school=school_a),
+                    'published_at': timezone.now(),
+                },
+            )
+            for membership in SchoolMembership.objects.filter(
+                school=school_a, status='active',
+            ).exclude(role='super_admin'):
+                AnnouncementReceipt.objects.get_or_create(
+                    announcement=release_announcement, recipient_membership=membership,
+                )
+
         support, _ = Conversation.objects.update_or_create(
             school=school_a, conversation_type='school_support',
             subject='DEMO Academic Support',
