@@ -2,6 +2,7 @@ import logging
 from functools import partial
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Q, Subquery
 from django.utils import timezone
@@ -48,7 +49,11 @@ def _can_manage(membership, announcement=None):
 
 
 def _validate_target(announcement, membership):
-    announcement.full_clean(exclude=('target_students',))
+    try:
+        announcement.full_clean(exclude=('target_students',))
+    except DjangoValidationError as exc:
+        # Model validation must surface as a 400 envelope, never an unhandled 500.
+        raise ValidationError(exc.message_dict if hasattr(exc, 'error_dict') else exc.messages) from exc
     mode = announcement.audience_type
     if mode != 'roles' and announcement.target_roles:
         raise ValidationError('Target roles are allowed only for role targeting.')

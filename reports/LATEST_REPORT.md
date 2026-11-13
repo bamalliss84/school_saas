@@ -1,56 +1,169 @@
-# Latest Acceptance Report
+# Latest Report
 
-## School Admin Web — D6 Responsive System (Phase W1-D6)
+## 2026-11-13 — Release 1.0 Admin: READY
 
-- **Branch:** `agent/antigravity-web`
-- **Task:** School Admin Web — W1-D6 Responsive System Implementation
-- **Visual Truth Source:** Approved Nano board `web_portal/design/nano/W1_D6_RESPONSIVE_SYSTEM_APPROVED.jpg`.
-- **D5 Final Status:** **CLOSED / ACCEPTED** (Supervisor runtime verified and closed in Phase 1).
-- **Preserved Artifacts:** Accepted D1 Login, D2 Main Shell, D3.1 Executive Operational Dashboard, D4 Active Context Selector, and D5 System States & Feedback fully preserved.
-- **Key Responsive Features Completed in D6 (All 12 Responsive Panels):**
-  1. **A. Desktop Viewport (1440px+):**
-     - Full administrative workspace with 215px/260px expanded sidebar, 6-card KPI row, 2-column operational grids, full topbar with search, badges, and user profile.
-  2. **B. Laptop Viewport (1024–1439px):**
-     - Adaptive layout with 3-column KPI cards, collapsible sidebar toggle, and fluid typography.
-  3. **C. Tablet Viewport (768–1023px):**
-     - Compact layout with 2-column KPI cards, vertically stacked operational sections, compact search input (160px), and compact icon navigation rail.
-  4. **D. Mobile Web Viewport (360–767px):**
-     - Off-canvas right-sliding navigation drawer with dark backdrop overlay (`.sidebar.mobile-open`, `.mobile-nav-backdrop`).
-     - Hamburger button in Topbar (`Menu` icon with minimum 44px tap target).
-     - 1-2 column reflow for KPI cards.
-     - Single-column stacked cards for Attention Inbox, Attendance, Academic Operations, and Quick Actions.
-     - Touch-friendly paddings and full-width mobile action buttons.
-  5. **E. Responsive Data Table Strategy (`ResponsiveTable.tsx`):**
-     - Horizontal scrollable container (`.responsive-table-container`) for desktop/tablet.
-     - Smart mobile card reflow view (`.table-mobile-card-list`) with key-value pairs and full-width action buttons on mobile screens.
-  6. **F. Search & Filter Adaptation (`ResponsiveFilterBar.tsx`):**
-     - Desktop: Inline horizontal search bar and filter controls with reset button.
-     - Mobile: Collapsible filter accordion / drawer button with active filter counter and reset actions.
-  7. **G. Excel Actions Across Breakpoints:**
-     - Desktop: Full buttons ("استيراد Excel", "تصدير Excel").
-     - Tablet: Compact buttons with icons.
-     - Mobile: Responsive flex-wrap action buttons.
-  8. **H. Responsive Forms (`.form-responsive-grid`):**
-     - 2-column form grids on desktop and automatic 1-column full-width reflow on mobile.
-     - Full-width stacked action buttons on small viewports.
-  9. **I. Responsive Overlay Strategy:**
-     - Centered modals on desktop with backdrop blur; responsive bottom-sheet style cards on mobile screens (`max-width: 95vw`).
-  10. **J. Historical Read-Only Across Devices:**
-      - Responsive amber warning banner wrapping cleanly without horizontal overflow on mobile screens.
-  11. **K. Navigation Adaptation (`Sidebar.tsx`, `Topbar.tsx`, `AppShell.tsx`):**
-      - Automatic drawer close upon clicking any navigation link or backdrop on mobile.
-  12. **L. Breakpoint / Design Token Strip (`BreakpointTokenStrip.tsx`, `tokens.css`):**
-      - Breakpoint tokens defined in `tokens.css` (`--breakpoint-sm: 576px`, `--breakpoint-md: 768px`, `--breakpoint-lg: 1024px`, `--breakpoint-xl: 1280px`, `--breakpoint-2xl: 1440px`).
-      - Interactive token strip component for testing viewport modes.
-  13. **Live Interactive Showcase Route (`ResponsiveSystemShowcasePage.tsx` at `/responsive-system`):**
-      - Interactive live showcase rendering all 12 D6 panels in one view.
+- **الاعتماد:** اعتمد مالك المشروع الإصدار بعد مراجعة `docs/RELEASE1_FINAL_REVIEW.md`.
+- **آخر تحقق:** 797 اختبار خادم OK، و154 اختبار ويب، وcheck وmigrations وruff وlint والبناء ناجحة، وتحقق Excel الحي ناجح.
+- **لم يُنفذ:** لا commit ولا push ولا دمج في `main`.
+- **التالي:** متطلبات التشغيل الفعلي (القسم 5 في مستند المراجعة)، ثم الإصدار 1.0.1.
 
-- **Backend Changes:** 0 Backend modifications, 0 migrations created.
-- **Verification Gates:**
-  - `npm.cmd run typecheck`: PASS (0 errors)
-  - `npm.cmd run lint`: PASS (0 errors, 0 warnings, `--max-warnings 0`)
-  - `npm.cmd test`: PASS (11/11 test suites, 79/79 tests passing)
-  - `npm.cmd run build`: PASS (production bundle built cleanly in 23.47s, 0 errors)
-  - `manage.py check`: PASS (0 issues)
-  - `manage.py makemigrations --check --dry-run`: PASS (No changes detected)
-- **Decision:** **READY FOR SUPERVISOR D6 ACCEPTANCE**.
+## تحديث 2026-11-13 — تجهيز المراجعة النهائية
+
+- **المستند:** `docs/RELEASE1_FINAL_REVIEW.md`: أدلة كل مرحلة، والقرارات، ونتائج التحقق، ونقاط غير حاجبة، ومتطلبات التشغيل الفعلي، وقسم توقيع.
+- **مراجعة الفرق:** كل التغييرات ضمن النطاق. لا Mobile ولا أسرار ولا ملفات محظورة متتبعة.
+- **الويب:** typecheck وlint ناجحان، و154 اختبارًا ناجحة، والبناء ناجح.
+- **تحقق Excel الحي:** الرفع ثم المعاينة، والقالب، وتصدير الطلاب والحضور كلها 200. أُلغي التأكيد فلم تُكتب بيانات. أُوقف الخادمان.
+- **ملاحظة تشغيل:** إيقاف مهمة Vite الخلفية لم ينهِ عملية node؛ أُنهيت يدويًا وتأكدت أن المنفذين مغلقان.
+- **الخادم:** check ناجح، No changes detected، ruff ناجح، **797 اختبارًا OK**.
+- **Migrations:** لا يوجد. لا commit ولا push.
+- **ليس READY** حتى توقيعك.
+
+## تحديث 2026-11-13 — قرار Super Admin في الحضور
+
+- **القرار:** نقل رؤية حضور كل المدارس إلى لوحة مالك المنصة في إصدار 1.1. لا تغيير في كود 1.0؛ السلوك الحالي يبقى موثقًا باختبار.
+- **مهمة 1.1:** إنشاء لوحة المالك، وحصر Super Admin داخل الـ API المدرسية في Active Context، وإزالة قراءة `request.user` القديمة من `attendance/daily/`.
+- **الملفات:** `tasks/CURRENT_TASK.md`، `docs/RELEASE1_ADMIN_F1F_F1N.md`، وهذا التقرير. توثيق فقط، فلا اختبارات جديدة ولا migration.
+- **بوابة READY:** المتبقي الحاجب الوحيد هو مراجعتك النهائية الموثقة. **ليس READY بعد.**
+
+---
+
+## الجولة الرابعة — F1L-6 Excel ومراجعة المنتج وخطة الإصدارات
+
+- **القرار:** اعتمدتَ Excel بدل CSV، وإضافة مكتبة `openpyxl==3.1.5` (أضيفت إلى `requirements.txt`).
+- **Migrations:** لا يوجد. **Mobile:** لم يُعدَّل. لا commit ولا push.
+- **مستند الخطة:** "خطة منصة المدارس — المراجعة وخارطة الإصدارات" (مستند Claude Docs): ما فهمته من الكود، نقاط القوة، الفجوات قبل البيع، المقارنة بالأنظمة العالمية، التصميم وتجربة المستخدم، خارطة الإصدارات 1.0 ← 1.0.1 ← 1.1 ← 2.0، الباقات وخطة البيع، المخاطر، القرارات المطلوبة.
+
+### ما نُفذ في Excel
+
+| الجزء | التفاصيل |
+|---|---|
+| قالب الاستيراد | `GET /api/v1/admin/data/template/?kind=students|teachers|guardians`: عناوين عربية، ورقة RTL، أعمدة الأكواد والجوال والهوية بتنسيق نص، وورقة "تعليمات". كلمات المرور ليست في القالب. |
+| رفع ملف Excel | `POST /api/v1/admin/data/import/parse/` (multipart): يحوّل الملف إلى صفوف ثم يمر بنفس مسار المعاينة ثم التأكيد الموجود (`admin/data/import/`)، فلا يوجد مسار كتابة جديد. يقبل العناوين العربية أو أسماء الحقول، ويحوّل القيم العربية (ذكر/أنثى، أب/أم...، نعم/لا). CSV يبقى مدعومًا. |
+| التصدير | `admin/data/export/?output=xlsx` للطلاب والمعلمين وأولياء الأمور، وأنواع جديدة: الحضور والنتائج والجدول والواجبات، مع فلاتر التاريخ والصف والشعبة. عقد JSON الحالي لم يتغير. |
+| الحماية | حد 5MB للملف و50MB بعد فك الضغط (ضد الملفات المضغوطة الخبيثة)، و1000 صف و50 عمودًا، وقراءة `read_only` دون تنفيذ معادلات، ومنع حقن المعادلات في التصدير (`=`, `+`, `-`, `@`)، وحد 20,000 صف للتصدير مع طلب تضييق النطاق. |
+| الصلاحيات | المدير فقط. السياق التاريخي يصدّر سنته ويُمنع من الاستيراد (403). المعلم 403. كل الاستعلامات مقيدة بالمدرسة والسنة النشطة. |
+| الويب | اختيار النوع (7 أنواع)، "تنزيل قالب Excel"، رفع Excel أو CSV، "تصدير Excel" مع فلتر التاريخ للأنواع التشغيلية، وإخفاء الاستيراد للأنواع التشغيلية وفي السياق التاريخي. |
+
+### الملفات
+
+- جديدة: `backend/core/services/spreadsheets.py`، `backend/core/services/data_exchange.py`، `backend/core/test_r1_f1l_excel.py` (16 اختبارًا)، `web_portal/src/utils/excel.ts`.
+- معدلة: `backend/core/admin_release_views.py` (التصدير ونقطتا القالب والتحويل)، `backend/config/api_urls.py`، `requirements.txt`، `web_portal/src/services/apiClient.ts` (`responseType: 'blob'`)، `web_portal/src/pages/OperationsPage.tsx` (واجهة البيانات فقط)، `web_portal/src/__tests__/ReleaseOneAcceptance.test.tsx` (+5 اختبارات F1L)، `docs/RELEASE1_ADMIN_F1F_F1N.md` (قرار F1L-6)، `tasks/CURRENT_TASK.md`.
+
+### التحقق
+
+| البوابة | النتيجة |
+|---|---|
+| `manage.py check` | ناجح |
+| `makemigrations --check --dry-run` | No changes detected |
+| `ruff check` | ناجح |
+| `manage.py test core` | **797 اختبارًا OK** |
+| Web typecheck / lint | ناجح / ناجح (خطأ نوع واحد في اختبار جديد أُصلح وأُعيد الفحص) |
+| Web test | 20 ملفًا و154 اختبارًا ناجحة |
+| Web build | ناجح (إلى مجلد مؤقت) |
+| السيرفر | لم يُشغَّل في هذه الجولة؛ التحقق عبر APIClient واختبارات الويب |
+
+### المتبقي
+
+- **ليس READY:** قرار المدير العام في الحضور، ثم مراجعتك النهائية.
+- استيراد الطلاب ينشئ الطالب دون تسجيله في صف (سلوك سابق). أقترح إضافة عمودي الصف والشعبة إلى القالب في 1.0.1.
+- رسائل أخطاء التحويل من الخادم بالإنجليزية (مثل اسم العمود غير المعروف)، كبقية رسائل الـ API.
+- لم يُجرَّب رفع ملف Excel حقيقي من المتصفح على السيرفر الحي في هذه الجولة.
+
+---
+
+## Release 1.0 Admin F1F–F1N — الجولة الثالثة: إغلاق الفجوات والمراجعة
+
+- **الفرع:** `feature/release1-admin-f1f-f1n` (القاعدة `2474dae`). لا commit ولا push ولا merge.
+- **المرجع:** `docs/RELEASE1_ADMIN_F1F_F1N.md`، والحالة التفصيلية في `tasks/CURRENT_TASK.md`.
+- **Mobile:** لم يُعدَّل. **Migrations:** لم تُنشأ (لا تغيير في models).
+- **النتيجة:** **ليس READY.** كل المراحل مكتملة بأدلة عدا F1L (متوقفة على قرار F1L-6)، وهناك قرار معماري معلق بشأن Super Admin في الحضور.
+
+### 1. حالة المراحل
+
+| المرحلة | الحالة | الدليل المختصر |
+|---|---|---|
+| F1F الجدول | مكتملة | إعداد الأيام والفترات، والشبكة، وإضافة/استبدال/مسح بتحقق مسبق، والتعارضات دون حفظ جزئي، ونسخ يوم/أسبوع بمعاينة، والقراءة فقط. Web ×7 + `test_sprint47_timetable_*` + تحقق حي |
+| F1G الحضور | مكتملة | ملخص يومي، وتسجيل جماعي لغير المسجلين، وتصحيح، وعزل، وسياق تاريخي. `test_r1_f1g_attendance.py` (9) + Web ×2 |
+| F1H الواجبات | مكتملة | إنشاء عبر صف ← شعبة ← مادة ← تكليف، والنشر والإغلاق والتسليمات والقراءة فقط. Web ×3 + اختبارات Sprint 4A/M2.5 |
+| F1I التواصل | مكتملة | جمهور الإعلانات بحمولة الويب الفعلية، وسير عمل الدعم، والرد والإغلاق. `test_r1_f1i_communications.py` (8) + Web |
+| F1J الاكتشاف الآمن | مكتملة | محمي في الخادم وليس بإخفاء الواجهة فقط. `test_r1_f1j_safe_discovery.py` (16) |
+| F1K التهيئة | مكتملة | `F1KOnboardingTests` (4) + Web |
+| F1L الاستيراد والتصدير | **متوقفة** | F1L-1..5 مغلقة (`F1LImportExportTests` 5 + Web). F1L-6 ينتظر قرارًا |
+| F1M التقارير | مكتملة | `F1MReportsTests` (3) + تصدير CSV في الويب |
+| F1N الإعدادات | مكتملة | `F1NSettingsTests` (4) + `F1NLogoTests` (3) + Web |
+
+### 2. خلل وظيفي وأمني اكتُشف وأُصلح (الجولات 2–3)
+
+| المرحلة | الخلل | الإصلاح |
+|---|---|---|
+| F1I | جمهور غير صالح للإعلان (أدوار فارغة، صف أو شعبة من مدرسة أخرى) يرجع **500** لأن `ValidationError` من `full_clean` في النموذج لا يتحول إلى خطأ DRF | `services/announcements.py::_validate_target` يحوّلها إلى DRF `ValidationError` فيرجع 400 برسالة السبب، ويغطي الإنشاء والتعديل. اختبار انحدار في `test_r1_f1i_communications.py` |
+| F1I | جمهور "أدوار محددة" يرسل `target_roles: []` دائمًا، وجمهور الصف والشعبة غير متاح | اختيار الأدوار وصف وشعبة مستهدفين في الويب |
+| F1I | لا سير عمل للدعم في الويب | إسناد ← متابعة ← حل بملاحظة، مع إخفائها في السياق التاريخي |
+| F1G | مطابقة الشعبة في التسجيل الجماعي تفشل لأن `current_enrollment.section` كائن وليس رقمًا (اكتُشف بالتكامل الحي) | مقارنة `section.id`، وتصحيح بيانات الاختبار لتطابق الشكل الحقيقي |
+| F1M | مدخلات تقرير خاطئة ترجع 500 | `_int_param` و`_date_param`، ورفض `date_from > date_to` |
+| F1M | تصدير التقرير يكتب `\n` و`﻿` حرفيًا | `toCsv` و`downloadCsv` الموحدان |
+| F1N | لا يوجد رفع شعار | `POST/DELETE /admin/settings/logo/` بتنسيقات PNG/JPEG/WEBP وحد 2MB، مع تحقق فعلي من الصورة وحذف الملف القديم بعد commit |
+| F1K | خطوة "المعلمون" تكرر فحص التكليفات | فحص وجود معلم نشط |
+| Web | الصفحة تُعاد تهيئتها مع كل إعادة تحميل، فتضيع حالة النماذج | `loadedModule` |
+| Web | الحذف بلا تأكيد، والنماذج تُغلق حتى عند الفشل | `window.confirm`، والإغلاق عند النجاح فقط |
+
+### 3. نقاط المراجعة المطلوبة
+
+- **F1J محمي في الخادم:** فحص الدور (معلم أو ولي أمر فقط، والمدير والطالب 403)، ونطاق التسجيل النشط والتكليف أو الوصاية، و`recipient_ref` موقّع بـ salt خاص ومدة ساعة ومطابق للمدرسة والطالب والتكليف. التلاعب أو التزوير أو انتهاء الصلاحية أو مدرسة أخرى يرجع 400، والسياق التاريخي يرجع 403 عند البدء.
+- **F1G الصلاحيات:** المدير يرى مدرسته فقط، والسجل الأجنبي يرجع 404 في القراءة والتعديل. التكليف أو التسجيل الأجنبي في الإدخال الجماعي يُرفض ذرّيًا. السياق التاريخي يقرأ ويُمنع من الكتابة بـ 403، وولي الأمر والطالب 403.
+- **Super Admin في الحضور:** `get_attendance_queryset_for_user` يعيد سجلات كل المدارس، و`attendance/daily/` يقرأ `request.user` القديم. هذا متوافق مع قاعدة "super_admin يرى جميع المدارس"، لكنه يخالف مبدأ Active Context، وموثق باختبار. **يحتاج قرارك قبل أي تغيير.**
+- **التكامل الحي (UI↔API):** شُغّل السيرفر وVite مؤقتًا بحساب demo المدرسة A وتم التحقق من:
+  - الشبكة والخيارات والإعداد والفترات؛
+  - الملخص اليومي والقائمة؛
+  - أعلام الواجبات، ومحادثة الدعم، والإعلانات، و`logo_url`؛
+  - رفض المدخل الخاطئ بـ 400، ومنع اكتشاف المدير بـ 403؛
+  - `exact_duplicate`، ومعاينة النسخ دون تعديل.
+
+  أُوقفت العمليتان بعد التحقق.
+
+### 4. الملفات
+
+- Backend:
+  - `core/admin_release_views.py`: الاكتشاف، والتهيئة، والتقارير، والشعار.
+  - `config/api_urls.py`: مسار الشعار.
+  - `core/services/announcements.py`: 400 بدل 500.
+- اختبارات Backend جديدة: `test_r1_f1g_attendance.py` و`test_r1_f1i_communications.py` و`test_r1_f1j_safe_discovery.py` و`test_r1_f1k_f1n_admin_release.py`.
+- Web:
+  - `pages/OperationsPage.tsx`: دون إعادة هيكلة.
+  - `components/timetable/TimetableAdminTools.tsx`.
+  - `utils/csv.ts` و`utils/timetable.ts`.
+  - إصلاحات hooks في صفحات الطلاب والمعلمين وأولياء الأمور و`ClassSubjectModal`.
+- اختبارات Web جديدة: `ReleaseOneAcceptance.test.tsx` (18) و`OperationsPage.test.tsx` (14) و`csv.test.ts` (4).
+- CI: إضافة `npm run lint` إلى `.github/workflows/web-ci.yml`.
+- التوثيق: `docs/RELEASE1_ADMIN_F1F_F1N.md` و`tasks/CURRENT_TASK.md` وهذا التقرير.
+
+### 5. التحقق
+
+| البوابة | النتيجة |
+|---|---|
+| `manage.py check` | ناجح، لا مشاكل |
+| `makemigrations --check --dry-run` | ناجح، No changes detected |
+| `ruff check backend/core backend/config` | ناجح |
+| `manage.py test core` (قبل إصلاح الإعلانات) | 773 اختبارًا OK. ملف F1I أُنشئ بعد بدء هذا التشغيل فلم يُشمل |
+| `test_r1_f1i_communications` (أول تشغيل) | **فشل 2**: 500 != 400. السبب والإصلاح في القسم 2 |
+| F1I + F1G + `test_sprint4c_announcements` بعد الإصلاح | 52 اختبارًا OK |
+| `manage.py test core` بعد الإصلاح | **781 اختبارًا OK** (يشمل F1I) |
+| Web typecheck / lint (`--max-warnings 0`) | ناجح / ناجح |
+| Web test | 20 ملفًا و149 اختبارًا ناجحة |
+| Web build | ناجح (إلى مجلد مؤقت لأن `web_portal/dist/assets` مقفول على ويندوز) |
+
+### 6. المتبقي
+
+**حاجب لـ READY:**
+
+1. **قرار F1L-6:** اعتماد CSV بدل XLSX/ImportJob لـ Release 1.0، وهل تصدير الحضور والنتائج والجدول والواجبات (GAP-EXCEL-02) ضمن النطاق. غير منفذ حاليًا.
+2. **قرار Super Admin** في الحضور (القسم 3).
+3. مراجعتك النهائية الموثقة.
+
+**غير حاجب (مسجل):**
+
+- تعديل وقت فترة موجودة و`periods/bulk` غير معروضين في الواجهة.
+- نسخ الأسبوع غير مختبر في الويب منفصلًا (Backend مختبر).
+- مرفقات الإعلانات ومعاينة الجمهور غير معروضة في ويب الإدارة.
+- خدمة ملفات media للشعار في الإنتاج تحتاج إعدادًا.
+- `OperationsPage.tsx` ما زال كثيفًا بأنواع `any`، وإعادة هيكلته مؤجلة حسب التعليمات.

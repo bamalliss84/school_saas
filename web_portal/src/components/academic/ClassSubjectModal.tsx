@@ -46,6 +46,9 @@ export const ClassSubjectModal: React.FC<ClassSubjectModalProps> = ({
       setWeeklyPeriods(4);
     }
     setError(null);
+    // Reset the form only when the modal opens or the edited item changes;
+    // re-running on every subject-list refresh would discard user input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingItem, isOpen]);
 
   if (!isOpen) return null;

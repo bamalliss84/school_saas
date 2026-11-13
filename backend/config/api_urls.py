@@ -1,6 +1,7 @@
 from core.admin_release_views import (
-    AdminReportSummaryAPIView, DataExportAPIView, DataImportAPIView,
-    OnboardingStatusAPIView, SafeRecipientDiscoveryAPIView, SchoolSettingsAPIView,
+    AdminReportSummaryAPIView, DataExportAPIView, DataImportAPIView, DataImportParseAPIView,
+    DataImportTemplateAPIView,
+    OnboardingStatusAPIView, SafeRecipientDiscoveryAPIView, SchoolLogoAPIView, SchoolSettingsAPIView,
 )
 from core.academic_views import (
     AcademicTermDetailAPIView, AcademicTermListCreateAPIView,
@@ -122,10 +123,13 @@ from core.views import (
 
 urlpatterns = [
     path('admin/settings/', SchoolSettingsAPIView.as_view(), name='admin-settings'),
+    path('admin/settings/logo/', SchoolLogoAPIView.as_view(), name='admin-settings-logo'),
     path('admin/onboarding/status/', OnboardingStatusAPIView.as_view(), name='admin-onboarding-status'),
     path('admin/reports/summary/', AdminReportSummaryAPIView.as_view(), name='admin-report-summary'),
     path('admin/data/export/', DataExportAPIView.as_view(), name='admin-data-export'),
     path('admin/data/import/', DataImportAPIView.as_view(), name='admin-data-import'),
+    path('admin/data/import/parse/', DataImportParseAPIView.as_view(), name='admin-data-import-parse'),
+    path('admin/data/template/', DataImportTemplateAPIView.as_view(), name='admin-data-template'),
     path('communication/recipient-options/', SafeRecipientDiscoveryAPIView.as_view(), name='communication-recipient-options'),
     path('parents/', ParentListCreateAPIView.as_view(), name='parent-admin-list'),
     path('parents/<int:pk>/', ParentDetailAPIView.as_view(), name='parent-admin-detail'),

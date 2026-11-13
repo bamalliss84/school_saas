@@ -28,6 +28,7 @@ const message=(error:unknown,fallback:string)=>error instanceof ApiError?(firstE
 export const TeachersPage:React.FC=()=>{
   const {activeMembership,isReadOnly}=useAuth();
   const toast=useToast();
+  const notifyError=toast.error;
   const [teachers,setTeachers]=useState<Teacher[]>([]);
   const [selected,setSelected]=useState<Teacher|null>(null);
   const [assignments,setAssignments]=useState<TeacherAssignment[]>([]);
@@ -37,9 +38,10 @@ export const TeachersPage:React.FC=()=>{
   const [teacherModal,setTeacherModal]=useState<Teacher|'new'|null>(null);
   const [assignmentModal,setAssignmentModal]=useState<TeacherAssignment|'new'|null>(null);
 
-  const loadTeachers=useCallback(async()=>{setLoading(true);try{const result=await teacherService.getTeachers({search,is_active:filter==='all'?undefined:filter==='active'});setTeachers(result.results);setSelected(current=>result.results.find(item=>item.id===current?.id)??result.results[0]??null);}catch(error){setTeachers([]);setSelected(null);toast.error(message(error,'تعذر تحميل المعلمين'));}finally{setLoading(false);}},[search,filter,toast.error]);
+  const loadTeachers=useCallback(async()=>{setLoading(true);try{const result=await teacherService.getTeachers({search,is_active:filter==='all'?undefined:filter==='active'});setTeachers(result.results);setSelected(current=>result.results.find(item=>item.id===current?.id)??result.results[0]??null);}catch(error){setTeachers([]);setSelected(null);notifyError(message(error,'تعذر تحميل المعلمين'));}finally{setLoading(false);}},[search,filter,notifyError]);
   useEffect(()=>{loadTeachers();},[activeMembership?.school?.id,loadTeachers]);
-  useEffect(()=>{if(!selected){setAssignments([]);return;}Promise.all([teacherService.getTeacher(selected.id),teacherService.getAssignments({teacher_id:selected.id,all_years:true})]).then(([detail,list])=>{setSelected(detail);setAssignments(list.results);}).catch(error=>toast.error(message(error,'تعذر تحميل ملف المعلم')));},[selected?.id]);
+  const selectedId=selected?.id;
+  useEffect(()=>{if(!selectedId){setAssignments([]);return;}Promise.all([teacherService.getTeacher(selectedId),teacherService.getAssignments({teacher_id:selectedId,all_years:true})]).then(([detail,list])=>{setSelected(detail);setAssignments(list.results);}).catch(error=>notifyError(message(error,'تعذر تحميل ملف المعلم')));},[selectedId,notifyError]);
 
   const saveTeacher=async(data:TeacherInput)=>{try{const saved=teacherModal==='new'?await teacherService.createTeacher(data):await teacherService.updateTeacher(teacherModal!.id,data);setTeachers(items=>teacherModal==='new'?[saved,...items.filter(item=>item.id!==saved.id)]:items.map(item=>item.id===saved.id?saved:item));setSelected(saved);setTeacherModal(null);toast.success('تم حفظ ملف المعلم');}catch(error){toast.error(message(error,'تعذر حفظ ملف المعلم'));}};
   const saveAssignment=async(data:TeacherAssignmentInput)=>{try{const saved=assignmentModal==='new'?await teacherService.createAssignment(data):await teacherService.updateAssignment(assignmentModal!.id,data);setAssignments(items=>assignmentModal==='new'?[saved,...items.filter(item=>item.id!==saved.id)]:items.map(item=>item.id===saved.id?saved:item));setAssignmentModal(null);toast.success('تم حفظ التكليف');}catch(error){toast.error(message(error,'تعذر حفظ التكليف'));}};

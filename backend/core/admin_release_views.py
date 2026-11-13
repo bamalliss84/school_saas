@@ -1,8 +1,13 @@
+import uuid
+from datetime import date
+
+from django import forms
 from django.core import signing
 from django.db import transaction
 from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -14,7 +19,7 @@ from .models import (
     TimetableEntry,
 )
 from .permissions import IsActiveSchoolUser
-from .services import identity
+from .services import data_exchange, identity
 
 
 def _admin(request, write=False):
@@ -24,6 +29,26 @@ def _admin(request, write=False):
         require_writable_context(request)
     if not request.active_school:
         raise PermissionDenied('Active school context is required.')
+
+
+def _int_param(request, name):
+    value = request.query_params.get(name)
+    if value in (None, ''):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValidationError({name: f'{name} must be an integer.'})
+
+
+def _date_param(request, name):
+    value = request.query_params.get(name)
+    if value in (None, ''):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationError({name: f'{name} must be a date in YYYY-MM-DD format.'})
 
 
 class SchoolSettingsAPIView(APIView):
@@ -42,6 +67,7 @@ class SchoolSettingsAPIView(APIView):
                        'code': request.active_school.code, 'phone': request.active_school.phone,
                        'email': request.active_school.email, 'address': request.active_school.address},
             'settings': {'school_name_ar': item.school_name_ar, 'school_name_en': item.school_name_en or '',
+                         'logo_url': request.build_absolute_uri(item.logo.url) if item.logo else None,
                          'primary_color': item.primary_color, 'language': item.language,
                          'timezone': item.timezone,
                          'allow_parent_notifications': item.allow_parent_notifications},
@@ -79,6 +105,59 @@ class SchoolSettingsAPIView(APIView):
         return self.get(request)
 
 
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+LOGO_FORMATS = {'PNG': 'png', 'JPEG': 'jpg', 'WEBP': 'webp'}
+
+
+class SchoolLogoAPIView(APIView):
+    """Upload or remove the active school's logo (GAP-SET-01).
+
+    Only raster PNG/JPEG/WEBP images verified by Pillow are accepted; SVG and
+    other formats are rejected. Old files are removed only after commit.
+    """
+    permission_classes = (IsActiveSchoolUser,)
+    parser_classes = (MultiPartParser,)
+
+    def post(self, request):
+        _admin(request, write=True)
+        upload = request.FILES.get('logo')
+        if upload is None:
+            raise ValidationError({'logo': 'A logo image file is required.'})
+        if upload.size > LOGO_MAX_BYTES:
+            raise ValidationError({'logo': 'The logo must be 2 MB or smaller.'})
+        try:
+            image = forms.ImageField().clean(upload)
+        except forms.ValidationError:
+            raise ValidationError({'logo': 'Upload a valid PNG, JPEG or WEBP image.'})
+        extension = LOGO_FORMATS.get(getattr(image.image, 'format', None))
+        if extension is None:
+            raise ValidationError({'logo': 'Upload a valid PNG, JPEG or WEBP image.'})
+        upload.seek(0)
+        school = request.active_school
+        with transaction.atomic():
+            item = SchoolSetting.objects.select_for_update().filter(school=school).first() or SchoolSetting(
+                school=school, school_name_ar=school.name,
+            )
+            old_name = item.logo.name if item.logo else None
+            item.logo.save(f'school-{school.pk}-{uuid.uuid4().hex}.{extension}', upload, save=False)
+            item.save()
+            if old_name:
+                storage = item.logo.storage
+                transaction.on_commit(lambda: storage.delete(old_name))
+        return Response({'logo_url': request.build_absolute_uri(item.logo.url)}, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        _admin(request, write=True)
+        with transaction.atomic():
+            item = SchoolSetting.objects.select_for_update().filter(school=request.active_school).first()
+            if item and item.logo:
+                old_name, storage = item.logo.name, item.logo.storage
+                item.logo = None
+                item.save()
+                transaction.on_commit(lambda: storage.delete(old_name))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class OnboardingStatusAPIView(APIView):
     permission_classes = (IsActiveSchoolUser,)
 
@@ -92,7 +171,7 @@ class OnboardingStatusAPIView(APIView):
             ('classes', 'الصفوف', bool(year and Classroom.objects.filter(school=school, academic_year=year).exists())),
             ('sections', 'الشعب', bool(year and Section.objects.filter(school=school, academic_year=year).exists())),
             ('subjects', 'المواد', Subject.objects.filter(school=school, is_active=True).exists()),
-            ('teachers', 'المعلمون', bool(year and TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True, teacher__is_active=True).exists())),
+            ('teachers', 'المعلمون', Teacher.objects.filter(school=school, is_active=True).exists()),
             ('assignments', 'تكليفات المعلمين', bool(year and TeacherAssignment.objects.filter(school=school, academic_year=year, is_current=True).exists())),
             ('students', 'الطلاب والتسجيلات', bool(year and StudentEnrollment.objects.filter(school=school, academic_year=year, status='active').exists())),
             ('timetable', 'الفترات والجدول', bool(year and SchoolPeriod.objects.filter(school=school, academic_year=year, is_active=True).exists())),
@@ -130,7 +209,14 @@ class SafeRecipientDiscoveryAPIView(APIView):
             own = TeacherAssignment.objects.filter(
                 school=school, academic_year=year, teacher__user_id=request.user.id,
                 classroom_id=enrollment.classroom_id, section_id=enrollment.section_id, is_current=True,
-            ).first()
+            )
+            assignment_id = request.query_params.get('teacher_assignment_id')
+            if assignment_id:
+                try:
+                    own = own.filter(pk=int(assignment_id))
+                except ValueError:
+                    raise ValidationError({'teacher_assignment_id': 'teacher_assignment_id must be an integer.'})
+            own = own.order_by('pk').first()
             if not own:
                 raise PermissionDenied('Student is outside your teaching assignments.')
             links = StudentGuardian.objects.filter(student_id=student_id, parent__is_active=True).select_related('parent__user')
@@ -140,7 +226,8 @@ class SafeRecipientDiscoveryAPIView(APIView):
                 if membership:
                     rows.append({'recipient_ref': self._ref(request, 'parent', membership.id, student_id, own.id),
                                  'display_name': link.parent.full_name, 'role': 'parent',
-                                 'relationship': link.relationship, 'student_id': student_id})
+                                 'relationship': link.relationship, 'student_id': student_id,
+                                 'teacher_assignment_id': own.id})
         elif role == 'parent':
             if not StudentGuardian.objects.filter(student_id=student_id, parent__user_id=request.user.id).exists():
                 raise PermissionDenied('Student is not linked to this parent.')
@@ -180,37 +267,39 @@ class AdminReportSummaryAPIView(APIView):
             homework = homework.filter(academic_year=year)
             submissions = submissions.filter(homework__academic_year=year)
             exams = exams.filter(academic_year=year)
-        classroom_id = request.query_params.get('classroom_id')
-        section_id = request.query_params.get('section_id')
-        student_id = request.query_params.get('student_id')
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
+        classroom_id = _int_param(request, 'classroom_id')
+        section_id = _int_param(request, 'section_id')
+        student_id = _int_param(request, 'student_id')
+        date_from = _date_param(request, 'date_from')
+        date_to = _date_param(request, 'date_to')
+        if date_from and date_to and date_from > date_to:
+            raise ValidationError({'date_to': 'date_to must be on or after date_from.'})
         if classroom_id:
-            filters['classroom_id'] = classroom_id
+            filters['classroom_id'] = str(classroom_id)
             enrollments = enrollments.filter(classroom_id=classroom_id)
             attendance = attendance.filter(student_enrollment__classroom_id=classroom_id)
             homework = homework.filter(teacher_assignment__classroom_id=classroom_id)
             submissions = submissions.filter(homework__teacher_assignment__classroom_id=classroom_id)
             exams = exams.filter(teacher_assignment__classroom_id=classroom_id)
         if section_id:
-            filters['section_id'] = section_id
+            filters['section_id'] = str(section_id)
             enrollments = enrollments.filter(section_id=section_id)
             attendance = attendance.filter(student_enrollment__section_id=section_id)
             homework = homework.filter(teacher_assignment__section_id=section_id)
             submissions = submissions.filter(homework__teacher_assignment__section_id=section_id)
             exams = exams.filter(teacher_assignment__section_id=section_id)
         if student_id:
-            filters['student_id'] = student_id
+            filters['student_id'] = str(student_id)
             enrollments = enrollments.filter(student_id=student_id)
             attendance = attendance.filter(student_enrollment__student_id=student_id)
             submissions = submissions.filter(student_enrollment__student_id=student_id)
         if date_from:
-            filters['date_from'] = date_from
+            filters['date_from'] = date_from.isoformat()
             attendance = attendance.filter(attendance_date__gte=date_from)
             homework = homework.filter(due_date__date__gte=date_from)
             submissions = submissions.filter(homework__due_date__date__gte=date_from)
         if date_to:
-            filters['date_to'] = date_to
+            filters['date_to'] = date_to.isoformat()
             attendance = attendance.filter(attendance_date__lte=date_to)
             homework = homework.filter(due_date__date__lte=date_to)
             submissions = submissions.filter(homework__due_date__date__lte=date_to)
@@ -259,8 +348,19 @@ class DataExportAPIView(APIView):
     def get(self, request):
         _admin(request)
         kind = request.query_params.get('kind', 'students')
+        output = request.query_params.get('output', 'json')
+        if output not in ('json', 'xlsx'):
+            raise ValidationError({'output': 'Supported outputs are json and xlsx.'})
         school, year = request.active_school, request.active_academic_year
-        if kind == 'students':
+        if kind in data_exchange.OPERATIONAL_KINDS:
+            filters = {
+                'date_from': _date_param(request, 'date_from'), 'date_to': _date_param(request, 'date_to'),
+                'classroom_id': _int_param(request, 'classroom_id'), 'section_id': _int_param(request, 'section_id'),
+            }
+            if filters['date_from'] and filters['date_to'] and filters['date_from'] > filters['date_to']:
+                raise ValidationError({'date_from': 'date_from must not be after date_to.'})
+            rows = data_exchange.operational_rows(school, year, kind, filters)
+        elif kind == 'students':
             qs = StudentEnrollment.objects.filter(school=school)
             if year: qs = qs.filter(academic_year=year)
             rows = [
@@ -289,8 +389,30 @@ class DataExportAPIView(APIView):
                 'can_receive_financial_alerts': link.can_receive_financial_alerts,
             } for link in qs]
         else:
-            raise ValidationError({'kind': 'Supported exports are students, teachers and guardians.'})
-        return Response({'kind': kind, 'rows': list(rows)})
+            raise ValidationError({'kind': 'Supported exports are: ' + ', '.join(data_exchange.EXPORT_KINDS) + '.'})
+        rows = list(rows)
+        if output == 'xlsx':
+            return data_exchange.export_response(kind, rows)
+        return Response({'kind': kind, 'rows': rows})
+
+
+class DataImportTemplateAPIView(APIView):
+    """F1L-6: an Excel import template with Arabic headers and text-formatted code columns."""
+    permission_classes = (IsActiveSchoolUser,)
+
+    def get(self, request):
+        _admin(request)
+        return data_exchange.template_response(request.query_params.get('kind', 'students'))
+
+
+class DataImportParseAPIView(APIView):
+    """F1L-6: turn an uploaded .xlsx into rows for the existing preview -> confirm import."""
+    permission_classes = (IsActiveSchoolUser,)
+    parser_classes = (MultiPartParser,)
+
+    def post(self, request):
+        _admin(request, write=True)
+        return Response(data_exchange.parse_import(request.data.get('kind'), request.FILES.get('file')))
 
 
 class DataImportAPIView(APIView):

@@ -115,13 +115,15 @@ export class ApiError extends Error {
 export interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined | null>;
   skipContext?: boolean;
+  /** 'blob' returns the raw body, e.g. for an .xlsx download. */
+  responseType?: 'json' | 'blob';
 }
 
 export const request = async <T = unknown>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> => {
-  const { params, skipContext, headers: customHeaders, ...restOptions } = options;
+  const { params, skipContext, responseType, headers: customHeaders, ...restOptions } = options;
 
   let url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
@@ -217,6 +219,10 @@ export const request = async <T = unknown>(
 
   if (response.status === 204 || response.status === 205) {
     return null as T;
+  }
+
+  if (responseType === 'blob') {
+    return response.blob() as Promise<T>;
   }
 
   return response.json() as Promise<T>;
