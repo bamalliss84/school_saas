@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
-# Nightly PostgreSQL backup for the production stack, with retention.
-# Usage (cron, from the project root):
-#   0 2 * * * ./scripts/backup_db.sh >> backups/backup.log 2>&1
+# Manual PostgreSQL backup for the production stack, with retention.
+# Nightly backups run automatically in the "backup" compose service; use this
+# for an on-demand copy (for example before an update), from the project root:
+#   ./scripts/backup_db.sh
 set -eu
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"

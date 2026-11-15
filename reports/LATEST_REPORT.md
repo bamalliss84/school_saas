@@ -1,5 +1,28 @@
 # Latest Report
 
+## 2026-11-15 (update 4) — Automatic daily jobs and backups
+
+**What was added to `docker-compose.prod.yml` (no crontab needed on the server):**
+- Service `jobs`: runs `run_billing_jobs` (fee reminders and past-due subscriptions) every day at `BILLING_JOB_HOUR_UTC` (default 4 UTC), and once on startup. The job is idempotent and doesn't repeat notifications.
+- Service `backup`: every night at `BACKUP_HOUR_UTC` (default 23 UTC) it backs up the database (`pg_dump -Fc`) plus an archive of the `media` files into `backups/`, and deletes files older than `BACKUP_KEEP_DAYS`. Files are written under a temporary name first, so a failed run never leaves a file that looks like a valid backup.
+- A shared scheduler script, `deploy/scheduler/daily.sh`: it logs a failure and retries the next day, and rejects an invalid hour.
+
+**Files:**
+- New: `deploy/scheduler/daily.sh`, `deploy/scheduler/backup.sh`.
+- Edited: `docker-compose.prod.yml`, `.env.production.example` (three new settings, no secrets), `docs/DEPLOYMENT.md` (section 4 and the pre-launch checklist), `scripts/backup_db.sh` (comment only: it is now for manual backups), `docs/ROADMAP_TO_LAUNCH.md`.
+
+**Actual testing with Docker:**
+- `docker compose config` is valid with a temporary environment file, deleted afterwards.
+- Real PostgreSQL 16:
+  - the backup produced a dump file that contains the table's data, plus a media archive with the files;
+  - when the database wasn't ready yet, the run failed cleanly and left no fake backup;
+  - the scheduler ran the job on start and computed the next run correctly;
+  - an invalid hour is rejected.
+- Test containers and files were deleted afterwards.
+- Not tested: building the `backend` image itself (it needs `python:3.13-slim` downloaded). The `jobs` service uses the same image and command as before.
+
+**Verification:** check ✓, makemigrations --check ✓ (no migration). Full backend: **839 tests OK**.
+
 ## 2026-11-15 (update 3) — Full demo data + manual web QA
 
 **Demo data (`seed_demo_school`):**
