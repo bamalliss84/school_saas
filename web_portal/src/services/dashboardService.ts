@@ -37,23 +37,9 @@ interface DailyAttendanceResponse {
 
 export const dashboardService = {
   getDashboardData: async (): Promise<DashboardApiResponse> => {
-    // 1. Attempt to fetch unified aggregate endpoint if implemented in backend
-    try {
-      const aggregateData = await apiClient.get<DashboardApiResponse>('/dashboard/admin/');
-      if (aggregateData && Array.isArray(aggregateData.kpis)) {
-        return {
-          ...aggregateData,
-          meta: {
-            ...aggregateData.meta,
-            isAggregateEndpointAvailable: true,
-          },
-        };
-      }
-    } catch {
-      // Endpoint not available yet; proceed to query scoped individual domain APIs
-    }
-
-    // 2. Fetch scoped data from active tenant context
+    // The backend has no aggregate dashboard endpoint; probing it produced a 404 on
+    // every visit, so the KPIs are built directly from the scoped domain APIs.
+    // Fetch scoped data from active tenant context
     let studentCount: number | null = null;
     let teacherCount: number | null = null;
     let classroomCount: number | null = null;

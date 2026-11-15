@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { dashboardService, DashboardApiResponse } from '../services/dashboardService';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -14,7 +15,16 @@ import { ErrorAlert } from '../components/feedback/ErrorAlert';
 import { Clock } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 
+/** The platform owner without a school context has no school dashboard; send them to the platform page. */
 export const DashboardPage: React.FC = () => {
+  const { user, activeMembership } = useAuth();
+  if (user?.role === 'super_admin' && !activeMembership) {
+    return <Navigate to="/platform" replace />;
+  }
+  return <SchoolDashboard />;
+};
+
+const SchoolDashboard: React.FC = () => {
   const { activeMembership, isHistorical, isReadOnly } = useAuth();
   const [data, setData] = useState<DashboardApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);

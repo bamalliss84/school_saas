@@ -14,11 +14,14 @@ from core.models import (
     SchoolSetting, Section, Student, StudentEnrollment, StudentGuardian,
     Subject, Teacher, TeacherAssignment, User, Message,
     SchoolPeriod, SchoolTimetableConfig, TimetableEntry,
+    FeeCategory, FeePayment, PlatformInvoice, PlatformPayment, SchoolSubscription, StudentFee,
+    SubscriptionPlan,
 )
 
 
 DEMO_PASSWORD = 'DemoPass123!'
 DEMO_SCHOOL_CODES = ('DEMO_NOOR', 'DEMO_FUTURE')
+DEMO_PLAN_CODE = 'demo_standard'
 
 
 class Command(BaseCommand):
@@ -49,6 +52,13 @@ class Command(BaseCommand):
         ))
 
     def _reset_demo(self):
+        # Billing rows use PROTECT, so they are removed before the schools.
+        FeePayment.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
+        StudentFee.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
+        PlatformPayment.objects.filter(invoice__school__code__in=DEMO_SCHOOL_CODES).delete()
+        PlatformInvoice.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
+        SchoolSubscription.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
+        SubscriptionPlan.objects.filter(code=DEMO_PLAN_CODE).delete()
         TimetableEntry.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
         Announcement.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
         Conversation.objects.filter(school__code__in=DEMO_SCHOOL_CODES).delete()
@@ -841,6 +851,10 @@ class Command(BaseCommand):
             body='DEMO support message',
             defaults={'message_type': 'text'},
         )
+        self._seed_release11(
+            school_a=school_a, school_b=school_b, year_a=year_a, admin_a=admin_a,
+            teacher_a_user=teacher_a_user, students=students, super_admin=super_admin,
+        )
         return {
             'schools': School.objects.filter(code__in=DEMO_SCHOOL_CODES).count(),
             'students': Student.objects.filter(user__username__startswith='demo_').count(),
@@ -850,3 +864,80 @@ class Command(BaseCommand):
             ).count(),
             'super_admin': super_admin.pk, 'multi_membership': multi_a.pk,
         }
+
+    def _seed_release11(self, *, school_a, school_b, year_a, admin_a, teacher_a_user, students, super_admin):
+        """Release 1.1 scenarios: a teacher who is also a parent, school fees and platform subscriptions."""
+        today = timezone.localdate()
+
+        # A dedicated teacher who is also a parent of a child in the same school
+        # (separate user so the single-role demo accounts keep their meaning).
+        tp_user = self._user('demo_teacher_parent', role='teacher', school=school_a, year=year_a)
+        self._membership(tp_user, school_a, 'teacher', default=True)
+        Teacher.objects.update_or_create(
+            user=tp_user,
+            defaults={'school': school_a, 'academic_year': year_a,
+                      'full_name': 'DEMO Teacher Parent', 'employee_code': 'DEMO_TP'},
+        )
+        teacher_parent, _ = Parent.objects.update_or_create(
+            user=tp_user,
+            defaults={'school': school_a, 'full_name': 'DEMO Teacher Parent',
+                      'email': 'demo_teacher_parent@example.com', 'phone': '0500000009'},
+        )
+        own_child = students[2]
+        StudentGuardian.objects.update_or_create(
+            parent=teacher_parent, student=own_child,
+            defaults={'relationship': 'father', 'is_primary': True, 'can_receive_notifications': True,
+                      'can_receive_financial_alerts': True},
+        )
+        self._membership(tp_user, school_a, 'parent')
+
+        # Fees: two installments for three School A students; one partly paid, one overdue.
+        category, _ = FeeCategory.objects.get_or_create(school=school_a, name='رسوم دراسية')
+        receipt = 0
+        for index, student in enumerate((students[0], students[1], own_child)):
+            for number, (amount, due) in enumerate(
+                ((Decimal('60000'), today - timedelta(days=20)), (Decimal('60000'), today + timedelta(days=40))),
+                start=1,
+            ):
+                fee, _ = StudentFee.objects.update_or_create(
+                    school=school_a, student=student, title='DEMO رسوم العام', installment_number=number,
+                    defaults={
+                        'academic_year': year_a, 'category': category, 'amount': amount, 'discount': Decimal('0'),
+                        'currency': 'YER', 'due_date': due, 'status': 'open', 'installment_count': 2,
+                        'created_by': admin_a,
+                    },
+                )
+                paid = Decimal('60000') if (index == 0 and number == 1) else (
+                    Decimal('25000') if (index == 2 and number == 1) else Decimal('0'))
+                FeePayment.objects.filter(student_fee=fee).delete()
+                if paid:
+                    receipt += 1
+                    FeePayment.objects.create(
+                        school=school_a, student_fee=fee, amount=paid, method='cash', paid_on=today - timedelta(days=5),
+                        receipt_number=f'DEMO-{receipt:04d}', recorded_by=admin_a,
+                    )
+                StudentFee.objects.filter(pk=fee.pk).update(paid_amount=paid)
+
+        # Platform subscriptions: School A active, School B past due with an open invoice.
+        plan, _ = SubscriptionPlan.objects.update_or_create(
+            code=DEMO_PLAN_CODE,
+            defaults={'name': 'الباقة القياسية (تجريبية)', 'base_price': Decimal('100000'),
+                      'price_per_student': Decimal('5000'), 'currency': 'YER', 'billing_period': 'yearly',
+                      'max_students': 500, 'features': ['الحضور', 'الواجبات', 'النتائج', 'الرسوم', 'الرسائل']},
+        )
+        for school, status, start, end in (
+            (school_a, 'active', today - timedelta(days=60), today + timedelta(days=305)),
+            (school_b, 'past_due', today - timedelta(days=200), today + timedelta(days=165)),
+        ):
+            subscription, _ = SchoolSubscription.objects.update_or_create(
+                school=school, plan=plan,
+                defaults={'status': status, 'start_date': start, 'end_date': end, 'created_by': super_admin},
+            )
+            if status == 'past_due':
+                PlatformInvoice.objects.update_or_create(
+                    number=f'DEMO-INV-{school.code}',
+                    defaults={'school': school, 'subscription': subscription, 'period_start': start,
+                              'period_end': end, 'student_count': 10, 'amount': Decimal('150000'),
+                              'paid_amount': Decimal('0'), 'currency': 'YER', 'issued_on': start,
+                              'due_date': start + timedelta(days=14), 'status': 'issued'},
+                )

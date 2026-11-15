@@ -1,5 +1,25 @@
 # Latest Report
 
+## 2026-11-15 (update 3) — Full demo data + manual web QA
+
+**Demo data (`seed_demo_school`):**
+- New user `demo_teacher_parent`: a teacher and a parent in the same school (demo Al-Noor school). It is separate so the existing demo accounts keep a single role and the existing tests don't change.
+- School fees: two installments for three students, partly paid and overdue payments, and two receipts.
+- A demo plan; School A has an active subscription; School B is past due with an open invoice.
+- Repeating the command creates no duplicates; `--reset-demo` deletes the billing rows before the schools.
+- Test added: `test_release11_demo_has_teacher_parent_fees_and_subscriptions`.
+
+**Manual web QA in the browser:**
+- As school admin: all 19 pages open with data and no errors, including the fees tabs and the subscription page. The fee totals match the data (overdue 95,000).
+- As platform owner: summary, plans and invoices are correct.
+- Fixed:
+  - **The home page requested a nonexistent endpoint `dashboard/admin/`**, which produced a 404 on every visit. The call was removed; the data was already built from the other APIs.
+  - **The platform owner (no school selected) landed on an empty school dashboard.** They are now sent to `/platform` automatically. Test added.
+
+**Failures during the work and how they were fixed:** the first version of the seed made `demo_teacher_a` a parent as well. That broke 2 tests in `test_sprint46_e2e_acceptance` (`MultipleObjectsReturned`), because they expect a single role per school. Fix: the separate user above, with no change to the tests.
+
+**Verification:** check ✓, makemigrations --check ✓ (no migration), ruff ✓, web lint ✓, 173 tests ✓, build ✓. Seed and e2e tests: 18 OK. Full backend: **839 tests OK**. Servers were stopped after QA.
+
 ## 2026-11-15 (update 2) — Review of complex cases + parent app completion
 
 **Backend review (no changes needed, covered by tests):**

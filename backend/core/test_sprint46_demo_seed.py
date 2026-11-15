@@ -5,7 +5,8 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from .models import (
-    Attendance, Exam, ExamResult, Homework, School, SchoolMembership, Student, StudentEnrollment, Teacher, User,
+    Attendance, Exam, ExamResult, FeePayment, Homework, PlatformInvoice, School, SchoolMembership,
+    SchoolSubscription, Student, StudentEnrollment, StudentFee, StudentGuardian, Teacher, User,
 )
 
 
@@ -44,6 +45,22 @@ class Sprint46DemoSeedTests(TestCase):
         self.assertEqual(self.snapshot(), first)
         self.assertTrue(School.objects.filter(pk=real_school.pk).exists())
 
+
+    def test_release11_demo_has_teacher_parent_fees_and_subscriptions(self):
+        self.run_seed()
+        self.run_seed()  # idempotent: no duplicated fees, receipts or invoices
+        teacher = User.objects.get(username='demo_teacher_parent')
+        roles = set(SchoolMembership.objects.filter(user=teacher, school__code='DEMO_NOOR').values_list('role', flat=True))
+        self.assertEqual(roles, {'teacher', 'parent'})
+        self.assertTrue(StudentGuardian.objects.filter(parent__user=teacher, can_receive_financial_alerts=True).exists())
+        fees = StudentFee.objects.filter(school__code='DEMO_NOOR', title='DEMO رسوم العام')
+        self.assertEqual(fees.count(), 6)
+        self.assertEqual(FeePayment.objects.filter(school__code='DEMO_NOOR').count(), 2)
+        statuses = dict(SchoolSubscription.objects.filter(school__code__startswith='DEMO_').values_list('school__code', 'status'))
+        self.assertEqual(statuses, {'DEMO_NOOR': 'active', 'DEMO_FUTURE': 'past_due'})
+        self.assertEqual(PlatformInvoice.objects.filter(school__code='DEMO_FUTURE', status='issued').count(), 1)
+        self.run_seed('--reset-demo')
+        self.assertEqual(StudentFee.objects.filter(school__code='DEMO_NOOR').count(), 6)
 
     def test_release1_admin_demo_dataset_has_operational_depth(self):
         self.run_seed()

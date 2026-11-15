@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage';
 import * as UseAuthModule from '../context/useAuth';
 import { AuthContextType } from '../context/authContextDef';
@@ -468,5 +468,23 @@ describe('DashboardPage (D3.1 Executive Operational Dashboard Polish)', () => {
     await waitFor(() => {
       expect(screen.getAllByText((11).toLocaleString('ar-EG')).length).toBeGreaterThan(0);
     });
+  });
+
+  it('sends the platform owner without a school context to the platform page', async () => {
+    vi.spyOn(UseAuthModule, 'useAuth').mockReturnValue({
+      ...defaultAuthContextValue,
+      user: { ...defaultAuthContextValue.user!, role: 'super_admin' },
+      activeMembership: null,
+    } as AuthContextType);
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/platform" element={<div>platform-page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('platform-page')).toBeInTheDocument();
+    expect(dashboardService.getDashboardData).not.toHaveBeenCalled();
   });
 });
