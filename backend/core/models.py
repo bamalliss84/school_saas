@@ -529,8 +529,9 @@ class Parent(models.Model):
 
             if last_parent and last_parent.parent_code:
                 try:
+                    # Codes look like "SCH-P00001"; drop the "P" prefix.
                     next_number = int(
-                        last_parent.parent_code.split('-')[-1]
+                        last_parent.parent_code.split('-')[-1].lstrip('P')
                     ) + 1
                 except Exception:
                     next_number = 1
@@ -1895,6 +1896,8 @@ class Notification(models.Model):
         ('homework_returned', 'Homework returned'), ('result_published', 'Result published'),
         ('message_received', 'Message received'), ('school_reply', 'School reply'),
         ('school_support_created', 'School support created'), ('announcement_published', 'Announcement published'), ('system', 'System'),
+        ('fee_issued', 'Fee issued'), ('fee_due', 'Fee due soon'), ('fee_overdue', 'Fee overdue'),
+        ('payment_received', 'Payment received'), ('subscription', 'Platform subscription'),
     )
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='notifications')
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
@@ -2264,3 +2267,282 @@ class AnnouncementReceipt(models.Model):
 
     def __str__(self):
         return f'{self.announcement_id}:{self.recipient_membership_id}'
+
+
+# ---------------------------------------------------------------------------
+# Release 1.1: platform subscriptions (platform owner <-> school) and school
+# fees (school <-> guardians). Payments are recorded manually; an online
+# gateway can later create the same FeePayment / PlatformPayment rows.
+# ---------------------------------------------------------------------------
+
+def default_currency():
+    from django.conf import settings
+    return settings.DEFAULT_CURRENCY
+
+
+MONEY = dict(max_digits=12, decimal_places=2)
+PAYMENT_METHOD_CHOICES = (
+    ('cash', 'Cash'),
+    ('bank_transfer', 'Bank transfer'),
+    ('card', 'Card'),
+    ('cheque', 'Cheque'),
+    ('other', 'Other'),
+)
+
+
+class SubscriptionPlan(models.Model):
+    PERIOD_CHOICES = (('monthly', 'Monthly'), ('termly', 'Termly'), ('yearly', 'Yearly'))
+
+    code = models.SlugField(max_length=40, unique=True)
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    base_price = models.DecimalField(default=0, **MONEY)
+    price_per_student = models.DecimalField(default=0, **MONEY)
+    currency = models.CharField(max_length=3, default=default_currency)
+    billing_period = models.CharField(max_length=10, choices=PERIOD_CHOICES, default='yearly')
+    max_students = models.PositiveIntegerField(blank=True, null=True)
+    features = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('sort_order', 'id')
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(base_price__gte=0, price_per_student__gte=0), name='plan_prices_not_negative',
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class SchoolSubscription(models.Model):
+    STATUS_CHOICES = (
+        ('trial', 'Trial'),
+        ('active', 'Active'),
+        ('past_due', 'Past due'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+        ('expired', 'Expired'),
+    )
+    CURRENT_STATUSES = ('trial', 'active', 'past_due', 'suspended')
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='subscriptions')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.PROTECT, related_name='subscriptions')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='trial')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    student_limit = models.PositiveIntegerField(blank=True, null=True)
+    custom_price_per_student = models.DecimalField(blank=True, null=True, **MONEY)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-start_date', '-id')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('school',), condition=models.Q(status__in=('trial', 'active', 'past_due', 'suspended')),
+                name='unique_current_subscription_per_school',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(start_date__lte=models.F('end_date')), name='subscription_dates_in_order',
+            ),
+        ]
+
+    @property
+    def effective_student_limit(self):
+        return self.student_limit if self.student_limit is not None else self.plan.max_students
+
+    @property
+    def effective_price_per_student(self):
+        if self.custom_price_per_student is not None:
+            return self.custom_price_per_student
+        return self.plan.price_per_student
+
+    def __str__(self):
+        return f'{self.school} - {self.plan} ({self.status})'
+
+
+class PlatformInvoice(models.Model):
+    STATUS_CHOICES = (('issued', 'Issued'), ('paid', 'Paid'), ('void', 'Void'))
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='platform_invoices')
+    subscription = models.ForeignKey(SchoolSubscription, on_delete=models.PROTECT, related_name='invoices')
+    number = models.CharField(max_length=30, unique=True)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    student_count = models.PositiveIntegerField(default=0)
+    amount = models.DecimalField(**MONEY)
+    paid_amount = models.DecimalField(default=0, **MONEY)
+    currency = models.CharField(max_length=3, default=default_currency)
+    issued_on = models.DateField()
+    due_date = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='issued')
+    paid_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-issued_on', '-id')
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gte=0), name='platform_invoice_amount_not_negative'),
+            models.CheckConstraint(
+                condition=models.Q(paid_amount__gte=0, paid_amount__lte=models.F('amount')),
+                name='platform_invoice_paid_within_amount',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(period_start__lte=models.F('period_end')), name='platform_invoice_period_in_order',
+            ),
+        ]
+
+    @property
+    def balance(self):
+        return self.amount - self.paid_amount
+
+
+class PlatformPayment(models.Model):
+    invoice = models.ForeignKey(PlatformInvoice, on_delete=models.PROTECT, related_name='payments')
+    amount = models.DecimalField(**MONEY)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    reference = models.CharField(max_length=120, blank=True)
+    paid_on = models.DateField()
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-paid_on', '-id')
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name='platform_payment_amount_positive'),
+        ]
+
+
+class FeeCategory(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='fee_categories')
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('name', 'id')
+        constraints = [
+            models.UniqueConstraint(fields=('school', 'name'), name='unique_fee_category_name_per_school'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class StudentFee(models.Model):
+    """One amount a student owes (a whole fee or one installment of it)."""
+
+    STATUS_CHOICES = (('open', 'Open'), ('cancelled', 'Cancelled'))
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='student_fees')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, related_name='student_fees')
+    student = models.ForeignKey(Student, on_delete=models.PROTECT, related_name='fees')
+    category = models.ForeignKey(FeeCategory, on_delete=models.PROTECT, related_name='fees')
+    title = models.CharField(max_length=200)
+    amount = models.DecimalField(**MONEY)
+    discount = models.DecimalField(default=0, **MONEY)
+    paid_amount = models.DecimalField(default=0, **MONEY)
+    currency = models.CharField(max_length=3, default=default_currency)
+    due_date = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    cancel_reason = models.CharField(max_length=300, blank=True)
+    batch_id = models.UUIDField(blank=True, null=True, db_index=True)
+    installment_number = models.PositiveSmallIntegerField(default=1)
+    installment_count = models.PositiveSmallIntegerField(default=1)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('due_date', 'id')
+        indexes = [
+            models.Index(fields=('school', 'academic_year', 'status', 'due_date'), name='fee_school_year_status_due_idx'),
+            models.Index(fields=('student', 'status', 'due_date'), name='fee_student_status_due_idx'),
+        ]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name='student_fee_amount_positive'),
+            models.CheckConstraint(
+                condition=models.Q(discount__gte=0, discount__lte=models.F('amount')),
+                name='student_fee_discount_within_amount',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(paid_amount__gte=0, paid_amount__lte=models.F('amount') - models.F('discount')),
+                name='student_fee_paid_within_net',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(installment_number__gte=1, installment_number__lte=models.F('installment_count')),
+                name='student_fee_installment_in_range',
+            ),
+        ]
+
+    def clean(self):
+        if self.academic_year_id and self.school_id and self.academic_year.school_id != self.school_id:
+            raise ValidationError('Fee academic year must belong to the fee school.')
+        if self.category_id and self.school_id and self.category.school_id != self.school_id:
+            raise ValidationError('Fee category must belong to the fee school.')
+
+    @property
+    def net_amount(self):
+        return self.amount - self.discount
+
+    @property
+    def balance(self):
+        if self.status == 'cancelled':
+            return self.amount * 0
+        return self.net_amount - self.paid_amount
+
+    def payment_state(self, today=None):
+        if self.status == 'cancelled':
+            return 'cancelled'
+        if self.balance <= 0:
+            return 'paid'
+        today = today or timezone.localdate()
+        if self.due_date < today:
+            return 'overdue'
+        return 'partial' if self.paid_amount > 0 else 'unpaid'
+
+    def __str__(self):
+        return f'{self.student} - {self.title}'
+
+
+class FeePayment(models.Model):
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='fee_payments')
+    student_fee = models.ForeignKey(StudentFee, on_delete=models.PROTECT, related_name='payments')
+    amount = models.DecimalField(**MONEY)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    reference = models.CharField(max_length=120, blank=True)
+    paid_on = models.DateField()
+    receipt_number = models.CharField(max_length=30)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    is_void = models.BooleanField(default=False)
+    void_reason = models.CharField(max_length=300, blank=True)
+    voided_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    voided_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-paid_on', '-id')
+        constraints = [
+            models.UniqueConstraint(fields=('school', 'receipt_number'), name='unique_fee_receipt_per_school'),
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name='fee_payment_amount_positive'),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_void=False, voided_at__isnull=True)
+                    | models.Q(is_void=True, voided_at__isnull=False)
+                ),
+                name='fee_payment_void_metadata_consistent',
+            ),
+        ]
+
+    def clean(self):
+        if self.student_fee_id and self.school_id and self.student_fee.school_id != self.school_id:
+            raise ValidationError('Payment school must match the fee school.')

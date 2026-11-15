@@ -30,4 +30,21 @@ export const authService = {
   getMe: async (): Promise<User> => {
     return apiClient.get<User>('/auth/me/');
   },
+
+  requestPasswordReset: async (identifier: string): Promise<{ detail: string }> =>
+    apiClient.post('/auth/password/reset/', { identifier }, { skipContext: true }),
+
+  confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<{ detail: string }> =>
+    apiClient.post(
+      '/auth/password/reset/confirm/',
+      { uid, token, new_password: newPassword },
+      { skipContext: true },
+    ),
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ detail: string }> =>
+    apiClient.post(
+      '/auth/password/change/',
+      { current_password: currentPassword, new_password: newPassword },
+      { skipContext: true },
+    ),
 };

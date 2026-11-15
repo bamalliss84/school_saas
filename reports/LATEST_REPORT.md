@@ -1,5 +1,62 @@
 # Latest Report
 
+## 2026-11-15 — Release 1.0.1 (production readiness) + Release 1.1 (fees and subscriptions)
+
+**Branch:** `release/1.1-dev` (from `main` at `db996f2`; merged `agent/codex-mobile`, no new changes). Not merged into `main`.
+
+### 1.0.1 — Production readiness
+- **Production settings guard:** with `DJANGO_ENV=production`, the server refuses to start if the secret key, DEBUG, ALLOWED_HOSTS, the database password or email settings are unsafe. Also enabled: HTTPS redirect, proxy header and Referrer-Policy.
+- **Password reset by email:**
+  - Request, confirm and change-password endpoints, with throttling.
+  - The request always returns the same message, so it never reveals whether an account exists.
+  - A successful change revokes all of the user's sessions (tokens).
+- **Web:** "Forgot password" and "Set new password" pages, plus starter Terms and Privacy pages (these need legal review).
+- **Mobile:** "Forgot password?" screen on the login page.
+- **Deployment:**
+  - Dockerfiles for the server and the web, `docker-compose.prod.yml`, nginx, `.env.production.example` (no secrets).
+  - Backup and restore scripts.
+  - An Arabic deployment guide in `docs/DEPLOYMENT.md`.
+- **Pre-existing bug fixed:** generating the parent code made adding a second parent in any school fail (IntegrityError). Fixed, with a regression test.
+
+### 1.1 — School fees for parents
+- **Models (migration `0027_billing_and_fees`):** `FeeCategory`, `StudentFee` (with installments and discount), `FeePayment` (receipt number unique per school, void instead of delete).
+- **Admin API, isolated by school:**
+  - fee categories;
+  - issuing fees: preview first, then confirm; targets the whole school, a class, a section or chosen students; installments must add up to the total;
+  - recording a manual payment: locks the row, cannot exceed the balance or be dated in the future;
+  - voiding a payment, cancelling a fee that has no payments;
+  - a collection summary and filters.
+- **Parents:** only guardians with `can_receive_financial_alerts` see fees or get alerts; other guardians get 404.
+- **Notifications (after commit, deduplicated):** fees issued, payment received, a reminder 3 days before the due date, and a weekly overdue reminder.
+- **Daily job:** `manage.py run_billing_jobs`.
+- **Web (school admin):** `/fees` page with an overview, student fees, issue fees with preview, payments and receipts with printing, and fee categories. Write actions are hidden in historical read-only contexts.
+- **Parent app:** an alert card on the home screen for the selected child (overdue or next installment), and a fees page with summary, installments and receipts. It works offline from a cache isolated per child and membership, and is read-only.
+
+### 1.1 — Platform subscriptions for schools
+- **Models:** `SubscriptionPlan`, `SchoolSubscription` (only one current subscription per school, history kept), `PlatformInvoice`, `PlatformPayment`.
+- **Platform owner** (super_admin with no school selected):
+  - `/platform` page with summary, schools and subscriptions, plans and invoices;
+  - invoice amount = base price + price per student × active students;
+  - full payment reactivates a past_due subscription.
+- **School admin:**
+  - `/subscription` page, read-only;
+  - a warning banner at the top of the admin app (past due, suspended, expired, expiring soon, over the student limit).
+- **Daily job:** marks subscriptions with overdue invoices as `past_due`.
+
+### Verification
+- Backend: check ✓, makemigrations --check ✓ (after 0027), ruff ✓, **838 tests OK**.
+- Web: typecheck ✓, lint ✓, **169 tests** ✓ (22 files), build ✓ (only a bundle-size warning).
+- Flutter: analyze shows 20 notes, all pre-existing and none in the new files; **224 tests** ✓.
+- No servers left running.
+
+### Open points
+- The gateway is not connected (payments are recorded manually, as decided).
+- The legal texts need review.
+- Production email settings must be filled in before going live.
+- Teacher-to-parent conversations are postponed to a later release.
+
+---
+
 ## 2026-11-13 — Release 1.0 Admin: READY
 
 - **الاعتماد:** اعتمد مالك المشروع الإصدار بعد مراجعة `docs/RELEASE1_FINAL_REVIEW.md`.

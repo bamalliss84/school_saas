@@ -9,6 +9,8 @@ import '../../core/models/school_context.dart';
 import '../parent/domain/parent_models.dart';
 import '../parent/presentation/parent_controller.dart';
 import '../parent/presentation/parent_communications_screens.dart';
+import '../parent/presentation/parent_fees_controller.dart';
+import '../parent/presentation/parent_fees_screens.dart';
 import '../parent/presentation/parent_home.dart';
 import '../parent/presentation/parent_homework_controller.dart';
 import '../parent/presentation/parent_homework_screens.dart';
@@ -70,6 +72,20 @@ class _ParentShellState extends ConsumerState<ParentShell> {
             childId: selectedChild.id,
             enrollmentId: selectedEnrollment.id,
           );
+    void openFees() {
+      if (selectedChild == null) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ParentFeesPage(
+            scope: scope,
+            childId: selectedChild.id,
+            childName: selectedChild.fullName,
+            historical: contextInfo.isHistorical,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       key: const Key('parent-shell'),
       body: SafeArea(
@@ -82,6 +98,12 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                   .selectChild(id),
               onRefresh:
                   ref.read(parentFoundationProvider(scope).notifier).refresh,
+              financialAlert: query == null
+                  ? null
+                  : ParentFeeAlertCard(
+                      state: ref.watch(parentFeesProvider(query)),
+                      onOpen: openFees,
+                    ),
             ),
           1 => query == null
               ? const _ParentFeatureUnavailable()
@@ -144,6 +166,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
               session: session,
               onSelectContext: ref.read(sessionProvider.notifier).selectContext,
               onLogout: ref.read(sessionProvider.notifier).logout,
+              onFees: selectedChild == null ? null : openFees,
               onNotifications: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => ParentNotificationsPage(
@@ -271,6 +294,7 @@ class ParentMore extends StatefulWidget {
     this.onNotifications,
     this.onAnnouncements,
     this.onMessages,
+    this.onFees,
   });
 
   final AppSession session;
@@ -279,6 +303,7 @@ class ParentMore extends StatefulWidget {
   final VoidCallback? onNotifications;
   final VoidCallback? onAnnouncements;
   final VoidCallback? onMessages;
+  final VoidCallback? onFees;
 
   @override
   State<ParentMore> createState() => _ParentMoreState();
@@ -362,6 +387,19 @@ class _ParentMoreState extends State<ParentMore> {
             onNotifications: widget.onNotifications!,
             onAnnouncements: widget.onAnnouncements!,
             onMessages: widget.onMessages!,
+          ),
+        ],
+        if (widget.onFees != null) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              key: const Key('parent-more-fees'),
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text('الرسوم والمدفوعات'),
+              subtitle: const Text('الأقساط، المتأخرات والإيصالات'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: widget.onFees,
+            ),
           ),
         ],
         const SizedBox(height: 24),

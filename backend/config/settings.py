@@ -23,10 +23,11 @@ def env_list(name, default=''):
     return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
 
 
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-development-only-change-me',
-)
+# DJANGO_ENV=production turns on fail-fast checks (see the end of this file).
+DJANGO_ENV = os.environ.get('DJANGO_ENV', 'development').strip().lower()
+IS_PRODUCTION = DJANGO_ENV == 'production'
+_DEVELOPMENT_SECRET_KEY = 'django-insecure-development-only-change-me'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', _DEVELOPMENT_SECRET_KEY)
 DEBUG = env_bool('DJANGO_DEBUG', False)
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
 
@@ -130,6 +131,8 @@ REST_FRAMEWORK = {
         'anon': os.environ.get('THROTTLE_ANON', '1000/hour'),
         'user': os.environ.get('THROTTLE_USER', '5000/hour'),
         'login': os.environ.get('THROTTLE_LOGIN', '100/hour'),
+        'password_reset': os.environ.get('THROTTLE_PASSWORD_RESET', '20/hour'),
+        'password_change': os.environ.get('THROTTLE_PASSWORD_CHANGE', '20/hour'),
         'refresh': os.environ.get('THROTTLE_REFRESH', '200/hour'),
         'logout': os.environ.get('THROTTLE_LOGOUT', '200/hour'),
         'reports': os.environ.get('THROTTLE_REPORTS', '1000/hour'),
@@ -197,7 +200,13 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', False)
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', IS_PRODUCTION)
+# Health probes come from the internal network over plain HTTP.
+SECURE_REDIRECT_EXEMPT = [r'^health/', r'^api/v1/health/']
+if env_bool('USE_X_FORWARDED_PROTO', IS_PRODUCTION):
+    # Only behind a trusted TLS-terminating proxy that overwrites this header.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_REFERRER_POLICY = 'same-origin'
 SECURE_HSTS_SECONDS = env_int('SECURE_HSTS_SECONDS', 0)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
     'SECURE_HSTS_INCLUDE_SUBDOMAINS', False,
@@ -256,6 +265,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Internationalization
 LANGUAGE_CODE = os.environ.get('DJANGO_LANGUAGE_CODE', 'ar')
+# ISO 4217 currency used for new school fees and platform plans.
+DEFAULT_CURRENCY = os.environ.get('DEFAULT_CURRENCY', 'YER').strip().upper()[:3] or 'YER'
 TIME_ZONE = os.environ.get('DJANGO_TIME_ZONE', 'Asia/Aden')
 USE_I18N = True
 USE_TZ = True
@@ -267,6 +278,16 @@ EMAIL_BACKEND = os.environ.get(
     'django.core.mail.backends.console.EmailBackend',
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@example.invalid')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = env_int('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
+EMAIL_TIMEOUT = env_int('EMAIL_TIMEOUT', 10)
+
+# Password reset: link target in the web portal and token lifetime (seconds).
+PASSWORD_RESET_URL = os.environ.get('PASSWORD_RESET_URL', 'http://localhost:5173/reset-password')
+PASSWORD_RESET_TIMEOUT = env_int('PASSWORD_RESET_TIMEOUT', 3600)
 # Homework attachments
 MAX_HOMEWORK_ATTACHMENT_SIZE_MB = env_int('MAX_HOMEWORK_ATTACHMENT_SIZE_MB', 10)
 MAX_SUBMISSION_ATTACHMENT_SIZE_MB = env_int('MAX_SUBMISSION_ATTACHMENT_SIZE_MB', 10)
@@ -300,3 +321,27 @@ ALLOWED_ANNOUNCEMENT_ATTACHMENT_MIME_TYPES = tuple(env_list(
     'ALLOWED_ANNOUNCEMENT_ATTACHMENT_MIME_TYPES',
     'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,image/jpeg,image/png',
 ))
+
+
+# Production fail-fast checks
+def _production_problems():
+    problems = []
+    if SECRET_KEY == _DEVELOPMENT_SECRET_KEY or len(SECRET_KEY) < 50:
+        problems.append('DJANGO_SECRET_KEY must be set to a random value of at least 50 characters.')
+    if DEBUG:
+        problems.append('DJANGO_DEBUG must be false.')
+    if not os.environ.get('DJANGO_ALLOWED_HOSTS'):
+        problems.append('DJANGO_ALLOWED_HOSTS must list the public host names.')
+    if not os.environ.get('POSTGRES_PASSWORD'):
+        problems.append('POSTGRES_PASSWORD must be provided by the environment.')
+    if EMAIL_BACKEND.endswith('console.EmailBackend'):
+        problems.append('EMAIL_BACKEND must be a real backend (password reset emails).')
+    return problems
+
+
+if IS_PRODUCTION:
+    _problems = _production_problems()
+    if _problems:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured('Unsafe production settings: ' + ' '.join(_problems))

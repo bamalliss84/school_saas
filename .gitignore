@@ -58,3 +58,6 @@ htmlcov/
 
 # OS temp
 Thumbs.db
+# Production secrets and backups
+.env.production
+backups/

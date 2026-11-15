@@ -19,6 +19,11 @@ import { TeachersPage } from '../pages/TeachersPage';
 import { ParentsPage } from '../pages/ParentsPage';
 import { ExamsPage } from '../pages/ExamsPage';
 import { OperationsPage } from '../pages/OperationsPage';
+import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages';
+import { PrivacyPage, TermsPage } from '../pages/LegalPages';
+import { FeesPage } from '../pages/FeesPage';
+import { SubscriptionPage } from '../pages/SubscriptionPage';
+import { PlatformPage } from '../pages/PlatformPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -26,6 +31,10 @@ export const AppRoutes: React.FC = () => {
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       {/* Protected Context Selection */}
       <Route
@@ -101,6 +110,11 @@ export const AppRoutes: React.FC = () => {
 
         {/* Settings */}
         <Route path="/settings/*" element={<OperationsPage module="settings" />} />
+
+        {/* Release 1.1 billing */}
+        <Route path="/fees/*" element={<FeesPage />} />
+        <Route path="/subscription" element={<SubscriptionPage />} />
+        <Route path="/platform" element={<PlatformPage />} />
       </Route>
 
       {/* 404 Fallback */}

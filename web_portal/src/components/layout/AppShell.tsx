@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { HistoricalBanner } from './HistoricalBanner';
+import { SubscriptionBanner } from './SubscriptionBanner';
 import { ContextSelectorModal } from '../feedback/ContextSelectorModal';
 import { OfflineBanner } from '../feedback/OfflineState';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
@@ -31,6 +32,7 @@ export const AppShell: React.FC = () => {
         {isOffline && <OfflineBanner />}
         <Topbar onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)} />
         <HistoricalBanner />
+        <SubscriptionBanner />
         <main className="main-content">
           <Outlet />
         </main>

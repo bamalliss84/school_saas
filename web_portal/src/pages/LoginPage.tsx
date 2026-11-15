@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context';
@@ -143,6 +143,10 @@ export const LoginPage: React.FC = () => {
               })}
             />
 
+            <div style={{ textAlign: 'left', marginTop: '.25rem' }}>
+              <Link to="/forgot-password" style={{ fontSize: '.85rem' }}>نسيت كلمة المرور؟</Link>
+            </div>
+
             <div style={{ marginTop: '1.125rem' }}>
               <Button
                 type="submit"
@@ -160,6 +164,10 @@ export const LoginPage: React.FC = () => {
           {/* Footer Note */}
           <div className="login-footer-caption">
             دخول آمن إلى نظام إدارة المدرسة
+            <div style={{ marginTop: '.35rem', display: 'flex', gap: '.75rem', justifyContent: 'center' }}>
+              <Link to="/terms">شروط الاستخدام</Link>
+              <Link to="/privacy">سياسة الخصوصية</Link>
+            </div>
           </div>
         </section>
 

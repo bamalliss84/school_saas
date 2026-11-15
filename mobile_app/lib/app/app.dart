@@ -12,6 +12,7 @@ import '../core/preferences/font_preferences.dart';
 import '../core/storage/session_store.dart';
 import '../core/storage/session_snapshot_store.dart';
 import '../features/authentication/data/auth_repository.dart';
+import '../features/authentication/presentation/forgot_password_screen.dart';
 import '../features/school_context/data/context_repository.dart';
 import '../features/parent_shell/parent_shell.dart';
 import '../features/student_shell/student_shell.dart';
@@ -184,6 +185,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   .read(sessionProvider.notifier)
                                   .login(username.text, password.text),
                               child: const Text('تسجيل الدخول')),
+                          TextButton(
+                              key: const Key('login-forgot-password'),
+                              onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => ForgotPasswordScreen(
+                                        onSubmit: AuthRepository(
+                                                ref.read(apiProvider).dio,
+                                                ref.read(storeProvider))
+                                            .requestPasswordReset,
+                                      ),
+                                    ),
+                                  ),
+                              child: const Text('نسيت كلمة المرور؟')),
                         ]))))));
   }
 }

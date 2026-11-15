@@ -22,6 +22,14 @@ class AuthRepository {
             Map<String, dynamic>.from(data['user'] as Map)));
   }
 
+  /// Release 1.0.1: always returns the server's generic message (no account disclosure).
+  Future<String> requestPasswordReset(String identifier) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+        'auth/password/reset/',
+        data: {'identifier': identifier.trim()});
+    return '${response.data?['detail'] ?? ''}';
+  }
+
   Future<String?> storedAccessToken() => _store.readAccessToken();
   Future<String?> storedRefreshToken() => _store.readRefreshToken();
   Future<void> clearLocalSession() => _store.clear();

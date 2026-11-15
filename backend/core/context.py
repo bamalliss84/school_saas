@@ -137,6 +137,8 @@ def resolve_membership_context(request, user, *, optional=False, ignore_header=F
             or ('/notifications/' in request.path and request.path.endswith('/read/'))
             or ('/conversations/' in request.path and request.path.endswith('/read/'))
             or ('/announcements/' in request.path and request.path.endswith('/read/'))
+            # Identity-level action on the global User, not school data.
+            or request.path.endswith('/auth/password/change/')
         )
     )
     if membership.status == 'historical' and request.method not in SAFE_METHODS and not personal_state_write:
@@ -167,6 +169,7 @@ def require_writable_context(request):
 class MembershipJWTAuthentication(JWTAuthentication):
     optional_context_paths = (
         '/auth/contexts/', '/auth/context/default/', '/auth/logout/',
+        '/auth/password/change/',
     )
 
     def authenticate(self, request):

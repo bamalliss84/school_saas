@@ -1,0 +1,15 @@
+.git
+**/__pycache__
+**/*.pyc
+backend/venv
+backend/venvvenv
+backend/media
+backend/school_logos
+backend/staticfiles
+web_portal/node_modules
+web_portal/dist
+mobile_app
+backups
+.env
+.env.production
+*.log

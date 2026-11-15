@@ -20,6 +20,9 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  Wallet,
+  CreditCard,
+  Crown,
 } from 'lucide-react';
 import { useAuth } from '../../context';
 import { isRouteActive } from '../../utils/navigation';
@@ -37,7 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
 }) => {
-  const { activeMembership } = useAuth();
+  const { activeMembership, user } = useAuth();
+  const isPlatformOwner = user?.role === 'super_admin' && !activeMembership;
   const location = useLocation();
 
   const unreadConversations = activeMembership?.unread_conversations_count || 0;
@@ -67,10 +71,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Bell,
       badge: unreadNotifications > 0 ? unreadNotifications : undefined,
     },
+    { to: '/fees', label: 'الرسوم والمدفوعات', icon: Wallet },
     { to: '/reports', label: 'التقارير', icon: BarChart3 },
     { to: '/data', label: 'الاستيراد والتصدير', icon: Database },
+    { to: '/subscription', label: 'اشتراك المدرسة', icon: CreditCard },
     { to: '/settings', label: 'الإعدادات', icon: Settings },
   ];
+  if (isPlatformOwner) {
+    navItems.unshift({ to: '/platform', label: 'إدارة المنصة', icon: Crown });
+  }
 
   const handleLinkClick = () => {
     if (onCloseMobile) {

@@ -13,12 +13,16 @@ class ParentHome extends StatelessWidget {
     required this.contextInfo,
     required this.onSelectChild,
     required this.onRefresh,
+    this.financialAlert,
   });
 
   final ParentState state;
   final SchoolContext contextInfo;
   final Future<void> Function(int childId) onSelectChild;
   final Future<void> Function() onRefresh;
+
+  /// Optional fee alert for the selected child (Release 1.1).
+  final Widget? financialAlert;
 
   @override
   Widget build(BuildContext context) => switch (state) {
@@ -33,6 +37,7 @@ class ParentHome extends StatelessWidget {
             contextInfo: contextInfo,
             onSelectChild: onSelectChild,
             onRefresh: onRefresh,
+            financialAlert: financialAlert,
           ),
       };
 }
@@ -44,6 +49,7 @@ class _ParentHomeReady extends StatelessWidget {
     required this.contextInfo,
     required this.onSelectChild,
     required this.onRefresh,
+    this.financialAlert,
   });
 
   final ParentFoundationData data;
@@ -51,6 +57,7 @@ class _ParentHomeReady extends StatelessWidget {
   final SchoolContext contextInfo;
   final Future<void> Function(int childId) onSelectChild;
   final Future<void> Function() onRefresh;
+  final Widget? financialAlert;
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +111,10 @@ class _ParentHomeReady extends StatelessWidget {
             )
           else
             _SingleChildLabel(child: child),
+          if (financialAlert != null) ...[
+            const SizedBox(height: 12),
+            financialAlert!,
+          ],
           const SizedBox(height: 16),
           Card(
             child: Padding(
