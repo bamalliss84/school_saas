@@ -815,6 +815,19 @@ class _NewStudentConversationState
   int? studentId;
   bool saving = false;
 
+  /// false = message the student, true = message one of the student's guardians.
+  bool toParent = false;
+  Future<List<TeacherParentOption>>? parents;
+  String? parentRef;
+
+  void _loadParents() {
+    parentRef = null;
+    parents = (toParent && assignmentId != null && studentId != null)
+        ? ref.read(teacherCommunicationsRepositoryProvider).parentOptions(
+            studentId: studentId!, assignmentId: assignmentId!)
+        : null;
+  }
+
   @override
   void dispose() {
     subject.dispose();
@@ -832,7 +845,7 @@ class _NewStudentConversationState
             date: _today(),
           )));
     return Scaffold(
-      appBar: AppBar(title: const Text('محادثة جديدة مع طالب')),
+      appBar: AppBar(title: const Text('محادثة جديدة')),
       body: SafeArea(
         child: Form(
           key: formKey,
@@ -840,7 +853,29 @@ class _NewStudentConversationState
             padding: const EdgeInsets.all(16),
             children: [
               const _Notice(
-                text: 'يُختار الطالب من قائمة تكليفاتك وطلاب الشعبة فقط.',
+                text: 'يُختار الطالب من قائمة تكليفاتك وطلاب الشعبة فقط، '
+                    'وولي الأمر من أولياء أمور هذا الطالب فقط.',
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                key: const Key('teacher-recipient-kind'),
+                segments: const [
+                  ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.person_outline),
+                      label: Text('الطالب')),
+                  ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.family_restroom),
+                      label: Text('ولي الأمر')),
+                ],
+                selected: {toParent},
+                onSelectionChanged: saving
+                    ? null
+                    : (value) => setState(() {
+                          toParent = value.first;
+                          _loadParents();
+                        }),
               ),
               const SizedBox(height: 12),
               assignments.when(
@@ -871,6 +906,7 @@ class _NewStudentConversationState
                       : (value) => setState(() {
                             assignmentId = value;
                             studentId = null;
+                            _loadParents();
                           }),
                   validator: (value) => value == null ? 'اختر التكليف' : null,
                 ),
@@ -901,10 +937,55 @@ class _NewStudentConversationState
                     ],
                     onChanged: saving
                         ? null
-                        : (value) => setState(() => studentId = value),
+                        : (value) => setState(() {
+                              studentId = value;
+                              _loadParents();
+                            }),
                     validator: (value) => value == null ? 'اختر الطالب' : null,
                   ),
                 ),
+              if (toParent && parents != null) ...[
+                const SizedBox(height: 12),
+                FutureBuilder<List<TeacherParentOption>>(
+                  future: parents,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const LinearProgressIndicator();
+                    }
+                    if (snapshot.hasError) {
+                      return _InlineError(
+                        message: _message(snapshot.error!),
+                        retry: () => setState(_loadParents),
+                      );
+                    }
+                    final items = snapshot.data ?? const [];
+                    if (items.isEmpty) {
+                      return const Text(
+                          'لا يوجد ولي أمر مرتبط بحساب لهذا الطالب.');
+                    }
+                    return DropdownButtonFormField<String>(
+                      key: const Key('teacher-parent-select'),
+                      value: parentRef,
+                      isExpanded: true,
+                      decoration:
+                          const InputDecoration(labelText: 'ولي الأمر'),
+                      items: [
+                        for (final item in items)
+                          DropdownMenuItem(
+                            value: item.recipientRef,
+                            child: Text(
+                                '${item.name} (${item.relationshipLabel})'),
+                          ),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (value) => setState(() => parentRef = value),
+                      validator: (value) =>
+                          value == null ? 'اختر ولي الأمر' : null,
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
                 controller: subject,
@@ -925,8 +1006,10 @@ class _NewStudentConversationState
                 label: const Text('بدء المحادثة'),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'بدء محادثة جديدة مع ولي أمر غير متاح في هذه الدفعة.',
+              Text(
+                toParent
+                    ? 'المحادثة خاصة بينك وبين ولي الأمر المختار فقط.'
+                    : 'المحادثة خاصة بينك وبين الطالب.',
                 textAlign: TextAlign.center,
               ),
             ],
@@ -938,6 +1021,7 @@ class _NewStudentConversationState
 
   Future<void> _save() async {
     if (formKey.currentState?.validate() != true) return;
+    if (toParent && parentRef == null) return;
     setState(() => saving = true);
     try {
       final item = await ref
@@ -946,6 +1030,7 @@ class _NewStudentConversationState
             assignmentId: assignmentId!,
             studentId: studentId!,
             subject: subject.text.trim(),
+            parentRecipientRef: toParent ? parentRef : null,
           ));
       if (mounted) Navigator.pop(context, item);
     } catch (error) {

@@ -14,6 +14,7 @@ class ParentHome extends StatelessWidget {
     required this.onSelectChild,
     required this.onRefresh,
     this.financialAlert,
+    this.onOpenHistory,
   });
 
   final ParentState state;
@@ -23,6 +24,9 @@ class ParentHome extends StatelessWidget {
 
   /// Optional fee alert for the selected child (Release 1.1).
   final Widget? financialAlert;
+
+  /// Opens the child's study record across schools.
+  final VoidCallback? onOpenHistory;
 
   @override
   Widget build(BuildContext context) => switch (state) {
@@ -38,6 +42,7 @@ class ParentHome extends StatelessWidget {
             onSelectChild: onSelectChild,
             onRefresh: onRefresh,
             financialAlert: financialAlert,
+            onOpenHistory: onOpenHistory,
           ),
       };
 }
@@ -50,6 +55,7 @@ class _ParentHomeReady extends StatelessWidget {
     required this.onSelectChild,
     required this.onRefresh,
     this.financialAlert,
+    this.onOpenHistory,
   });
 
   final ParentFoundationData data;
@@ -58,6 +64,7 @@ class _ParentHomeReady extends StatelessWidget {
   final Future<void> Function(int childId) onSelectChild;
   final Future<void> Function() onRefresh;
   final Widget? financialAlert;
+  final VoidCallback? onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +158,15 @@ class _ParentHomeReady extends StatelessWidget {
                   _InfoRow('الصف', enrollment?.classroomName ?? '—'),
                   _InfoRow('الشعبة', enrollment?.sectionName ?? '—'),
                   _InfoRow('صلة القرابة', _relationship(child.relationship)),
+                  if (onOpenHistory != null) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      key: const Key('parent-open-history'),
+                      onPressed: onOpenHistory,
+                      icon: const Icon(Icons.history_edu_outlined),
+                      label: const Text('السجل الدراسي'),
+                    ),
+                  ],
                 ],
               ),
             ),

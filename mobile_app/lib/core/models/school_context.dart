@@ -108,3 +108,14 @@ class ContextListResult {
             : null);
   }
 }
+
+
+/// Arabic label for a membership role.
+String roleLabel(String role) => switch (role) {
+      'parent' => 'ولي أمر',
+      'teacher' => 'معلم',
+      'student' => 'طالب',
+      'school_admin' => 'مدير المدرسة',
+      'super_admin' => 'مدير المنصة',
+      _ => role,
+    };

@@ -8,6 +8,7 @@ import '../../core/models/school_context.dart';
 import '../../core/preferences/font_preferences.dart';
 import '../teacher/profile/teacher_profile.dart';
 import 'teacher_shared.dart';
+import '../authentication/presentation/change_password_screen.dart';
 
 class TeacherMoreScreen extends StatelessWidget {
   const TeacherMoreScreen({
@@ -110,6 +111,8 @@ class TeacherMoreScreen extends StatelessWidget {
               label: 'حول التطبيق',
               onTap: onAbout),
         ]),
+        const SizedBox(height: AppSpacing.x3),
+        const ChangePasswordTile(),
         const SizedBox(height: AppSpacing.x4),
         OutlinedButton.icon(
           onPressed: onLogout,

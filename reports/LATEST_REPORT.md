@@ -1,5 +1,36 @@
 # Latest Report
 
+## 2026-11-15 (update 2) — Review of complex cases + parent app completion
+
+**Backend review (no changes needed, covered by tests):**
+- A user can be a teacher and a parent at the same time: a separate membership per (user, school, role). Covered by `test_sprint4d_multischool_roles`.
+- A teacher can teach in more than one school: assignments and students are isolated by active context. Same test file.
+- Student transfer:
+  - the old enrollment is kept and its membership becomes historical (read-only);
+  - parent memberships are updated;
+  - nothing is copied.
+  - Covered by `test_sprint4d_student_transfer` and `test_sprint4d1_consistency`.
+- A parent can start a private conversation with their child's teacher. Covered by `test_sprint4b1_communication_hardening`.
+
+**Gaps fixed in the parent app:**
+- **Role and school switching:** "More" used to show parent contexts only, so a teacher who is also a parent could not switch to their teacher role. It now shows every role and school, with Arabic role labels. The general context picker also shows Arabic labels instead of `teacher`/`parent`.
+- **Messaging the child's teacher:** a new "مراسلة معلم" button. The list comes from safe discovery (only the selected child's current teachers), then a private `teacher_parent` conversation is created. It is hidden in historical and offline contexts.
+- **Academic record:** a new "السجل الدراسي" screen from the home page. It lists the schools the child attended with their years, and opens a previous school's record read-only through its historical context.
+- **Bug fix:** the subject dialog in conversations disposed its text controller before the dialog closed, which could crash. It is now a separate widget that owns its controller.
+
+**Verification:** Flutter 232 tests ✓, analyze 19 notes (all pre-existing). Backend: check ✓, migrations ✓, ruff ✓, **838 tests OK**. Teachers can now also start a private conversation with a student's guardian (safe discovery + signed reference); Flutter 235 tests ✓.
+
+## 2026-11-15 (update) — Consistency and completion
+
+- **Attendance:** the Super Admin who selects a school now sees only that school's attendance and assignments (the 1.1 decision). Removed `request.user.role/school/academic_year` from `attendance/daily/`; it uses the active context now. Updated the test that documented the old behavior to the new decision, and extended it to cover the daily report.
+- **Change password:**
+  - Web: a page at `/account/password` plus a link in the user menu.
+  - Mobile: a "تغيير كلمة المرور" item in the "More" list for parent, student and teacher. After a successful change, the user is signed out of all devices.
+- **Web performance:** pages load per route (lazy). The main bundle went from 567KB to 306KB.
+- **Plan:** `docs/ROADMAP_TO_LAUNCH.md`.
+- **Verification:** web 172 tests, lint, typecheck and build ✓. Flutter 226 tests ✓, analyze shows no new issues. Backend: **838 tests OK** after adding a legacy-compat fallback in `attendance/daily/` (tests that use force_authenticate have no active context).
+- **Migrations:** none.
+
 ## 2026-11-15 — Release 1.0.1 (production readiness) + Release 1.1 (fees and subscriptions)
 
 **Branch:** `release/1.1-dev` (from `main` at `db996f2`; merged `agent/codex-mobile`, no new changes). Not merged into `main`.

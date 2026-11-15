@@ -4,6 +4,7 @@ import '../../core/design_system/tokens.dart';
 import '../../core/models/school_context.dart';
 import 'student_profile_controller.dart';
 import 'student_profile_models.dart';
+import '../authentication/presentation/change_password_screen.dart';
 
 class StudentMoreScreen extends StatelessWidget {
   const StudentMoreScreen(
@@ -66,6 +67,8 @@ class StudentMoreScreen extends StatelessWidget {
           _MoreTile(
               icon: Icons.info_outline, label: 'حول التطبيق', onTap: onAbout),
         ]),
+        const SizedBox(height: AppSpacing.x3),
+        const ChangePasswordTile(),
         const SizedBox(height: AppSpacing.x4),
         OutlinedButton.icon(
             onPressed: onLogout,

@@ -164,8 +164,10 @@ void main() {
       'المظهر',
       'المساعدة',
       'حول التطبيق',
+      'تغيير كلمة المرور',
       'تسجيل الخروج'
     ]) {
+      await tester.scrollUntilVisible(find.text(label), 120);
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('المدرسة والسياق'), findsNothing);

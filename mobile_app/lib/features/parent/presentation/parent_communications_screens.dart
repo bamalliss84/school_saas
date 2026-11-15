@@ -84,9 +84,13 @@ class ParentConversationsPage extends ConsumerWidget {
     super.key,
     required this.scope,
     required this.historical,
+    this.childId,
+    this.childName,
   });
   final CacheScope scope;
   final bool historical;
+  final int? childId;
+  final String? childName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -99,6 +103,13 @@ class ParentConversationsPage extends ConsumerWidget {
         historical: historical,
         onRefresh: controller.refresh,
         onCreateSupport: controller.createSupport,
+        childName: childName,
+        onLoadTeachers:
+            childId == null ? null : () => controller.teachersFor(childId!),
+        onStartWithTeacher: childId == null
+            ? null
+            : (teacher, subject) =>
+                controller.startWithTeacher(childId!, teacher, subject),
         onOpen: (conversation) async {
           await controller.open(conversation);
           if (context.mounted) {
@@ -309,12 +320,21 @@ class ParentConversationsScreen extends StatelessWidget {
     required this.onRefresh,
     required this.onOpen,
     required this.onCreateSupport,
+    this.onLoadTeachers,
+    this.onStartWithTeacher,
+    this.childName,
   });
   final ParentConversationsState state;
   final bool historical;
   final Future<void> Function() onRefresh;
   final Future<void> Function(ParentConversation) onOpen;
   final Future<void> Function(String subject, String category) onCreateSupport;
+
+  /// Teachers of the selected child (null when no child is selected).
+  final Future<List<ParentTeacherOption>> Function()? onLoadTeachers;
+  final Future<void> Function(ParentTeacherOption teacher, String subject)?
+      onStartWithTeacher;
+  final String? childName;
 
   @override
   Widget build(BuildContext context) {
@@ -333,14 +353,30 @@ class ParentConversationsScreen extends StatelessWidget {
           _TitleRow(title: 'الرسائل', historical: historical),
           if (ready.data.offline) const OfflineCacheBanner(),
           if (!historical && !ready.data.offline)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: OutlinedButton.icon(
-                onPressed: () => _supportDialog(context),
-                icon: const Icon(Icons.support_agent),
-                label: const Text('طلب دعم جديد'),
-              ),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (onLoadTeachers != null && onStartWithTeacher != null)
+                  FilledButton.icon(
+                    key: const Key('parent-message-teacher'),
+                    onPressed: () => _teacherFlow(context),
+                    icon: const Icon(Icons.school_outlined),
+                    label: const Text('مراسلة معلم'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: () => _supportDialog(context),
+                  icon: const Icon(Icons.support_agent),
+                  label: const Text('طلب دعم جديد'),
+                ),
+              ],
             ),
+          if (ready.detailError != null) ...[
+            const SizedBox(height: 8),
+            Text(ready.detailError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
           if (ready.data.items.isEmpty)
             const _Empty(icon: Icons.forum_outlined, text: 'لا توجد محادثات')
           else
@@ -362,28 +398,64 @@ class ParentConversationsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _supportDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    final subject = await showDialog<String>(
+  Future<void> _teacherFlow(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    List<ParentTeacherOption> teachers;
+    try {
+      teachers = await onLoadTeachers!();
+    } catch (_) {
+      messenger?.showSnackBar(
+          const SnackBar(content: Text('تعذر تحميل معلمي الابن.')));
+      return;
+    }
+    if (!context.mounted) return;
+    if (teachers.isEmpty) {
+      messenger?.showSnackBar(const SnackBar(
+          content: Text('لا يوجد معلمون متاحون للمراسلة لهذا الابن حاليًا.')));
+      return;
+    }
+    final teacher = await showModalBottomSheet<ParentTeacherOption>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('طلب دعم جديد'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'الموضوع'),
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: Text(childName == null
+                  ? 'اختر المعلم'
+                  : 'اختر معلم $childName'),
+            ),
+            for (final item in teachers)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(item.name),
+                subtitle: Text(item.subject),
+                onTap: () => Navigator.pop(sheetContext, item),
+              ),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('إنشاء')),
-        ],
       ),
     );
-    controller.dispose();
+    if (teacher == null || !context.mounted) return;
+    final subject = await showDialog<String>(
+      context: context,
+      builder: (_) => SubjectDialog(
+        title: 'رسالة إلى ${teacher.name}',
+        fieldKey: const Key('parent-teacher-subject'),
+        confirmLabel: 'بدء المحادثة',
+      ),
+    );
+    if (subject != null && subject.trim().isNotEmpty) {
+      await onStartWithTeacher!(teacher, subject);
+    }
+  }
+
+  Future<void> _supportDialog(BuildContext context) async {
+    final subject = await showDialog<String>(
+      context: context,
+      builder: (_) => const SubjectDialog(
+          title: 'طلب دعم جديد', confirmLabel: 'إنشاء'),
+    );
     if (subject != null && subject.trim().isNotEmpty) {
       await onCreateSupport(subject, 'general');
     }
@@ -595,5 +667,51 @@ class _Failure extends StatelessWidget {
                 onPressed: onRetry, child: const Text('إعادة المحاولة')),
           ],
         ),
+      );
+}
+
+
+/// Owns its text controller so it is disposed only after the dialog route is gone.
+class SubjectDialog extends StatefulWidget {
+  const SubjectDialog({
+    super.key,
+    required this.title,
+    required this.confirmLabel,
+    this.fieldKey,
+  });
+  final String title;
+  final String confirmLabel;
+  final Key? fieldKey;
+
+  @override
+  State<SubjectDialog> createState() => _SubjectDialogState();
+}
+
+class _SubjectDialogState extends State<SubjectDialog> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(widget.title),
+        content: TextField(
+          key: widget.fieldKey,
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'الموضوع'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: Text(widget.confirmLabel)),
+        ],
       );
 }

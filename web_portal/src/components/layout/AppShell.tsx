@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -7,6 +7,7 @@ import { SubscriptionBanner } from './SubscriptionBanner';
 import { ContextSelectorModal } from '../feedback/ContextSelectorModal';
 import { OfflineBanner } from '../feedback/OfflineState';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { LoadingSpinner } from '../feedback/LoadingSpinner';
 
 export const AppShell: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -34,7 +35,9 @@ export const AppShell: React.FC = () => {
         <HistoricalBanner />
         <SubscriptionBanner />
         <main className="main-content">
-          <Outlet />
+          <Suspense fallback={<LoadingSpinner text="جارٍ التحميل..." />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <ContextSelectorModal />

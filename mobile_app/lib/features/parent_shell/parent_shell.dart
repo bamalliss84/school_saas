@@ -11,6 +11,7 @@ import '../parent/presentation/parent_controller.dart';
 import '../parent/presentation/parent_communications_screens.dart';
 import '../parent/presentation/parent_fees_controller.dart';
 import '../parent/presentation/parent_fees_screens.dart';
+import '../parent/presentation/parent_history_screen.dart';
 import '../parent/presentation/parent_home.dart';
 import '../parent/presentation/parent_homework_controller.dart';
 import '../parent/presentation/parent_homework_screens.dart';
@@ -18,6 +19,7 @@ import '../parent/presentation/parent_m2_controller.dart';
 import '../parent/presentation/parent_m2_screens.dart';
 import '../parent/presentation/parent_results_controller.dart';
 import '../parent/presentation/parent_results_screens.dart';
+import '../authentication/presentation/change_password_screen.dart';
 
 class ParentShell extends ConsumerStatefulWidget {
   const ParentShell({super.key});
@@ -86,6 +88,29 @@ class _ParentShellState extends ConsumerState<ParentShell> {
       );
     }
 
+    void openHistory() {
+      if (selectedChild == null) return;
+      final dio = ref.read(apiProvider).dio;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ParentChildHistoryScreen(
+            childName: selectedChild.fullName,
+            currentMembershipId: contextInfo.membershipId,
+            load: () async => parseChildSchools((await dio.get<dynamic>(
+                    'parents/me/children/${selectedChild.id}/schools/'))
+                .data),
+            onOpenSchool: (membershipId) async {
+              final target = session.contexts
+                  .where((item) => item.membershipId == membershipId)
+                  .firstOrNull;
+              if (target == null) throw StateError('context not available');
+              await ref.read(sessionProvider.notifier).selectContext(target);
+            },
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       key: const Key('parent-shell'),
       body: SafeArea(
@@ -98,6 +123,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                   .selectChild(id),
               onRefresh:
                   ref.read(parentFoundationProvider(scope).notifier).refresh,
+              onOpenHistory: selectedChild == null ? null : openHistory,
               financialAlert: query == null
                   ? null
                   : ParentFeeAlertCard(
@@ -189,6 +215,8 @@ class _ParentShellState extends ConsumerState<ParentShell> {
                   builder: (_) => ParentConversationsPage(
                     scope: scope,
                     historical: contextInfo.isHistorical,
+                    childId: selectedChild?.id,
+                    childName: selectedChild?.fullName,
                   ),
                 ),
               ),
@@ -316,9 +344,9 @@ class _ParentMoreState extends State<ParentMore> {
   @override
   Widget build(BuildContext context) {
     final current = widget.session.context!;
-    final parentContexts = widget.session.contexts
-        .where((item) => item.role == 'parent')
-        .toList(growable: false);
+    // A teacher can also be a parent: every usable context (any role, any school)
+    // is offered here, and picking another role opens that role's app.
+    final parentContexts = widget.session.contexts;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -345,7 +373,7 @@ class _ParentMoreState extends State<ParentMore> {
         ],
         if (parentContexts.length > 1) ...[
           const SizedBox(height: 16),
-          Text('المدرسة والسياق',
+          Text('المدرسة والدور',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           for (final item in parentContexts)
@@ -355,9 +383,12 @@ class _ParentMoreState extends State<ParentMore> {
                     ? const Icon(Icons.check_circle, color: Colors.green)
                     : const Icon(Icons.school_outlined),
                 title: Text(item.schoolName),
-                subtitle: Text(item.isHistorical
-                    ? 'سياق تاريخي — للقراءة فقط'
-                    : item.academicYearName ?? 'سياق نشط'),
+                subtitle: Text([
+                  roleLabel(item.role),
+                  item.isHistorical
+                      ? 'سياق تاريخي — للقراءة فقط'
+                      : item.academicYearName ?? 'سياق نشط',
+                ].join(' • ')),
                 trailing: switchingMembershipId == item.membershipId
                     ? const SizedBox.square(
                         dimension: 20,
@@ -402,6 +433,8 @@ class _ParentMoreState extends State<ParentMore> {
             ),
           ),
         ],
+        const SizedBox(height: 16),
+        const ChangePasswordTile(),
         const SizedBox(height: 24),
         OutlinedButton.icon(
           onPressed: widget.onLogout,

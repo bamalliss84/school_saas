@@ -7,6 +7,7 @@ import '../core/config/app_environment.dart';
 import '../core/design_system/app_theme.dart';
 import '../core/design_system/components.dart';
 import '../core/local_database/app_database.dart';
+import '../core/models/school_context.dart';
 import '../core/local_database/local_data_purge_service.dart';
 import '../core/preferences/font_preferences.dart';
 import '../core/storage/session_store.dart';
@@ -219,7 +220,7 @@ class ContextScreen extends ConsumerWidget {
                   child: ListTile(
                       title: Text(item.schoolName),
                       subtitle: Text(
-                          '${item.role} • ${item.academicYearName ?? ''}${item.isHistorical ? ' • تاريخي' : ''}'),
+                          '${roleLabel(item.role)} • ${item.academicYearName ?? ''}${item.isHistorical ? ' • تاريخي — للقراءة فقط' : ''}'),
                       trailing: const Icon(Icons.chevron_left),
                       onTap: () => ref
                           .read(sessionProvider.notifier)

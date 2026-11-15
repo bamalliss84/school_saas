@@ -1,29 +1,32 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '../pages/LoginPage';
 import { ContextSelectionPage } from '../pages/ContextSelectionPage';
-import { DashboardPage } from '../pages/DashboardPage';
-import { SystemStatesShowcasePage } from '../pages/SystemStatesShowcasePage';
-import { ResponsiveSystemShowcasePage } from '../pages/ResponsiveSystemShowcasePage';
 import { UnauthorizedPage } from '../pages/UnauthorizedPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { AppShell } from '../components/layout/AppShell';
 import { AuthGuard } from './AuthGuard';
 import { SchoolAdminGuard } from './SchoolAdminGuard';
 import { ContextGuard } from './ContextGuard';
-import { ClassesPage } from '../pages/ClassesPage';
-import { SubjectsPage } from '../pages/SubjectsPage';
-import { AcademicPeriodsPage } from '../pages/AcademicPeriodsPage';
-import { StudentsPage } from '../pages/StudentsPage';
-import { TeachersPage } from '../pages/TeachersPage';
-import { ParentsPage } from '../pages/ParentsPage';
-import { ExamsPage } from '../pages/ExamsPage';
-import { OperationsPage } from '../pages/OperationsPage';
 import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages';
 import { PrivacyPage, TermsPage } from '../pages/LegalPages';
-import { FeesPage } from '../pages/FeesPage';
-import { SubscriptionPage } from '../pages/SubscriptionPage';
-import { PlatformPage } from '../pages/PlatformPage';
+
+// Shell pages are split per route; AppShell wraps the outlet in Suspense.
+const DashboardPage = lazy(() => import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const SystemStatesShowcasePage = lazy(() => import('../pages/SystemStatesShowcasePage').then((m) => ({ default: m.SystemStatesShowcasePage })));
+const ResponsiveSystemShowcasePage = lazy(() => import('../pages/ResponsiveSystemShowcasePage').then((m) => ({ default: m.ResponsiveSystemShowcasePage })));
+const ClassesPage = lazy(() => import('../pages/ClassesPage').then((m) => ({ default: m.ClassesPage })));
+const SubjectsPage = lazy(() => import('../pages/SubjectsPage').then((m) => ({ default: m.SubjectsPage })));
+const AcademicPeriodsPage = lazy(() => import('../pages/AcademicPeriodsPage').then((m) => ({ default: m.AcademicPeriodsPage })));
+const StudentsPage = lazy(() => import('../pages/StudentsPage').then((m) => ({ default: m.StudentsPage })));
+const TeachersPage = lazy(() => import('../pages/TeachersPage').then((m) => ({ default: m.TeachersPage })));
+const ParentsPage = lazy(() => import('../pages/ParentsPage').then((m) => ({ default: m.ParentsPage })));
+const ExamsPage = lazy(() => import('../pages/ExamsPage').then((m) => ({ default: m.ExamsPage })));
+const OperationsPage = lazy(() => import('../pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
+const FeesPage = lazy(() => import('../pages/FeesPage').then((m) => ({ default: m.FeesPage })));
+const SubscriptionPage = lazy(() => import('../pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage })));
+const PlatformPage = lazy(() => import('../pages/PlatformPage').then((m) => ({ default: m.PlatformPage })));
+const ChangePasswordPage = lazy(() => import('../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })));
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -115,6 +118,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/fees/*" element={<FeesPage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/platform" element={<PlatformPage />} />
+        <Route path="/account/password" element={<ChangePasswordPage />} />
       </Route>
 
       {/* 404 Fallback */}

@@ -366,4 +366,27 @@ class ParentConversationsController
       );
     }
   }
+
+  Future<List<ParentTeacherOption>> teachersFor(int childId) =>
+      repository.teachersFor(childId);
+
+  Future<void> startWithTeacher(
+      int childId, ParentTeacherOption teacher, String subject) async {
+    if (historical || subject.trim().isEmpty) return;
+    final current = state;
+    if (current is! ParentConversationsReady || current.busy) return;
+    state = current.copyWith(busy: true, clearError: true);
+    try {
+      state = ParentConversationsReady(await repository.startWithTeacher(scope,
+          childId: childId,
+          assignmentId: teacher.assignmentId,
+          subject: subject.trim()));
+    } catch (error) {
+      state = current.copyWith(
+        busy: false,
+        detailError: failureMessage(error, 'تعذر بدء المحادثة مع المعلم.'),
+      );
+    }
+  }
 }
+

@@ -6,6 +6,25 @@ import '../../../../core/local_database/app_database.dart';
 import '../../../../core/offline/offline_error_policy.dart';
 import '../domain/parent_communication_models.dart';
 
+/// A teacher of the selected child, resolved by the server from current assignments.
+class ParentTeacherOption {
+  const ParentTeacherOption({
+    required this.name,
+    required this.subject,
+    required this.assignmentId,
+  });
+  final String name;
+  final String subject;
+  final int assignmentId;
+
+  factory ParentTeacherOption.fromJson(Map<String, dynamic> json) =>
+      ParentTeacherOption(
+        name: '${json['display_name'] ?? ''}',
+        subject: '${json['subject'] ?? ''}',
+        assignmentId: (json['teacher_assignment_id'] as num).toInt(),
+      );
+}
+
 class ParentNotificationData {
   const ParentNotificationData(this.items, this.lastUpdated,
       {this.offline = false});
@@ -197,6 +216,39 @@ class ParentCommunicationsRepository {
       'conversation_type': 'school_support',
       'subject': subject,
       'category': category,
+      'priority': 'normal',
+    });
+    final canonical = ParentConversation.fromJson(
+        Map<String, dynamic>.from(response.data as Map));
+    final current = await readConversations(scope);
+    final rows = [
+      canonical,
+      ...?current?.items.where((e) => e.id != canonical.id)
+    ];
+    return _saveConversations(scope, rows);
+  }
+
+  Future<List<ParentTeacherOption>> teachersFor(int childId) async {
+    final response = await dio.get<dynamic>('communication/recipient-options/',
+        queryParameters: {'student_id': childId});
+    final data = response.data;
+    final rows = data is Map ? data['results'] as List? ?? const [] : const [];
+    return [
+      for (final row in rows)
+        if (row is Map && row['role'] == 'teacher')
+          ParentTeacherOption.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Future<ParentConversationData> startWithTeacher(CacheScope scope,
+      {required int childId,
+      required int assignmentId,
+      required String subject}) async {
+    final response = await dio.post<dynamic>('conversations/start/', data: {
+      'conversation_type': 'teacher_parent',
+      'subject': subject,
+      'student_id': childId,
+      'teacher_assignment_id': assignmentId,
       'priority': 'normal',
     });
     final canonical = ParentConversation.fromJson(

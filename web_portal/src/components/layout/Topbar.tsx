@@ -7,7 +7,9 @@ import {
   Search,
   User as UserIcon,
   Menu,
+  KeyRound,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context';
 
 interface TopbarProps {
@@ -22,6 +24,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileSidebar }) => {
     setShowContextModal,
   } = useAuth();
 
+  const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -179,6 +182,18 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleMobileSidebar }) => {
               >
                 <UserIcon size={16} />
                 <span>الملف الشخصي</span>
+              </button>
+
+              <button
+                className="topbar-user-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  navigate('/account/password');
+                }}
+              >
+                <KeyRound size={16} />
+                <span>تغيير كلمة المرور</span>
               </button>
 
               <button

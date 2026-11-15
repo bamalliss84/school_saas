@@ -411,7 +411,17 @@ class DailyAttendanceReportAPIView(APIView):
         query.is_valid(raise_exception=True)
         params = query.validated_data
         report_date = params.get('date') or timezone.localdate()
-        summary_records = get_attendance_queryset_for_user(request.user).filter(
+        # Canonical active context first; the legacy user fields are only the shared
+        # compatibility fallback (same rule as core.selectors and IsActiveSchoolUser).
+        role = getattr(request, 'active_role', None) or getattr(request.user, 'role', None)
+        active_school = getattr(request, 'active_school', None)
+        if active_school is None and role != 'super_admin':
+            active_school = getattr(request.user, 'school', None)
+        active_year = (
+            getattr(request, 'active_academic_year', None)
+            or getattr(request.user, 'academic_year', None)
+        )
+        summary_records = get_attendance_queryset_for_user(request.user, request=request).filter(
             attendance_date=report_date,
         )
         assignment_id = params.get('teacher_assignment_id')
@@ -419,13 +429,11 @@ class DailyAttendanceReportAPIView(APIView):
         section_id = params.get('section_id')
         status_filter = params.get('status')
 
-        assignments = get_teacher_assignments_for_user(request.user)
-        if request.user.role == 'teacher':
+        assignments = get_teacher_assignments_for_user(request.user, request=request)
+        if role == 'teacher':
             assignments = assignments.filter(is_current=True)
-            if request.user.academic_year_id:
-                assignments = assignments.filter(
-                    academic_year_id=request.user.academic_year_id,
-                )
+            if active_year is not None:
+                assignments = assignments.filter(academic_year_id=active_year.id)
         if assignment_id:
             assignments = assignments.filter(pk=assignment_id)
             if not assignments.exists():
@@ -445,7 +453,7 @@ class DailyAttendanceReportAPIView(APIView):
         expected = StudentEnrollment.objects.filter(
             status='active', is_current=True,
         )
-        if assignment_id or request.user.role == 'teacher':
+        if assignment_id or role == 'teacher':
             if classroom_id:
                 assignments = assignments.filter(classroom_id=classroom_id)
             if section_id:
@@ -466,13 +474,13 @@ class DailyAttendanceReportAPIView(APIView):
                 if not scope
                 else expected.filter(scope)
             )
-            if request.user.role == 'teacher':
+            if role == 'teacher':
                 summary_records = summary_records.filter(
                     teacher_assignment_id__in=assignment_ids,
                 )
         else:
-            if request.user.role == 'school_admin':
-                expected = expected.filter(school_id=request.user.school_id)
+            if active_school is not None:
+                expected = expected.filter(school_id=active_school.id)
             if classroom_id:
                 expected = expected.filter(classroom_id=classroom_id)
             if section_id:

@@ -22,6 +22,8 @@ abstract interface class TeacherCommunicationsDataSource {
   Future<TeacherConversation> startStudentConversation(
     TeacherStudentConversationDraft draft,
   );
+  Future<List<TeacherParentOption>> parentOptions(
+      {required int studentId, required int assignmentId});
 }
 
 class TeacherCommunicationsRepository
@@ -151,6 +153,22 @@ class TeacherCommunicationsRepository
       data: draft.toJson(),
     );
     return TeacherConversation.fromJson(response.data!);
+  }
+
+  @override
+  Future<List<TeacherParentOption>> parentOptions(
+      {required int studentId, required int assignmentId}) async {
+    final response = await dio.get<dynamic>(
+      'communication/recipient-options/',
+      queryParameters: {
+        'student_id': studentId,
+        'teacher_assignment_id': assignmentId,
+      },
+    );
+    return [
+      for (final row in _rows(response.data))
+        if (row['role'] == 'parent') TeacherParentOption.fromJson(row),
+    ];
   }
 }
 

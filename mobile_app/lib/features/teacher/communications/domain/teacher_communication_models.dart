@@ -254,16 +254,51 @@ class TeacherStudentConversationDraft {
     required this.assignmentId,
     required this.studentId,
     required this.subject,
+    this.parentRecipientRef,
   });
 
   final int assignmentId;
   final int studentId;
   final String subject;
 
+  /// Signed server reference for one guardian (from safe discovery). When set,
+  /// a private teacher_parent conversation is created instead of teacher_student.
+  final String? parentRecipientRef;
+
   Map<String, dynamic> toJson() => {
-        'conversation_type': 'teacher_student',
+        'conversation_type':
+            parentRecipientRef == null ? 'teacher_student' : 'teacher_parent',
         'teacher_assignment_id': assignmentId,
         'student_id': studentId,
         'subject': subject,
+        if (parentRecipientRef != null) 'recipient_ref': parentRecipientRef,
       };
+}
+
+/// A guardian of a taught student, resolved by the server (never free search).
+class TeacherParentOption {
+  const TeacherParentOption({
+    required this.name,
+    required this.relationship,
+    required this.recipientRef,
+  });
+  final String name;
+  final String relationship;
+  final String recipientRef;
+
+  String get relationshipLabel => switch (relationship) {
+        'father' => 'الأب',
+        'mother' => 'الأم',
+        'brother' => 'الأخ',
+        'sister' => 'الأخت',
+        'guardian' => 'ولي الأمر',
+        _ => 'ولي أمر',
+      };
+
+  factory TeacherParentOption.fromJson(Map<String, dynamic> json) =>
+      TeacherParentOption(
+        name: '${json['display_name'] ?? ''}',
+        relationship: '${json['relationship'] ?? ''}',
+        recipientRef: '${json['recipient_ref'] ?? ''}',
+      );
 }

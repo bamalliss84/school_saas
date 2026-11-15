@@ -133,14 +133,18 @@ class ReleaseOneF1GAttendanceTests(APITestCase):
         self.auth(self.teacher_user, self.teacher_m)
         self.assertEqual(self.bulk(assignment_id=self.other_assignment.pk).status_code, 400)
 
-    def test_super_admin_scope_is_documented_global(self):
-        """Documented behaviour: the shared attendance selector gives Super Admin
-        every school's records, matching the AGENTS.md rule that super_admin
-        sees all schools. Changing this needs an explicit architecture decision."""
+    def test_super_admin_inside_a_school_is_scoped_to_that_school(self):
+        """Release 1.1 decision: a Super Admin who selected a school context sees only
+        that school; the cross-school view moved to the platform owner dashboard."""
         membership = SchoolMembership.objects.create(
             user=self.super_user, school=self.school, role='super_admin', status='active', is_default=True,
         )
         self.auth(self.super_user, membership)
         response = self.client.get('/api/v1/attendance/', {'attendance_date': DAY.isoformat()})
         self.assertEqual(response.status_code, 200)
-        self.assertSetEqual({row['id'] for row in response.json()['results']}, {self.record.pk, self.foreign.pk})
+        self.assertSetEqual({row['id'] for row in response.json()['results']}, {self.record.pk})
+        daily = self.client.get('/api/v1/attendance/daily/', {'date': DAY.isoformat()})
+        self.assertEqual(daily.status_code, 200, daily.content)
+        daily_ids = {row['id'] for row in daily.json()['records']}
+        self.assertIn(self.record.pk, daily_ids)
+        self.assertNotIn(self.foreign.pk, daily_ids)

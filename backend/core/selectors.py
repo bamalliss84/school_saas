@@ -105,7 +105,8 @@ def get_teacher_assignments_for_user(user, request=None):
     school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
 
     if role == 'super_admin':
-        return queryset
+        active_school = getattr(request, 'active_school', None)
+        return queryset.filter(school=active_school) if active_school is not None else queryset
     if not school:
         return queryset.none()
     queryset = queryset.filter(school=school)
@@ -152,6 +153,11 @@ def get_attendance_queryset_for_user(user, request=None):
     school = getattr(request, 'active_school', None) or getattr(user, 'school', None)
 
     if role == 'super_admin':
+        # Release 1.1 decision: inside a selected school the Super Admin is scoped to
+        # that school; the cross-school view lives in the platform owner dashboard.
+        active_school = getattr(request, 'active_school', None)
+        if active_school is not None:
+            return queryset.filter(student_enrollment__school_id=active_school.id)
         return queryset
     if not school:
         return queryset.none()

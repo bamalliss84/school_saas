@@ -30,6 +30,12 @@ class AuthRepository {
     return '${response.data?['detail'] ?? ''}';
   }
 
+  /// Revokes every session on success; the caller must sign the user out.
+  Future<void> changePassword(String current, String next) async {
+    await _dio.post<void>('auth/password/change/',
+        data: {'current_password': current, 'new_password': next});
+  }
+
   Future<String?> storedAccessToken() => _store.readAccessToken();
   Future<String?> storedRefreshToken() => _store.readRefreshToken();
   Future<void> clearLocalSession() => _store.clear();
