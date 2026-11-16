@@ -5,6 +5,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Store signing: android/key.properties (never committed, see docs/STORE_RELEASE.md)
+// holds storeFile, storePassword, keyAlias and keyPassword for the upload key.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def hasUploadKey = keystorePropertiesFile.exists()
+if (hasUploadKey) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.schoolsaas.school_saas_mobile"
     compileSdk = 35
@@ -20,21 +29,36 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Store identity: permanent after the first upload to Google Play.
+        // Confirm the final value before that upload (docs/STORE_RELEASE.md).
         applicationId = "com.schoolsaas.school_saas_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasUploadKey) {
+            release {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = file(keystoreProperties["storeFile"])
+                storePassword = keystoreProperties["storePassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            if (hasUploadKey) {
+                signingConfig = signingConfigs.release
+            } else {
+                // Local `flutter run --release` only. Google Play rejects debug-signed
+                // bundles, so a store build always needs android/key.properties.
+                logger.warn("android/key.properties not found: release build is signed with the DEBUG key and cannot be uploaded to Google Play.")
+                signingConfig = signingConfigs.debug
+            }
         }
     }
 }

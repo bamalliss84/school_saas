@@ -1,5 +1,30 @@
 # Latest Report
 
+## 2026-11-16 (update 2) — Preparing the app for the stores
+
+**Real bug fixed:** the main Android manifest didn't declare the internet permission (Flutter adds it in debug builds only). A store build could not have connected to the server at all.
+
+**What was done (all in `mobile_app`):**
+- `android/app/build.gradle`: release signing comes from `android/key.properties` (already ignored by git, as are `*.jks`). Without that file the build uses the debug key and prints a clear warning. The default Flutter TODO comments were removed.
+- `AndroidManifest.xml`:
+  - internet permission;
+  - name taken from `strings.xml`: "بوابة المدرسة" (temporary);
+  - `allowBackup=false`;
+  - unencrypted traffic blocked.
+- Debug build only: plain HTTP allowed to `10.0.2.2`, `localhost` and `127.0.0.1` (`network_security_config_debug.xml`).
+- `AppEnvironment.releaseProblem` and `bootstrap.dart`: a store build with a server address that isn't HTTPS, or that points to a local server, won't start and shows a clear Arabic message instead of sending data.
+- iOS: display name "بوابة المدرسة". Version `1.1.0+2`.
+- New guide: `docs/STORE_RELEASE.md`. It covers creating the signing key, building, Play requirements (privacy, Data safety, review account), and what is waiting on the owner.
+
+**Tests:** `test/app_environment_test.dart` (3 tests).
+
+**Verification:**
+- Flutter: **238 tests ✓**; analyze shows 19 notes, all pre-existing.
+- A real release APK build ✓ (28.5MB). Inspected with `aapt`: package `com.schoolsaas.school_saas_mobile`, versionCode 2, internet permission present, Arabic name, `allowBackup=0`, `usesCleartextTraffic=0`.
+- Backend: check ✓, makemigrations --check ✓. No backend code changed after the last full run (848 OK).
+
+**Waiting on the owner:** the final app ID (it can't be changed after the first upload), the product name, the logo (for the icon and splash screen), the server address, and Google Play and Apple accounts.
+
 ## 2026-11-16 — Error monitoring (email alerts)
 
 **Decision:** `sentry-sdk` isn't installed, and adding it is a new external dependency I can't test here. I used email alerts through the SMTP that already exists instead. They turn on only when `ERROR_ALERT_EMAILS` is set, and Sentry can be added later.

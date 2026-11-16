@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Name under the app icon. Temporary until the final product name is chosen. -->
+    <string name="app_name">بوابة المدرسة</string>
+</resources>
