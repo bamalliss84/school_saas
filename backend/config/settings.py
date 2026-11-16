@@ -216,6 +216,11 @@ SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
 
 # Logging
 LOG_LEVEL = os.environ.get('DJANGO_LOG_LEVEL', 'DEBUG' if DEBUG else 'INFO')
+
+# Optional error alerts by email (core.monitoring). Off unless recipients are set.
+# Alerts carry no personal data; the same error is sent at most once per throttle window.
+ERROR_ALERT_EMAILS = env_list('ERROR_ALERT_EMAILS', '')
+ERROR_ALERT_THROTTLE_SECONDS = env_int('ERROR_ALERT_THROTTLE_SECONDS', 600)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -230,10 +235,14 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'standard',
         },
+        'error_alerts': {
+            'class': 'core.monitoring.ErrorAlertEmailHandler',
+            'level': 'ERROR',
+        },
     },
     'loggers': {
         'django.request': {
-            'handlers': ['console'],
+            'handlers': ['console', 'error_alerts'],
             'level': 'WARNING',
             'propagate': False,
         },
@@ -248,7 +257,7 @@ LOGGING = {
             'propagate': False,
         },
         'core': {
-            'handlers': ['console'],
+            'handlers': ['console', 'error_alerts'],
             'level': LOG_LEVEL,
             'propagate': False,
         },

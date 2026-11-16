@@ -1,5 +1,31 @@
 # Latest Report
 
+## 2026-11-16 — Error monitoring (email alerts)
+
+**Decision:** `sentry-sdk` isn't installed, and adding it is a new external dependency I can't test here. I used email alerts through the SMTP that already exists instead. They turn on only when `ERROR_ALERT_EMAILS` is set, and Sentry can be added later.
+
+**What was done:**
+- `core/monitoring.py`: a logging handler that sends a short email for every server error.
+  - Contents: error type, method and path (without the query string), and the code location (file, line, function).
+  - It never includes the error message, the request body, headers, cookies, variables or any user data.
+  - The same error is sent at most once every `ERROR_ALERT_THROTTLE_SECONDS` (default 10 minutes).
+  - A mail failure never breaks the request.
+- Linked to `django.request` and `core` in `settings.py`. The duplicate record Django logs for every 5xx response is ignored.
+- `api_exceptions.py`: unhandled API errors are now logged with the request, so the alert shows the path.
+- `run_billing_jobs`: a failure is logged (so an alert is sent), and the job still exits with a failure code.
+- `.env.production.example` and `docs/DEPLOYMENT.md` updated.
+
+**Tests:** `core/test_r11_monitoring.py` has 9 tests:
+- off by default;
+- an alert with no personal data (name, ID number, token, query and body are all checked);
+- throttling, and disabling it;
+- no alert for warnings or 404;
+- a mail server failure doesn't break anything;
+- an API 500 sends exactly one alert with the path;
+- a billing job failure is alerted and the job still fails.
+
+**Verification:** check ✓, makemigrations --check ✓ (no migration), ruff ✓, and the settings load in production mode. Full backend: **848 tests OK**.
+
 ## 2026-11-15 (update 4) — Automatic daily jobs and backups
 
 **What was added to `docker-compose.prod.yml` (no crontab needed on the server):**

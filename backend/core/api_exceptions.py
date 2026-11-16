@@ -29,6 +29,7 @@ def api_exception_handler(exc, context):
             'Unhandled API exception in %s',
             context.get('view').__class__.__name__ if context.get('view') else 'unknown',
             exc_info=exc,
+            extra={'request': context.get('request'), 'status_code': 500},
         )
         return Response({
             'success': False,
