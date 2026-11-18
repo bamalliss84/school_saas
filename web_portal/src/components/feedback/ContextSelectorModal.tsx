@@ -189,6 +189,7 @@ export const ContextSelectorModal: React.FC = () => {
               <input
                 type="text"
                 placeholder="بحث عن مدرسة أو عام دراسي..."
+                aria-label="بحث عن مدرسة أو عام دراسي"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{

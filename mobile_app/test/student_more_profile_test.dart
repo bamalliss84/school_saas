@@ -219,7 +219,7 @@ void main() {
     await tester.pumpWidget(app(StudentAboutScreen(
       onBack: () => backed = true,
     )));
-    await tester.tap(find.byIcon(Icons.arrow_forward));
+    await tester.tap(find.byTooltip('رجوع'));
     expect(backed, isTrue);
   });
 

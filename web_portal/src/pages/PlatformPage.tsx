@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, CardTitle, ResponsiveTable } from '../components/ui';
+import { Badge, Button, Card, CardHeader, ResponsiveTable } from '../components/ui';
 import { EmptyState, LoadingSpinner } from '../components/feedback';
 import { useAuth } from '../context';
 import { Kpi } from './FeesPage';
@@ -364,7 +364,7 @@ export const PlatformPage: React.FC = () => {
     <div style={{ display: 'grid', gap: '1rem' }}>
       <Card>
         <CardHeader>
-          <CardTitle>إدارة المنصة والاشتراكات</CardTitle>
+          <h1 className="card-title">إدارة المنصة والاشتراكات</h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '.9rem' }}>الباقات، اشتراكات المدارس، الفواتير والتحصيل اليدوي.</p>
         </CardHeader>
         <div role="tablist" aria-label="أقسام المنصة" style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', padding: '0 1rem 1rem' }}>

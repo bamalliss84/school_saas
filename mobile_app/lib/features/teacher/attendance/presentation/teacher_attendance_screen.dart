@@ -411,7 +411,7 @@ class _AttendanceHeader extends StatelessWidget {
           IconButton(
             tooltip: 'رجوع',
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_forward),
+            icon: const Icon(Icons.arrow_back),
           ),
           Expanded(
             child: Text('تسجيل الحضور',

@@ -211,7 +211,7 @@ class ResultDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.x4),
         children: [
           Row(children: [
-            IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+            IconButton(tooltip: 'رجوع', onPressed: onBack, icon: const Icon(Icons.arrow_back)),
             Expanded(
                 child: Text('تفاصيل النتيجة',
                     style: Theme.of(context).textTheme.headlineMedium)),

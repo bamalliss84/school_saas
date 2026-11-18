@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Receipt, Trash2, Wallet } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, CardTitle, ResponsiveTable } from '../components/ui';
+import { Badge, Button, Card, CardHeader, ResponsiveTable } from '../components/ui';
 import { EmptyState, LoadingSpinner } from '../components/feedback';
 import { useAuth } from '../context';
 import { useStableToast } from '../hooks/useStableToast';
@@ -589,7 +589,7 @@ export const FeesPage: React.FC = () => {
     <div style={{ display: 'grid', gap: '1rem' }}>
       <Card>
         <CardHeader>
-          <CardTitle>الرسوم المدرسية</CardTitle>
+          <h1 className="card-title">الرسوم المدرسية</h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '.9rem' }}>
             إصدار الرسوم والأقساط، تسجيل الدفعات يدويًا، ومتابعة المتأخرات. يرى ولي الأمر المخوّل ماليًا ملخص رسوم أبنائه في التطبيق.
           </p>

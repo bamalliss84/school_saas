@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Card, CardHeader, CardTitle } from '../components/ui';
+import { Button, Card, CardHeader } from '../components/ui';
 import { useAuth } from '../context';
 import { authService } from '../services/authService';
 
@@ -46,7 +46,7 @@ export const ChangePasswordPage: React.FC = () => {
 
   return (
     <Card style={{ maxWidth: 520 }}>
-      <CardHeader><CardTitle>تغيير كلمة المرور</CardTitle></CardHeader>
+      <CardHeader><h1 className="card-title">تغيير كلمة المرور</h1></CardHeader>
       <div style={{ padding: '0 1rem 1rem' }}>
         {done ? (
           <div style={{ display: 'grid', gap: '.75rem' }}>

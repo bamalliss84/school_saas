@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -12,6 +12,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, leftIcon, rightIcon, endAdornment, className = '', id, style, ...props }, ref) => {
     const inputId = id || (label ? `input-${label.replace(/\s+/g, '-').toLowerCase()}` : undefined);
+    const autoId = useId();
+    const messageId = `${inputId || autoId}-message`;
+    // Without a visible label the placeholder is the field's accessible name, so a
+    // screen reader still announces search boxes and other label-less inputs.
+    const ariaLabel = props['aria-label'] ?? (label ? undefined : props.placeholder);
 
     const hasEndContent = Boolean(leftIcon || endAdornment);
     const hasStartContent = Boolean(rightIcon);
@@ -50,6 +55,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               ...style,
             }}
             {...props}
+            aria-label={ariaLabel}
+            aria-invalid={error ? true : props['aria-invalid']}
+            aria-describedby={error || hint ? messageId : props['aria-describedby']}
           />
           {hasEndContent && (
             <div
@@ -67,8 +75,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
         </div>
-        {error && <span className="form-error">{error}</span>}
-        {hint && !error && <span className="form-hint">{hint}</span>}
+        {error && <span id={messageId} className="form-error" role="alert">{error}</span>}
+        {hint && !error && <span id={messageId} className="form-hint">{hint}</span>}
       </div>
     );
   }

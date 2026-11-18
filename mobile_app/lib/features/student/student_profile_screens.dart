@@ -322,7 +322,7 @@ class _NestedPage extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.x4),
       child: Column(children: [
         Row(children: [
-          IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_forward)),
+          IconButton(tooltip: 'رجوع', onPressed: onBack, icon: const Icon(Icons.arrow_back)),
           Expanded(
               child:
                   Text(title, style: Theme.of(context).textTheme.headlineSmall))

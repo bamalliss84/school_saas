@@ -249,7 +249,7 @@ class _StudentHomeworkDetailScreenState
       padding: const EdgeInsets.all(AppSpacing.x4),
       children: [
         Row(children: [
-          IconButton(
+          IconButton(tooltip: 'رجوع', 
               onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
           Expanded(
             child: Text('تفاصيل الواجب',

@@ -45,7 +45,7 @@ class _TeacherCommunicationsScreenState
             padding: const EdgeInsets.fromLTRB(8, 10, 16, 8),
             child: Row(
               children: [
-                IconButton(
+                IconButton(tooltip: 'رجوع', 
                   onPressed: widget.onBack,
                   icon: const Icon(Icons.arrow_back),
                 ),
@@ -769,7 +769,7 @@ class _ConversationScreenState extends ConsumerState<_ConversationScreen> {
                             const InputDecoration(hintText: 'اكتب رسالة...'),
                       ),
                     ),
-                    IconButton(
+                    IconButton(tooltip: 'إرسال', 
                       onPressed: state.sending ? null : _send,
                       icon: state.sending
                           ? const SizedBox.square(

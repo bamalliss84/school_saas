@@ -268,7 +268,7 @@ class _RoleShellState extends ConsumerState<RoleShell> {
     };
     return Scaffold(
         appBar: AppBar(title: Text(school?.schoolName ?? 'مدرستي'), actions: [
-          IconButton(
+          IconButton(tooltip: 'تسجيل الخروج', 
               onPressed: () => ref.read(sessionProvider.notifier).logout(),
               icon: const Icon(Icons.logout))
         ]),

@@ -759,8 +759,8 @@ class AppearanceSettings extends ConsumerWidget {
       children: [
         Row(children: [
           if (onBack != null)
-            IconButton(
-                onPressed: onBack, icon: const Icon(Icons.arrow_forward)),
+            IconButton(tooltip: 'رجوع', 
+                onPressed: onBack, icon: const Icon(Icons.arrow_back)),
           Expanded(
               child: Text('إعدادات المظهر',
                   style: Theme.of(context).textTheme.headlineMedium)),

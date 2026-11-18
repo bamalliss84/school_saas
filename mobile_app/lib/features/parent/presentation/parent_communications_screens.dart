@@ -568,7 +568,7 @@ class _ParentConversationDetailScreenState
                               const InputDecoration(hintText: 'اكتب رسالة...'),
                         ),
                       ),
-                      IconButton(
+                      IconButton(tooltip: 'إرسال', 
                         onPressed: widget.busy ? null : widget.onSend,
                         icon: widget.busy
                             ? const SizedBox.square(

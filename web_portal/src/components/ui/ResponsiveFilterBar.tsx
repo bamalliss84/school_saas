@@ -46,6 +46,7 @@ export const ResponsiveFilterBar: React.FC<ResponsiveFilterBarProps> = ({
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder || 'بحث'}
             className="form-input"
             style={{ paddingRight: '2rem', height: '36px', fontSize: '0.8125rem' }}
           />

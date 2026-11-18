@@ -31,7 +31,7 @@ export const SubscriptionPage: React.FC = () => {
     <div style={{ display: 'grid', gap: '1rem' }}>
       <Card>
         <CardHeader>
-          <CardTitle>اشتراك المدرسة في المنصة</CardTitle>
+          <h1 className="card-title">اشتراك المدرسة في المنصة</h1>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '.9rem' }}>
             تُدار الباقات والفواتير من إدارة المنصة. هذه الصفحة للاطلاع فقط.
           </p>

@@ -383,7 +383,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
               IconButton(
                 tooltip: 'رجوع',
                 onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_forward),
+                icon: const Icon(Icons.arrow_back),
               ),
             Expanded(
               child: Text('جدولي',

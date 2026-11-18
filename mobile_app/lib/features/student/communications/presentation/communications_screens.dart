@@ -38,7 +38,7 @@ class _StudentCommunicationsCenterState
         : widget.data.notifications;
     return ListView(padding: const EdgeInsets.all(AppSpacing.x4), children: [
       Row(children: [
-        IconButton(
+        IconButton(tooltip: 'رجوع', 
             onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
         Expanded(
             child: Text(tab == 0 ? 'الإشعارات' : 'الإعلانات',
@@ -151,7 +151,7 @@ class StudentAnnouncementDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.x4),
         children: [
           Row(children: [
-            IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+            IconButton(tooltip: 'رجوع', onPressed: onBack, icon: const Icon(Icons.arrow_back)),
             Expanded(
               child: Text('الإعلان',
                   style: Theme.of(context).textTheme.titleLarge),
@@ -450,7 +450,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
       Padding(
           padding: const EdgeInsets.all(AppSpacing.x3),
           child: Row(children: [
-            IconButton(
+            IconButton(tooltip: 'رجوع', 
                 onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
             Expanded(
                 child: Text(widget.conversation.subject,
@@ -572,7 +572,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
           child: Padding(
               padding: const EdgeInsets.all(AppSpacing.x3),
               child: Row(children: [
-                IconButton(
+                IconButton(tooltip: 'إرفاق ملف', 
                     onPressed: canSend
                         ? () async {
                             final selected = await openFiles();
@@ -593,7 +593,7 @@ class _ConversationDetailScreenState extends State<ConversationDetailScreen> {
                             hintText: widget.offline
                                 ? 'يتطلب الإرسال اتصالاً بالإنترنت'
                                 : 'اكتب رسالتك...'))),
-                IconButton(
+                IconButton(tooltip: 'إرفاق ملف', 
                     onPressed: canSend
                         ? () async {
                             final text = controller.text;

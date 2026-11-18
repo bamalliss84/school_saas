@@ -1,5 +1,30 @@
 # Latest Report
 
+## 2026-11-18 — UX and accessibility review
+
+**Method:** an automated audit of all 19 web pages in the browser (as school admin), plus a code scan of the web and app source.
+
+**Web — findings and fixes:**
+- **Search boxes and filter dropdowns without a label** on about 10 pages. A screen reader announced them as just "edit field".
+  - The shared `Input` component now uses the placeholder as the accessible name when there is no visible label. It also links the error or hint message to the field (`aria-describedby`), marks the field `aria-invalid`, and the error message uses `role="alert"`.
+  - Clear names were added to 19 standalone fields in `OperationsPage` (timetable, attendance, homework, announcements, messages, data), `StudentsPage`, `ResponsiveFilterBar` and `ContextSelectorModal`.
+- **Pages without a main heading (h1):** fees, subscription, change password, and the platform page. They now use h1, with the same look (18px).
+- Rerunning the audit: every page has one h1, and there are 0 unnamed fields and 0 unnamed buttons. The page language and direction (`lang=ar`, `dir=rtl`) are correct.
+- Test added: `InputA11y.test.tsx` (5 tests).
+
+**App — findings and fixes:**
+- 13 icon buttons (back, send, attach file, sign out) had no description. They now have Arabic `tooltip`s, which screen readers also read.
+- **The back arrow pointed the wrong way** on 6 screens: `Icons.arrow_forward` mirrors in Arabic and points left. I confirmed in the Flutter source that both icons mirror (`matchTextDirection: true`), so I standardized on `arrow_back`, the same as `BackButton`.
+- Updated one test to find the back button by its tooltip instead of its icon.
+
+**Development environment (not a code bug):** after a restart, Windows reserved ports 8000 and 5173 (ranges 7974–8073 and 5141–5240). I didn't change any system settings. The Vite dev port and proxy target can now be set through `VITE_DEV_PORT` and `VITE_API_PROXY_TARGET`, and the defaults are unchanged.
+
+**Verification:**
+- Web: typecheck ✓, lint ✓, **178 tests ✓**, build ✓.
+- Flutter: **238 tests ✓**; analyze shows 19 notes, all pre-existing.
+- Backend: check ✓, makemigrations --check ✓; no backend code changed.
+- Servers were stopped after the audit.
+
 ## 2026-11-16 (update 2) — Preparing the app for the stores
 
 **Real bug fixed:** the main Android manifest didn't declare the internet permission (Flutter adds it in debug builds only). A store build could not have connected to the server at all.
