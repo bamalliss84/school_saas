@@ -13,6 +13,7 @@ from core.models import (
     Homework, HomeworkActionLog, HomeworkAttachment, HomeworkSubmission,
     HomeworkSubmissionAttachment,
 )
+from core.context import request_role, request_school
 from core.selectors import user_can_manage_teacher_assignment
 from core.services.exam_results import request_audit_metadata
 
@@ -65,10 +66,16 @@ def _audit(*, school_id, actor, action, entity_type, entity_id, request=None,
     )
 
 
-def _can_administer_school(user, school_id):
-    return user.role == 'super_admin' or (
-        user.role == 'school_admin' and user.school_id == school_id
-    )
+def _can_administer_school(user, school_id, request=None):
+    if request is None:  # service callers without an HTTP request (legacy pointer)
+        return user.role == 'super_admin' or (
+            user.role == 'school_admin' and user.school_id == school_id
+        )
+    role = request_role(request)
+    school = request_school(request)
+    if role == 'super_admin':
+        return school is None or school.pk == school_id
+    return role == 'school_admin' and school is not None and school.pk == school_id
 
 
 def _can_manage_homework(user, homework, request=None):
@@ -535,7 +542,7 @@ def delete_submission_attachment(*, attachment, actor, request=None):
         'submission__student_enrollment__student', 'submission__homework',
     ).get(pk=attachment.pk)
     submission = item.submission
-    allowed_admin = _can_administer_school(actor, submission.homework.school_id)
+    allowed_admin = _can_administer_school(actor, submission.homework.school_id, request=request)
     if not allowed_admin and not _student_owns(actor, submission.student_enrollment):
         raise PermissionDenied('You cannot delete this attachment.')
     if not allowed_admin and (

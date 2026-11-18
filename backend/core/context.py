@@ -159,6 +159,37 @@ def get_active_role(request):
     return getattr(request, 'active_role', None)
 
 
+def request_role(request):
+    """Role of the selected context.
+
+    The legacy ``user.role`` fallback is the single compatibility point for requests
+    without a resolved membership (for example ``force_authenticate`` in tests).
+    """
+    role = getattr(request, 'active_role', None)
+    return role or getattr(getattr(request, 'user', None), 'role', None)
+
+
+def request_school(request):
+    """School of the selected context, or None for a platform-wide super_admin.
+
+    A super_admin who selected a school is scoped to it; without a selection the
+    platform owner is global. Other roles fall back to the legacy pointer only when
+    no membership was resolved.
+    """
+    school = getattr(request, 'active_school', None)
+    if school is not None:
+        return school
+    if request_role(request) == 'super_admin':
+        return None
+    return getattr(getattr(request, 'user', None), 'school', None)
+
+
+def request_academic_year(request):
+    """Academic year of the selected context (legacy fallback as in request_role)."""
+    year = getattr(request, 'active_academic_year', None)
+    return year or getattr(getattr(request, 'user', None), 'academic_year', None)
+
+
 def require_writable_context(request):
     membership = get_active_membership(request)
     if membership and membership.status == 'historical':

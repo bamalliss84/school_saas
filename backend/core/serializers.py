@@ -295,7 +295,8 @@ class StudentDetailSerializer(StudentListSerializer):
     @extend_schema_field(GuardianSerializer(many=True))
     def get_guardians(self, obj):
         request = self.context.get('request')
-        if request is None or request.user.role == 'student':
+        from .context import request_role
+        if request is None or request_role(request) == 'student':
             return []
         return GuardianSerializer(obj.guardians.all(), many=True).data
 

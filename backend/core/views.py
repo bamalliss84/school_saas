@@ -22,6 +22,7 @@ from .models import (
     Teacher,
     TeacherAssignment,
 )
+from .context import request_academic_year, request_role, request_school
 from .mixins import SchoolQuerySetMixin
 from .permissions import (
     IsActiveSchoolUser, IsAttendanceManager, IsParent, IsStudent, IsTeacher,
@@ -121,10 +122,8 @@ class StudentListAPIView(generics.ListCreateAPIView):
         if 'is_active' in self.request.query_params:
             queryset = queryset.filter(is_active=params['is_active'])
         if 'school_id' in self.request.query_params:
-            if (
-                self.request.user.role != 'super_admin'
-                and params['school_id'] != self.request.user.school_id
-            ):
+            scope_school = request_school(self.request)
+            if scope_school is not None and params['school_id'] != scope_school.pk:
                 raise ValidationError({'school_id': 'School is outside your scope.'})
             queryset = queryset.filter(school_id=params['school_id'])
 
@@ -204,11 +203,11 @@ class StudentAcademicHistoryAPIView(generics.ListAPIView):
         queryset = student.enrollments.select_related(
             'school', 'academic_year', 'classroom', 'section',
         )
-        role = getattr(self.request, 'active_role', None) or getattr(self.request.user, 'role', None)
-        active_school = getattr(self.request, 'active_school', None)
-        if role != 'super_admin':
-            school_id = active_school.pk if active_school else self.request.user.school_id
-            queryset = queryset.filter(school_id=school_id)
+        scope_school = request_school(self.request)
+        if scope_school is not None:
+            queryset = queryset.filter(school_id=scope_school.pk)
+        elif request_role(self.request) != 'super_admin':
+            return queryset.none()
         return queryset.order_by('-academic_year__start_date', '-created_at')
 
 
@@ -227,8 +226,11 @@ class ParentChildrenAPIView(generics.ListAPIView):
         enrollments = StudentEnrollment.objects.select_related(
             'school', 'academic_year', 'classroom', 'section',
         ).order_by('-is_current', '-academic_year__start_date', '-created_at')
+        scope_school = request_school(self.request)
+        if scope_school is None:
+            return StudentGuardian.objects.none()
         return StudentGuardian.objects.filter(
-            parent=parent, student__enrollments__school_id=self.request.user.school_id,
+            parent=parent, student__enrollments__school_id=scope_school.pk,
         ).distinct().select_related(
             'student', 'student__school',
         ).prefetch_related(
@@ -650,11 +652,16 @@ class ClassAttendanceSummaryAPIView(APIView):
         query = ClassAttendanceSummaryQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         params = query.validated_data
+        role = request_role(request)
+        scope_school = request_school(request)
+        active_year = request_academic_year(request)
         classrooms = Classroom.objects.select_related(
             'school', 'academic_year',
         ).filter(pk=classroom_id)
-        if request.user.role != 'super_admin':
-            classrooms = classrooms.filter(school_id=request.user.school_id)
+        if scope_school is not None:
+            classrooms = classrooms.filter(school_id=scope_school.pk)
+        elif role != 'super_admin':
+            classrooms = classrooms.none()
         classroom = classrooms.first()
         if classroom is None:
             raise NotFound('Classroom not found.')
@@ -669,21 +676,19 @@ class ClassAttendanceSummaryAPIView(APIView):
             if section is None:
                 raise NotFound('Section not found.')
 
-        assignments = get_teacher_assignments_for_user(request.user).filter(
+        assignments = get_teacher_assignments_for_user(request.user, request=request).filter(
             classroom=classroom,
         )
-        if request.user.role == 'teacher':
+        if role == 'teacher':
             assignments = assignments.filter(is_current=True)
-            if request.user.academic_year_id:
-                assignments = assignments.filter(
-                    academic_year_id=request.user.academic_year_id,
-                )
+            if active_year is not None:
+                assignments = assignments.filter(academic_year_id=active_year.pk)
         assignment_id = params.get('teacher_assignment_id')
         if section_id:
             assignments = assignments.filter(section_id=section_id)
         if assignment_id:
             assignments = assignments.filter(pk=assignment_id)
-        if request.user.role == 'teacher' and not assignments.exists():
+        if role == 'teacher' and not assignments.exists():
             raise NotFound('Classroom not found.')
         if assignment_id and not assignments.exists():
             raise NotFound('Teacher assignment not found.')
@@ -693,10 +698,10 @@ class ClassAttendanceSummaryAPIView(APIView):
         ).select_related('student', 'section')
         if section_id:
             enrollments = enrollments.filter(section_id=section_id)
-        if request.user.role == 'teacher':
+        if role == 'teacher':
             enrollments = enrollments.filter(section_id__in=assignments.values('section_id'))
 
-        records = get_attendance_queryset_for_user(request.user).filter(
+        records = get_attendance_queryset_for_user(request.user, request=request).filter(
             student_enrollment__in=enrollments,
         )
         records = _date_range(records, params)

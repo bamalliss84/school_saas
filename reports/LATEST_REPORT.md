@@ -1,5 +1,41 @@
 # Latest Report
 
+## 2026-11-18 (update 2) — Cleaning up legacy reliance on user.school/role
+
+**Analysis first:** I counted about 95 reads of `user.school/role/academic_year` outside the tests. The authentication layer (`apply_membership_context`) copies the selected context onto these fields in memory for each request. So in real requests they already match the selected school. The real risk was in places that skipped the context entirely.
+
+**A real isolation gap that was fixed:** `attendance/class/<id>/summary/` did not filter the class by school for a super_admin, and it called the selectors without `request`. So a platform owner who selected school A could open the attendance summary for a class in school B. This contradicts the 1.1 decision. It now returns 404.
+
+**Centralization:** three functions in `core/context.py`: `request_role`, `request_school`, and `request_academic_year`.
+- They read the selected context.
+- A super_admin without a selected school is platform-wide (`None`); with one, it is scoped to that school.
+- The fallback to the old fields is in one place, for requests without a resolved membership only (such as `force_authenticate` in older tests). It can be removed later in one place.
+
+**Applied in:**
+- `SchoolQuerySetMixin` (school list);
+- the student list (`school_id` filter);
+- the student's enrollment record;
+- the parent's children list;
+- the class attendance summary;
+- the guardian check in `StudentDetailSerializer`;
+- `_can_administer_school` in the homework service (for deleting submission attachments, when `request` is available).
+
+**Intentionally unchanged:**
+- Login and token refresh: no context exists there, and `super_admin` is a global role.
+- `models.py`: there is no request in model `clean`.
+- `admin.py`: the Django admin, which only staff use.
+- The functions that already take the active context first (`selectors`, `homework_selectors`, `academic_*`, `teacher_views`): they behave the same, and moving them to the new functions can happen gradually.
+
+**Tests:** `core/test_r11_context_isolation.py` has 8 tests using real JWT plus a context header (no `force_authenticate`):
+- a super_admin inside school A gets 404 for school B's class;
+- a teacher in two schools follows the selected school;
+- the school list is scoped;
+- `school_id` outside the context is rejected;
+- the parent's children follow the selected context;
+- 3 unit tests for the shared functions.
+
+**Verification:** check ✓, makemigrations --check ✓ (no migration), ruff ✓. Related tests: 91 OK. Full backend: **856 tests OK**.
+
 ## 2026-11-18 — UX and accessibility review
 
 **Method:** an automated audit of all 19 web pages in the browser (as school admin), plus a code scan of the web and app source.
